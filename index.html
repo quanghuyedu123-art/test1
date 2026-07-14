@@ -1,0 +1,3426 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Pích Cờ Bôn Phông Bạt</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#22c55e"/>
+<link rel="icon" href="/icon-192.png"/>
+
+<!-- iOS: cho phép "Thêm vào MH chính" chạy full màn hình -->
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PickleCLB"/>
+
+<!-- Android/Chrome -->
+<meta name="mobile-web-app-capable" content="yes"/>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f5f7;--bg2:#ffffff;--bg3:#eef0f3;
+  --surface:#ffffff;--surface2:#f7f8fa;
+  --border:#e3e6ea;--border2:#d3d8de;
+  --text:#1a1d24;--muted:#8a909c;--muted2:#aeb3bc;
+  --green:#22c55e;--green2:#16a34a;--green-bg:rgba(34,197,94,.12);
+  --purple:#a855f7;--purple2:#9333ea;--purple-bg:rgba(168,85,247,.12);
+  --orange:#f97316;--orange-bg:rgba(249,115,22,.10);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.10);
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.10);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.10);
+  --navy:#11151f;
+}
+html{overflow-x:hidden;max-width:100%}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;overflow-x:hidden;max-width:100%;padding-top:52px}
+@media(max-width:768px){body{padding-top:0}}
+
+/* NAV */
+.topbar{background:#0d111c;border-bottom:1px solid #1f2433;display:flex;align-items:center;gap:0;height:52px;padding:0 16px;position:fixed;top:0;left:0;right:0;z-index:200;overflow-x:auto}
+.logo{display:flex;align-items:center;gap:8px;margin-right:16px;flex-shrink:0}
+.logo-icon{background:var(--green);border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;font-family:'Quicksand',sans-serif}
+.logo-text{font-family:'Quicksand',sans-serif;font-weight:700;font-size:15px;letter-spacing:-.3px;color:#fff}
+.logo-sub{font-size:9px;color:#7a8295;letter-spacing:1px;text-transform:uppercase;display:block;line-height:1;margin-top:1px}
+.nav-tabs{display:flex;gap:2px;flex:1;overflow-x:auto}
+.nav-tab{padding:8px 14px;border-radius:8px;border:none;background:transparent;color:#8a90a0;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s;font-family:'Nunito',sans-serif}
+.nav-tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+.nav-tab.active{background:var(--green);color:#fff}
+.nav-right{display:flex;gap:8px;margin-left:12px;flex-shrink:0}
+.btn-ghi{background:var(--orange);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:5px}
+.btn-ghi:hover{filter:brightness(1.1)}
+
+/* BANNER */
+.banner{width:100%;aspect-ratio:820/312;max-height:340px;background:linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.banner-text{text-align:center;position:relative;z-index:2}
+.banner-title{font-family:'Quicksand',sans-serif;font-size:28px;font-weight:700;letter-spacing:-1px}
+.banner-title span{color:var(--green)}
+.banner-sub{color:var(--muted);font-size:13px;margin-top:4px}
+.banner-balls{position:absolute;inset:0;pointer-events:none}
+.ball{position:absolute;border-radius:50%;opacity:.15}
+
+/* TABS SEGMENT */
+.seg-wrap{padding:16px 20px 0;max-width:960px;margin:0 auto}
+.seg{display:flex;background:var(--surface);border-radius:10px;padding:4px;gap:4px;width:fit-content;margin-bottom:16px}
+.seg-btn{padding:7px 20px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:6px;transition:.15s}
+.seg-btn.active{background:var(--purple);color:#fff}
+
+/* MAIN */
+.main{padding:0 20px 32px;max-width:960px;margin:0 auto}
+
+/* HIGHLIGHTS */
+.highlights{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:640px){.highlights{grid-template-columns:1fr}}
+.hl-card{border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;cursor:default}
+.hl-card.dark{background:#1c2436;border:1px solid var(--border)}
+.hl-card.purple{background:linear-gradient(135deg,#7c3aed,#a855f7)}
+.hl-card.green{background:linear-gradient(135deg,#15803d,#22c55e)}
+.hl-icon{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;opacity:.8;display:flex;align-items:center;gap:5px;margin-bottom:10px}
+.hl-name{font-size:22px;font-weight:800;font-family:'Quicksand',sans-serif}
+.hl-pts{font-size:30px;font-weight:900;font-family:'Quicksand',sans-serif;line-height:1}
+.hl-pts.neg{color:#f87171}
+.hl-pts.pos{color:#fff}
+.hl-label{font-size:13px;opacity:.7}
+.hl-bg-icon{position:absolute;right:12px;bottom:8px;font-size:56px;opacity:.1}
+
+/* FILTER ROW */
+.filter-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.month-sel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:13px;font-family:'Nunito',sans-serif;cursor:pointer;outline:none}
+
+/* BXH */
+.bxh-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:20px;overflow-x:auto;max-width:100%}
+.bxh-header-row{display:grid;grid-template-columns:40px 1fr 60px 64px 28px;gap:6px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;min-width:320px}
+.bxh-row{display:grid;grid-template-columns:40px 1fr 60px 64px 28px;gap:6px;padding:13px 14px;border-bottom:1px solid var(--border);align-items:center;transition:.1s;min-width:320px}
+.bxh-row:hover{background:var(--surface2)}
+.bxh-row:last-child{border-bottom:none}
+.rank-num{font-family:'Quicksand',sans-serif;font-size:16px;font-weight:700;color:var(--muted)}
+.rank-num.r1{color:#fbbf24}
+.rank-num.r2{color:#94a3b8}
+.rank-num.r3{color:#cd7c32}
+.player-cell{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.player-name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.player-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.elo-bar-wrap{width:70px;height:4px;background:var(--bg3);border-radius:2px;margin-top:3px}
+.elo-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green2),var(--green))}
+.cell-center{text-align:center;font-size:13px}
+.elo-val{font-family:'Quicksand',sans-serif;font-size:15px;font-weight:700;color:var(--green);text-align:center}
+.wr-val{font-size:13px;text-align:center}
+
+/* MATCHES */
+.match-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.section-title{font-family:'Quicksand',sans-serif;font-size:17px;font-weight:700}
+.match-list{display:flex;flex-direction:column;gap:8px}
+.match-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:grid;grid-template-columns:36px 1fr 60px 36px;gap:8px;align-items:center;max-width:100%;overflow:hidden}
+.result-badge{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.rb-W{background:var(--green-bg);color:var(--green)}
+.rb-L{background:var(--red-bg);color:var(--red)}
+.m-vs{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:8px}
+.m-score{font-family:'Quicksand',sans-serif;font-size:18px;font-weight:700;text-align:right}
+.m-elo{font-size:11px;font-weight:600;text-align:right;margin-top:2px}
+.m-elo.pos{color:var(--green)}
+.m-elo.neg{color:var(--red)}
+.del-btn{background:var(--red-bg);border:none;border-radius:8px;color:var(--red);width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.6;transition:.15s}
+.del-btn:hover{opacity:1}
+
+/* STATS CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:600px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0}
+.sc-green::after{background:var(--green)}
+.sc-purple::after{background:var(--purple)}
+.sc-orange::after{background:var(--orange)}
+.sc-red::after{background:var(--red)}
+.sc-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.sc-val{font-family:'Quicksand',sans-serif;font-size:28px;font-weight:700;line-height:1;margin-bottom:3px}
+.sc-green .sc-val{color:var(--green)}
+.sc-purple .sc-val{color:var(--purple)}
+.sc-orange .sc-val{color:var(--orange)}
+.sc-red .sc-val{color:#f87171}
+.sc-sub{font-size:11px;color:var(--muted)}
+
+/* ELO INFO */
+.elo-info{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px}
+.elo-title{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.elo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:500px){.elo-grid{grid-template-columns:repeat(4,1fr)}}
+.elo-case{background:var(--bg3);border-radius:9px;padding:12px;text-align:center}
+.elo-case-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.elo-case-val{font-family:'Quicksand',sans-serif;font-size:18px;font-weight:700}
+.elo-case-val.pos{color:var(--green)}
+.elo-case-val.neg{color:var(--red)}
+.elo-case-sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-family:'Quicksand',sans-serif;font-size:19px;font-weight:700}
+.modal-close{background:var(--surface2);border:none;color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg.full{grid-column:1/-1}
+.fl{font-size:12px;color:var(--muted);font-weight:500}
+.fi{background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:14px;font-family:'Nunito',sans-serif;outline:none;transition:.15s;width:100%}
+.fi:focus{border-color:var(--green)}
+.fi select,.fi option{background:var(--bg3);color:var(--text)}
+
+/* SCORE INPUT */
+.score-row{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px;align-items:center;margin:16px 0}
+.score-team{text-align:center}
+.score-lbl{font-size:12px;color:var(--muted);margin-bottom:6px}
+.score-num{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:8px;color:var(--text);font-size:30px;font-family:'Quicksand',sans-serif;font-weight:700;width:80px;text-align:center;outline:none}
+.score-num:focus{border-color:var(--green)}
+.score-vs{font-family:'Quicksand',sans-serif;font-size:18px;font-weight:700;color:var(--muted);text-align:center}
+
+/* ELO PREVIEW */
+.elo-preview{background:var(--bg3);border-radius:10px;padding:12px;text-align:center;margin-top:12px;border:1px solid var(--border)}
+.ep-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.ep-val{font-family:'Quicksand',sans-serif;font-size:22px;font-weight:700}
+
+/* FORM ACTIONS */
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--muted);padding:9px 18px;font-size:14px;cursor:pointer;font-family:'Nunito',sans-serif}
+.btn-save{background:var(--green);border:none;border-radius:9px;color:#fff;padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif}
+.btn-save:hover{background:var(--green2)}
+
+/* FUND TAB */
+.fund-members{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;max-width:100%}
+.fund-members>*{min-width:0;overflow:hidden}
+@media(min-width:600px){.fund-members{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:380px){.fund-members{grid-template-columns:1fr}}
+.fund-member{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.fm-name{font-weight:600;font-size:14px;margin-bottom:6px}
+.fm-row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)}
+.fm-row:last-child{border:none}
+.fm-lbl{color:var(--muted)}
+.fm-val{font-weight:600}
+.fm-val.pos{color:var(--green)}
+.fm-val.neg{color:var(--red)}
+.fund-sessions{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.fs-header{display:grid;grid-template-columns:90px 50px 1fr 90px;gap:8px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.fs-row{display:grid;grid-template-columns:90px 50px 1fr 90px;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center}
+.fs-row:last-child{border:none}
+.fs-row:hover{background:var(--surface2)}
+.tag-open{background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.tag-full{background:var(--red-bg);color:var(--red);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+
+/* ADD SESSION */
+.add-session-btn{background:var(--surface);border:1px dashed var(--border2);border-radius:12px;color:var(--muted);padding:14px;width:100%;font-size:14px;cursor:pointer;margin-bottom:16px;font-family:'Nunito',sans-serif;transition:.15s}
+.add-session-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-size:14px;z-index:3000;box-shadow:0 4px 24px rgba(0,0,0,.5);display:flex;align-items:center;gap:8px;animation:slideup .25s ease}
+@keyframes slideup{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* CONFIRM */
+.confirm-msg{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.btn-danger{background:var(--red);border:none;border-radius:9px;color:#fff;padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif}
+
+/* BADGE POPUP */
+.badge-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:600px){.badge-popup-overlay{align-items:center}}
+.badge-popup{background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;animation:slideup .25s ease}
+@media(min-width:600px){.badge-popup{border-radius:18px;padding:24px}}
+.badge-popup-emoji{font-size:48px;margin-bottom:10px;display:block;text-align:center}
+.badge-popup-title{font-family:'Quicksand',sans-serif;font-size:20px;font-weight:700;text-align:center;margin-bottom:6px}
+.badge-popup-desc{font-size:14px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:16px}
+.badge-popup-holder{background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.badge-popup-cond{background:var(--bg3);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.6}
+.badge-popup-cond b{color:var(--text)}
+
+/* MATCH HISTORY DRAWER */
+.history-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;display:flex;align-items:flex-end}
+.history-drawer{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-height:85vh;display:flex;flex-direction:column;animation:slideup .25s ease}
+.history-drawer-handle{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:12px auto 0}
+.history-drawer-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px 10px}
+.history-drawer-body{overflow-y:auto;padding:0 14px 24px;flex:1}
+
+/* FUN TAB - BADGES */
+.badge-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px}
+@media(min-width:640px){.badge-grid{grid-template-columns:repeat(3,1fr)}}
+.badge-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:.15s}
+.badge-card.won{background:linear-gradient(160deg,var(--surface2),var(--surface));border-color:var(--border2)}
+.badge-card.empty{opacity:.4}
+.badge-emoji{font-size:30px;margin-bottom:8px;display:block}
+.badge-title{font-family:'Quicksand',sans-serif;font-weight:700;font-size:14px;margin-bottom:3px}
+.badge-desc{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:8px}
+.badge-holder{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding-top:8px;border-top:1px solid var(--border)}
+.badge-holder .av{width:22px;height:22px;font-size:9px}
+.badge-glow{position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;filter:blur(20px);opacity:.25;pointer-events:none}
+
+/* HALL OF FAME / CAPTION CARD */
+.hof-card{background:linear-gradient(135deg,#1a1040,#2d1b69);border:1px solid var(--purple);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden}
+.hof-month{font-size:11px;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.hof-caption{font-size:15px;line-height:1.6;color:#fff;font-weight:500;margin-bottom:4px}
+.hof-caption b{color:#fbbf24}
+.hof-sub{font-size:12px;color:#a78bfa;margin-top:10px;padding-top:10px;border-top:1px solid rgba(167,139,250,.2)}
+.fun-section-title{font-family:'Quicksand',sans-serif;font-size:16px;font-weight:700;margin:24px 0 14px;display:flex;align-items:center;gap:8px}
+.fun-section-title:first-child{margin-top:0}
+
+@media(max-width:768px){
+  /* BXH mobile: #, tên+huy hiệu, ELO, W/L - bỏ cột xóa */
+  .bxh-header-row,.bxh-row{grid-template-columns:26px 1fr 44px 50px 0px;min-width:0;padding:10px 10px;gap:5px}
+  .bxh-header-row>*:last-child,.bxh-row>*:last-child{display:none}
+  .bxh-card{overflow-x:visible}
+  .fs-header,.fs-row{grid-template-columns:60px 1fr 70px 70px 28px}
+  .topbar{display:none}
+  .mobile-nav{display:flex!important}
+  body{padding-bottom:70px}
+  .main{padding:0 12px 32px}
+  .seg-wrap{padding:12px 12px 0}
+}
+/* MOBILE BOTTOM NAV */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#0d111c;border-top:1px solid #1f2433;z-index:9999;height:60px;align-items:stretch;-webkit-backdrop-filter:blur(10px)}
+.mobile-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:#7a8295;cursor:pointer;font-family:'Nunito',sans-serif;font-size:9px;font-weight:600;padding:4px 2px;transition:.15s;-webkit-tap-highlight-color:transparent}
+.mobile-nav-tab.active{color:var(--green)}
+.mobile-nav-tab.active .mni{transform:scale(1.15)}
+.mobile-nav-tab .mni{font-size:20px;line-height:1;transition:transform .15s}
+.mobile-header{display:none;background:#0d111c;border-bottom:1px solid #1f2433;padding:10px 16px;position:sticky;top:0;z-index:200;align-items:center;justify-content:space-between}
+@media(max-width:768px){.mobile-header{display:flex!important}}
+.mobile-nav-fab{
+  position:relative;top:-22px;flex-shrink:0;width:58px;height:58px;border-radius:50%;
+  background:var(--navy);border:4px solid var(--bg);color:#fff;font-size:26px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);transition:.15s;font-family:'Nunito',sans-serif;
+}
+.mobile-nav-fab:active{transform:scale(.93)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+/* ─── ELO CONFIG ─────────────────────────────────────────── */
+const ELO_CONFIG = {
+  K_SINGLE: 32,   // hệ số K đơn
+  K_DOUBLE: 24,   // hệ số K đôi (thấp hơn vì ít control hơn)
+  BASE: 1500,
+};
+
+function calcEloChange(myElo, oppElo, win, type) {
+  const K = type === 'Đơn' ? ELO_CONFIG.K_SINGLE : ELO_CONFIG.K_DOUBLE;
+  const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
+  const actual = win ? 1 : 0;
+  return Math.round(K * (actual - expected));
+}
+
+// Bảng tham chiếu nhanh (cùng rating)
+function quickEloTable(myElo = 1500) {
+  const cases = [
+    { label: 'Đơn thắng', win: true, type: 'Đơn' },
+    { label: 'Đơn thua', win: false, type: 'Đơn' },
+    { label: 'Đôi thắng', win: true, type: 'Đôi' },
+    { label: 'Đôi thua', win: false, type: 'Đôi' },
+  ];
+  return cases.map(c => ({ ...c, delta: calcEloChange(myElo, myElo, c.win, c.type) }));
+}
+
+/* ─── COLORS / DATA ──────────────────────────────────────── */
+const COLORS = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
+function initials(n){ return n.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(); }
+
+/* ─── RESIZE ẢNH TRƯỚC KHI LƯU (tránh phình dữ liệu) ───────── */
+function resizeImageFile(file, maxSize=200){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let {width,height}=img;
+        if(width>height){ if(width>maxSize){ height=Math.round(height*maxSize/width); width=maxSize; } }
+        else { if(height>maxSize){ width=Math.round(width*maxSize/height); height=maxSize; } }
+        const canvas=document.createElement('canvas');
+        canvas.width=width; canvas.height=height;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,width,height);
+        resolve(canvas.toDataURL('image/jpeg',0.85));
+      };
+      img.onerror=reject;
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ─── AVATAR NGƯỜI CHƠI — có crop tròn ──────────────────── */
+function PlayerAvatar({player, onUpdateAvatar, size=34}){
+  const inputRef = React.useRef(null);
+  const [cropSrc, setCropSrc] = React.useState(null);
+
+  const handleFile = async (e)=>{
+    const file = e.target.files?.[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setCropSrc(ev.target.result);
+    reader.readAsDataURL(file);
+    e.target.value='';
+  };
+
+  return (
+    <>
+      <div
+        className="av"
+        onClick={()=>onUpdateAvatar && inputRef.current?.click()}
+        style={{
+          width:size, height:size, flexShrink:0,
+          background:player.avatar?'transparent':player.color+'22',
+          color:player.color, overflow:'hidden', position:'relative',
+          cursor:onUpdateAvatar?'pointer':'default'
+        }}
+        title={onUpdateAvatar?'Nhấn để đổi ảnh':''}
+      >
+        {player.avatar
+          ? <img src={player.avatar} alt={player.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+          : initials(player.name)}
+        {onUpdateAvatar && (
+          <>
+            <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0)',transition:'.2s',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.35+'px',opacity:0}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(0,0,0,.4)';e.currentTarget.style.opacity=1;}}
+              onMouseLeave={e=>{e.currentTarget.style.background='rgba(0,0,0,0)';e.currentTarget.style.opacity=0;}}
+            >📷</div>
+            <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{display:'none'}}/>
+          </>
+        )}
+      </div>
+      {cropSrc && (
+        <CropModal
+          src={cropSrc}
+          aspect={1}
+          round={true}
+          onDone={dataUrl=>{ onUpdateAvatar(player.id, dataUrl); setCropSrc(null); }}
+          onClose={()=>setCropSrc(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/* ─── RANK TIERS ──────────────────────────────────────────── */
+const TIERS = [
+  {label:'Chuyên',    min:1700, color:'#f59e0b', icon:'👑', bg:'rgba(245,158,11,.15)'},
+  {label:'Nâng cao',  min:1580, color:'#a855f7', icon:'⚡', bg:'rgba(168,85,247,.15)'},
+  {label:'Trung bình',min:1450, color:'#3b82f6', icon:'🎯', bg:'rgba(59,130,246,.15)'},
+  {label:'Mới bắt đầu',min:0,  color:'#6b7280', icon:'🌱', bg:'rgba(107,114,128,.15)'},
+];
+function getTier(elo){ return TIERS.find(t=>elo>=t.min)||TIERS[TIERS.length-1]; }
+
+/* ─── HUY HIỆU VUI (FUN BADGES) ──────────────────────────────
+   Tất cả tính trực tiếp từ players + matches, không cần lưu state riêng. */
+function computeStreaks(players, matches){
+  // streak hiện tại (win/loss liên tiếp) cho mỗi người, dựa trên matches[0]=mới nhất
+  const map = {};
+  players.forEach(p=>{
+    const mine = matches.filter(m=>(m.team1Players||[]).includes(p.name)||(m.team2Players||[]).includes(p.name));
+    let count=0, kind=null;
+    for(const m of mine){
+      const inT1 = (m.team1Players||[]).includes(p.name);
+      const won = inT1 ? m.result==='W' : m.result==='L';
+      const thisKind = won?'W':'L';
+      if(kind===null){ kind=thisKind; count=1; }
+      else if(thisKind===kind){ count++; }
+      else break;
+    }
+    map[p.name] = {count, kind, total: mine.length};
+  });
+  return map;
+}
+
+function computeBadges(players, matches){
+  if(!players.length) return [];
+  const streaks = computeStreaks(players, matches);
+  const withStats = players.map(p=>{
+    const total = p.wins + p.losses;
+    const wr = total ? p.wins/total : 0;
+    return {...p, total, wr, streak: streaks[p.name]||{count:0,kind:null}};
+  });
+
+  const badges = [];
+
+  // 👑 Vua ELO
+  const topElo = [...withStats].sort((a,b)=>b.elo-a.elo)[0];
+  badges.push({id:'king', emoji:'👑', title:'Vua ELO', desc:'Người có điểm ELO cao nhất hiện tại', color:'#f59e0b',
+    holder: topElo?.elo>0 ? topElo : null});
+
+  // 🔥 Máy Chém — chuỗi thắng dài nhất hiện tại (>=2)
+  const onFire = [...withStats].filter(p=>p.streak.kind==='W'&&p.streak.count>=2).sort((a,b)=>b.streak.count-a.streak.count)[0];
+  badges.push({id:'fire', emoji:'🔥', title:'Máy Chém', desc:'Đang thắng chuỗi dài nhất hiện tại', color:'#ef4444',
+    holder: onFire||null, extra: onFire?`${onFire.streak.count} trận liên tiếp`:null});
+
+  // 💀 Số Nhọ — chuỗi thua dài nhất hiện tại (>=2)
+  const coldStreak = [...withStats].filter(p=>p.streak.kind==='L'&&p.streak.count>=2).sort((a,b)=>b.streak.count-a.streak.count)[0];
+  badges.push({id:'cold', emoji:'💀', title:'Số Nhọ Tháng Này', desc:'Đang thua chuỗi dài nhất hiện tại — đừng bỏ cuộc!', color:'#6b7280',
+    holder: coldStreak||null, extra: coldStreak?`${coldStreak.streak.count} trận liên tiếp`:null});
+
+  // 🧱 Tường Thành — tỷ lệ thắng cao nhất, tối thiểu 3 trận
+  const wall = [...withStats].filter(p=>p.total>=3).sort((a,b)=>b.wr-a.wr)[0];
+  badges.push({id:'wall', emoji:'🧱', title:'Tường Thành', desc:'Tỷ lệ thắng cao nhất (tối thiểu 3 trận)', color:'#3b82f6',
+    holder: wall||null, extra: wall?`${Math.round(wall.wr*100)}% thắng`:null});
+
+  // 🎲 Định Mệnh — đánh nhiều trận nhất
+  const grinder = [...withStats].filter(p=>p.total>0).sort((a,b)=>b.total-a.total)[0];
+  badges.push({id:'grind', emoji:'🎲', title:'Cày Cuốc Nhất CLB', desc:'Người ra sân đánh nhiều trận nhất', color:'#a855f7',
+    holder: grinder||null, extra: grinder?`${grinder.total} trận`:null});
+
+  // ⚔️ Khắc Tinh — người có tỷ số đối đầu áp đảo nhất với 1 đối thủ cụ thể (tối thiểu 2 trận chung)
+  let nemesis = null, nemesisDiff = 0, nemesisOpp = '';
+  withStats.forEach(p=>{
+    const oppCount = {};
+    matches.forEach(m=>{
+      const inT1 = (m.team1Players||[]).includes(p.name);
+      const inT2 = (m.team2Players||[]).includes(p.name);
+      if(!inT1 && !inT2) return;
+      const opps = inT1 ? (m.team2Players||[]) : (m.team1Players||[]);
+      const won = inT1 ? m.result==='W' : m.result==='L';
+      opps.forEach(o=>{
+        if(!oppCount[o]) oppCount[o]={w:0,l:0};
+        won ? oppCount[o].w++ : oppCount[o].l++;
+      });
+    });
+    Object.entries(oppCount).forEach(([opp,rec])=>{
+      const tot = rec.w+rec.l;
+      if(tot>=2 && rec.w>rec.l){
+        const diff = rec.w-rec.l;
+        if(diff>nemesisDiff){ nemesisDiff=diff; nemesis=p; nemesisOpp=opp; }
+      }
+    });
+  });
+  badges.push({id:'nemesis', emoji:'⚔️', title:'Khắc Tinh', desc:'Áp đảo một đối thủ cụ thể nhiều nhất', color:'#22c55e',
+    holder: nemesis, extra: nemesis?`Khắc ${nemesisOpp.split(' ').slice(-1)[0]}`:null});
+
+  // 🎯 Sát Thủ Kèo Lệch — thắng nhiều nhất khi là kẻ yếu hơn ELO (dùng eloChanges, delta dương nhưng đối thủ ELO cao hơn)
+  const upsetCount = {};
+  matches.forEach(m=>{
+    (m.eloChanges||[]).forEach(({name,delta})=>{
+      if(delta>0){
+        const p = players.find(x=>x.name===name);
+        // ước lượng: nếu delta lớn (>K/2 quy đổi) tức thắng kèo lệch — đơn giản hoá: delta cao là thắng đối thủ mạnh hơn
+        if(p && delta >= 14){ upsetCount[name]=(upsetCount[name]||0)+1; }
+      }
+    });
+  });
+  const upsetName = Object.entries(upsetCount).sort((a,b)=>b[1]-a[1])[0];
+  const upsetPlayer = upsetName ? players.find(p=>p.name===upsetName[0]) : null;
+  badges.push({id:'upset', emoji:'🎯', title:'Sát Thủ Kèo Lệch', desc:'Hay tạo bất ngờ khi thắng đối thủ mạnh hơn', color:'#06b6d4',
+    holder: upsetPlayer, extra: upsetPlayer?`${upsetName[1]} lần lật kèo`:null});
+
+  // 🐣 Tân Binh Bứt Phá — ELO tăng nhiều nhất so với mốc khởi điểm 1500
+  const breakout = [...withStats].filter(p=>p.elo>1500).sort((a,b)=>(b.elo-1500)-(a.elo-1500))[0];
+  badges.push({id:'breakout', emoji:'🐣', title:'Bứt Phá Nhất', desc:'Tăng ELO nhiều nhất so với mốc khởi điểm 1500', color:'#ec4899',
+    holder: breakout||null, extra: breakout?`+${breakout.elo-1500} ELO`:null});
+
+  return badges;
+}
+
+/* ─── BẢNG PHONG THẦN THÁNG (tự sinh caption) ────────────── */
+function parseMatchMonth(dateStr){
+  // dateStr dạng "DD/MM" (đôi khi có thể thiếu năm) — lấy phần MM
+  const parts = (dateStr||'').split('/');
+  return parts.length>=2 ? parts[1] : null;
+}
+
+function computeHallOfFame(players, matches){
+  const now = new Date();
+  const curMonth = String(now.getMonth()+1).padStart(2,'0');
+  const monthMatches = matches.filter(m=>parseMatchMonth(m.date)===curMonth);
+
+  if(!monthMatches.length){
+    return {hasData:false, monthMatches:[]};
+  }
+
+  // Top thắng trong tháng
+  const winCount = {}, loseCount = {};
+  monthMatches.forEach(m=>{
+    (m.eloChanges||[]).forEach(({name,delta})=>{
+      if(delta>0) winCount[name]=(winCount[name]||0)+1;
+      else if(delta<0) loseCount[name]=(loseCount[name]||0)+1;
+    });
+  });
+  const topWinner = Object.entries(winCount).sort((a,b)=>b[1]-a[1])[0];
+  const topLoser = Object.entries(loseCount).sort((a,b)=>b[1]-a[1])[0];
+
+  // Cặp đôi ăn ý nhất (đánh đôi cùng team, tỷ lệ thắng cao, tối thiểu 2 trận chung)
+  const pairStats = {};
+  monthMatches.filter(m=>m.type==='Đôi').forEach(m=>{
+    [m.team1Players, m.team2Players].forEach((team,idx)=>{
+      if((team||[]).length===2){
+        const key = [...team].sort().join(' & ');
+        const won = idx===0 ? m.result==='W' : m.result==='L';
+        if(!pairStats[key]) pairStats[key]={w:0,total:0};
+        pairStats[key].total++;
+        if(won) pairStats[key].w++;
+      }
+    });
+  });
+  const bestPair = Object.entries(pairStats).filter(([,s])=>s.total>=2).sort((a,b)=>(b[1].w/b[1].total)-(a[1].w/a[1].total))[0];
+
+  // ELO tăng nhiều nhất trong tháng
+  const eloGain = {};
+  monthMatches.forEach(m=>{
+    (m.eloChanges||[]).forEach(({name,delta})=>{
+      eloGain[name]=(eloGain[name]||0)+delta;
+    });
+  });
+  const topGainer = Object.entries(eloGain).sort((a,b)=>b[1]-a[1])[0];
+
+  return {
+    hasData:true,
+    monthMatches,
+    monthLabel: now.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}),
+    topWinner: topWinner ? {name:topWinner[0], wins:topWinner[1]} : null,
+    topLoser: topLoser ? {name:topLoser[0], losses:topLoser[1]} : null,
+    bestPair: bestPair ? {names:bestPair[0], w:bestPair[1].w, total:bestPair[1].total} : null,
+    topGainer: topGainer ? {name:topGainer[0], gain:topGainer[1]} : null,
+  };
+}
+
+// ELO cho đôi: dùng trung bình ELO của cặp
+function calcEloChangePair(myElo, oppElo, win, type) {
+  const K = type === 'Đơn' ? ELO_CONFIG.K_SINGLE : ELO_CONFIG.K_DOUBLE;
+  const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
+  const actual = win ? 1 : 0;
+  return Math.round(K * (actual - expected));
+}
+
+const INIT_MATCHES = [];
+
+// Quỹ CLB — import từ Google Sheet (cập nhật 04/04/2026)
+const FUND_MEMBERS = [
+  {name:'Huy Xinh',        paid:1500000,spent:1271190},
+  {name:'Nhi Xinh',        paid:1332000,spent:1109940},
+  {name:'Chị Thương Xinh', paid:1500000,spent:1271190},
+  {name:'Em Thương Xinh',  paid:1000000,spent:807107},
+  {name:'Tuấn Xinh',       paid:1500000,spent:1072857},
+  {name:'Xé Vé',           paid:435000, spent:435000},
+];
+
+const INIT_PLAYERS = FUND_MEMBERS.map((m,i)=>({id:i+1,name:m.name,elo:1500,wins:0,losses:0,color:COLORS[i%COLORS.length],avatar:null}));
+
+// Helper tạo attendees object
+const att = (...names) => {
+  const obj = {};
+  FUND_MEMBERS.forEach(m => { obj[m.name] = names.includes(m.name); });
+  return obj;
+};
+const H='Huy Xinh', N='Nhi Xinh', CT='Chị Thương Xinh', ET='Em Thương Xinh', T='Tuấn Xinh', X='Xé Vé';
+
+const INIT_SESSIONS = [
+  {id:1, date:'29/03',players:3,total:225000, attendees:att(H,CT,T),      note:''},
+  {id:2, date:'03/04',players:4,total:345000, attendees:att(H,CT,ET,T),   note:''},
+  {id:3, date:'05/04',players:5,total:460000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:4, date:'09/04',players:3,total:370000, attendees:att(H,N,CT),      note:''},
+  {id:5, date:'12/04',players:5,total:375000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:6, date:'17/04',players:5,total:375000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:7, date:'20/04',players:5,total:385000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:8, date:'22/04',players:5,total:380000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:9, date:'06/05',players:5,total:395000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:10,date:'12/05',players:5,total:365000, attendees:att(H,N,CT,T,X),  note:''},
+  {id:11,date:'15/05',players:5,total:445000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:12,date:'19/05',players:5,total:430000, attendees:att(H,N,CT,ET,T), note:''},
+  {id:13,date:'02/06',players:7,total:475000, attendees:att(H,N,CT,ET,T,X),note:''},
+  {id:14,date:'05/06',players:4,total:360000, attendees:att(H,N,CT,T),    note:''},
+  {id:15,date:'05/06',players:1,total:90000,  attendees:{[H]:false,[N]:false,[CT]:false,[ET]:false,[T]:false,[X]:false}, note:'Tiền bóng'},
+  {id:16,date:'05/06',players:4,total:360000, attendees:att(H,N,CT,T),    note:''},
+  {id:17,date:'09/06',players:1,total:150000, attendees:{[H]:false,[N]:false,[CT]:false,[ET]:false,[T]:false,[X]:true},  note:'Xé vé'},
+  {id:18,date:'09/06',players:4,total:355000, attendees:att(H,N,CT,T),    note:''},
+];
+
+const fmt = n => n.toLocaleString('vi-VN')+'đ';
+
+// Tính số "phần chia" thực tế của 1 buổi chơi: người Xé Vé tính theo số người xé vé thực tế (xeVeCount), không phải 1
+function effectiveShares(s){
+  const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
+  const xeVeIsIn = attending.includes('Xé Vé');
+  const xeVeCount = xeVeIsIn ? Math.max(1, parseInt(s.xeVeCount)||1) : 0;
+  const others = attending.filter(n=>n!=='Xé Vé').length;
+  return others + xeVeCount;
+}
+function shareAmount(s){
+  const shares = effectiveShares(s);
+  return shares>0 ? Math.round(s.total/shares) : 0;
+}
+
+/* ─── COMPONENTS ──────────────────────────────────────────── */
+function Toast({msg,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,2500);return()=>clearTimeout(t)},[]);
+  return <div className="toast">✅ {msg}</div>;
+}
+
+/* ─── CROP MODAL (dùng cho cả banner và avatar) ─────────── */
+function CropModal({src, aspect, onDone, onClose, round=false}){
+  const canvasRef = React.useRef(null);
+  const [drag, setDrag] = React.useState(false);
+  const [img, setImg] = React.useState(null);
+  const [offset, setOffset] = React.useState({x:0, y:0});
+  const [scale, setScale] = React.useState(1);
+  const [last, setLast] = React.useState(null);
+
+  // Canvas display size
+  const CW = Math.min(window.innerWidth - 48, 480);
+  const CH = round ? CW : Math.round(CW / aspect);
+
+  useEffect(()=>{
+    const i = new Image();
+    i.onload = ()=>{
+      setImg(i);
+      // fit image to canvas initially
+      const sc = Math.max(CW/i.width, CH/i.height);
+      setScale(sc);
+      setOffset({x:(CW - i.width*sc)/2, y:(CH - i.height*sc)/2});
+    };
+    i.src = src;
+  }, [src]);
+
+  useEffect(()=>{
+    if(!img || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0,0,CW,CH);
+    if(round){
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(CW/2, CH/2, CW/2, 0, Math.PI*2);
+      ctx.clip();
+    }
+    ctx.drawImage(img, offset.x, offset.y, img.width*scale, img.height*scale);
+    if(round) ctx.restore();
+    // overlay guide
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    if(round){
+      ctx.beginPath(); ctx.arc(CW/2,CH/2,CW/2-1,0,Math.PI*2); ctx.stroke();
+    } else {
+      ctx.strokeRect(1,1,CW-2,CH-2);
+    }
+  }, [img, offset, scale, CW, CH]);
+
+  const getPos = e => {
+    const r = canvasRef.current.getBoundingClientRect();
+    if(e.touches) return {x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top};
+    return {x: e.clientX - r.left, y: e.clientY - r.top};
+  };
+
+  const onDown = e => { e.preventDefault(); setDrag(true); setLast(getPos(e)); };
+  const onMove = e => {
+    if(!drag) return; e.preventDefault();
+    const p = getPos(e);
+    setOffset(o => ({x: o.x + p.x - last.x, y: o.y + p.y - last.y}));
+    setLast(p);
+  };
+  const onUp = () => setDrag(false);
+  const onWheel = e => { e.preventDefault(); setScale(s => Math.max(0.2, s - e.deltaY*0.001)); };
+
+  const done = () => {
+    // Xuất ảnh ở độ phân giải cao hơn canvas hiển thị (canvas hiển thị chỉ để kéo/zoom cho mượt),
+    // tránh ảnh bị banner full-width kéo giãn ra gây vỡ nét.
+    // TARGET_W tính theo chiều rộng màn hình thực tế * devicePixelRatio (Retina/HiDPI cần nhiều pixel hơn),
+    // để banner luôn nét dù hiển thị full-width trên desktop rộng hoặc màn hình Retina.
+    const dpr = window.devicePixelRatio || 1;
+    const TARGET_W = round
+      ? Math.min(1000, Math.round(500 * dpr))
+      : Math.min(2600, Math.round(Math.max(1600, window.innerWidth * dpr)));
+    const outScale = Math.min(6, Math.max(1, TARGET_W / CW)); // không phóng quá to nếu CW đã lớn
+    const out = document.createElement('canvas');
+    out.width = CW*outScale; out.height = CH*outScale;
+    const ctx = out.getContext('2d');
+    ctx.scale(outScale, outScale);
+    if(round){ ctx.beginPath(); ctx.arc(CW/2,CH/2,CW/2,0,Math.PI*2); ctx.clip(); }
+    ctx.drawImage(img, offset.x, offset.y, img.width*scale, img.height*scale);
+    onDone(out.toDataURL('image/jpeg', 0.95));
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth: CW+48, padding:'20px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">{round ? '✂️ Cắt ảnh tròn' : '✂️ Cắt ảnh banner'}</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'10px'}}>
+          🖱 Kéo để di chuyển · Cuộn chuột / pinch để zoom
+        </div>
+        <canvas
+          ref={canvasRef} width={CW} height={CH}
+          style={{display:'block', borderRadius: round?'50%':'10px', cursor: drag?'grabbing':'grab',
+            width:'100%', height:'auto', touchAction:'none', border:'2px solid var(--border)', background:'#111'}}
+          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+          onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
+          onWheel={onWheel}
+        />
+        <div style={{display:'flex',gap:'10px',marginTop:'14px',alignItems:'center'}}>
+          <label style={{fontSize:'12px',color:'var(--muted)',flexShrink:0}}>Thu phóng</label>
+          <input type="range" min="0.1" max="4" step="0.01" value={scale}
+            onChange={e=>setScale(parseFloat(e.target.value))}
+            style={{flex:1, accentColor:'var(--green)'}}/>
+          <span style={{fontSize:'12px',color:'var(--muted)',flexShrink:0}}>{Math.round(scale*100)}%</span>
+        </div>
+        <div className="form-actions" style={{marginTop:'14px'}}>
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={done}>✅ Dùng ảnh này</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── BANNER (có thể chỉnh sửa) ────────────────────────── */
+function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
+  const [editing, setEditing] = React.useState(false);
+  const [cropSrc, setCropSrc] = React.useState(null);
+  const [localTitle, setLocalTitle] = React.useState(bannerTitle||'Pích Cờ Bôn Phông Bạt');
+  const [localSub, setLocalSub] = React.useState(bannerSub||'Stats & Quỹ CLB · Phông Bạt 🏓');
+  const fileRef = React.useRef(null);
+
+  useEffect(()=>{ setLocalTitle(bannerTitle||'Pích Cờ Bôn Phông Bạt'); },[bannerTitle]);
+  useEffect(()=>{ setLocalSub(bannerSub||'Stats & Quỹ CLB · Phông Bạt 🏓'); },[bannerSub]);
+
+  const handleFile = e => {
+    const f = e.target.files?.[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ev => setCropSrc(ev.target.result);
+    reader.readAsDataURL(f);
+    e.target.value='';
+  };
+
+  const saveText = () => {
+    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub});
+    setEditing(false);
+  };
+
+  const bgStyle = bannerImg
+    ? {backgroundImage:`url(${bannerImg})`, backgroundSize:'cover', backgroundPosition:'center'}
+    : {background:'linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%)'};
+
+  return (
+    <>
+      <div className="banner" style={{position:'relative',overflow:'hidden',...bgStyle}}>
+        {/* Overlay khi có ảnh */}
+        {bannerImg && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.45)'}}/>}
+
+        {/* Balls deco khi không có ảnh */}
+        {!bannerImg && (
+          <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+            {[...Array(6)].map((_,i)=>(
+              <div key={i} className="ball" style={{
+                width:60+i*30+'px',height:60+i*30+'px',
+                left:(i*17)+'%',top:(i%2===0?-20:50)+'%',
+                background:['#22c55e','#3b82f6','#a855f7','#f97316','#22c55e','#3b82f6'][i]
+              }}/>
+            ))}
+          </div>
+        )}
+
+        {/* Text */}
+        {!editing ? (
+          <div style={{position:'relative',zIndex:2,textAlign:'center'}}>
+            <div style={{fontFamily:"'Quicksand',sans-serif",fontSize:'26px',fontWeight:700,letterSpacing:'-1px',color:'#fff',textShadow:'0 2px 8px rgba(0,0,0,.5)'}}>
+              {localTitle}
+            </div>
+            <div style={{color:'rgba(255,255,255,.75)',fontSize:'13px',marginTop:'4px',textShadow:'0 1px 4px rgba(0,0,0,.5)'}}>
+              {localSub}
+            </div>
+          </div>
+        ) : (
+          <div style={{position:'relative',zIndex:2,display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',width:'100%',maxWidth:'400px',margin:'0 auto'}}>
+            <input value={localTitle} onChange={e=>setLocalTitle(e.target.value)}
+              style={{width:'100%',background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.3)',borderRadius:'8px',
+                color:'#fff',fontSize:'18px',fontWeight:700,textAlign:'center',padding:'6px 10px',outline:'none',fontFamily:"'Quicksand',sans-serif"}}
+              placeholder="Tên CLB..."/>
+            <input value={localSub} onChange={e=>setLocalSub(e.target.value)}
+              style={{width:'100%',background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',
+                color:'rgba(255,255,255,.8)',fontSize:'13px',textAlign:'center',padding:'5px 10px',outline:'none'}}
+              placeholder="Mô tả ngắn..."/>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button onClick={saveText} style={{background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 16px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✅ Lưu</button>
+              <button onClick={()=>setEditing(false)} style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit controls — góc phải */}
+        {editable && !editing && (
+          <div style={{position:'absolute',top:'10px',right:'12px',zIndex:10,display:'flex',gap:'6px'}}>
+            <button
+              onClick={()=>fileRef.current?.click()}
+              style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
+                color:'#fff',padding:'6px 12px',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',
+                fontFamily:'Nunito,sans-serif',backdropFilter:'blur(4px)'}}
+            >📷 Đổi ảnh</button>
+            {bannerImg && (
+              <button
+                onClick={()=>onUpdate({bannerImg:null,bannerTitle:localTitle,bannerSub:localSub})}
+                style={{background:'rgba(239,68,68,.7)',border:'none',borderRadius:'8px',
+                  color:'#fff',padding:'6px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}
+              >✕</button>
+            )}
+            <button
+              onClick={()=>setEditing(true)}
+              style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
+                color:'#fff',padding:'6px 12px',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',
+                fontFamily:'Nunito,sans-serif',backdropFilter:'blur(4px)'}}
+            >✏️ Sửa text</button>
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:'none'}}/>
+      </div>
+
+      {cropSrc && (
+        <CropModal
+          src={cropSrc}
+          aspect={820/312}
+          round={false}
+          onDone={dataUrl=>{
+            onUpdate({bannerImg:dataUrl, bannerTitle:localTitle, bannerSub:localSub});
+            setCropSrc(null);
+          }}
+          onClose={()=>setCropSrc(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function EloCard({myElo}){
+  const cases = quickEloTable(myElo);
+  return (
+    <div className="elo-info">
+      <div className="elo-title">⚡ Công thức tính ELO (so với đối thủ cùng hạng)</div>
+      <div className="elo-grid">
+        {cases.map(c=>(
+          <div className="elo-case" key={c.label}>
+            <div className="elo-case-label">{c.label}</div>
+            <div className={`elo-case-val ${c.delta>0?'pos':'neg'}`}>{c.delta>0?'+':''}{c.delta}</div>
+            <div className="elo-case-sub">K={c.type==='Đơn'?ELO_CONFIG.K_SINGLE:ELO_CONFIG.K_DOUBLE}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'10px',lineHeight:'1.6'}}>
+        💡 ELO thay đổi theo chênh lệch rating: thắng mạnh hơn → ít điểm · thua yếu hơn → mất nhiều hơn
+      </div>
+    </div>
+  );
+}
+
+/* ─── DASHBOARD ─────────────────────────────────────────── */
+function Dashboard({matches,myElo,onAdd,sessions,members,players}){
+  const [showAll, setShowAll] = React.useState(false);
+  const wins=matches.filter(m=>m.result==='W').length;
+  const losses=matches.length-wins;
+
+  const now=new Date();
+  const curMonth=String(now.getMonth()+1).padStart(2,'0');
+
+  const monthSessions=(sessions||[]).filter(s=>{
+    const p=s.date.split(/[\/\-]/);
+    return p.length>=2&&String(p[1]).padStart(2,'0')===curMonth;
+  });
+  const monthSpent=monthSessions.reduce((a,s)=>a+s.total,0);
+  const monthSessionCount=monthSessions.length;
+
+  // Tính tổng đã đóng trong tháng: cộng các deposit có date tháng hiện tại
+  const monthPaid=(members||[]).reduce((acc,m)=>{
+    const deps=(m.deposits||[]).filter(d=>{
+      if(!d.date||d.date==='Ban đầu') return false;
+      const p=d.date.split(/[\/\-]/);
+      return p.length>=2&&String(p[1]).padStart(2,'0')===curMonth;
+    });
+    return acc+deps.reduce((s,d)=>s+d.amount,0);
+  },0);
+
+  const hof = useMemo(()=>computeHallOfFame(players||[], matches), [players, matches]);
+  const last = n => n;
+
+  return <>
+    <div className="stats-grid">
+      <div className="stat-card sc-green">
+        <div className="sc-label">Đã đóng tháng {parseInt(curMonth)}</div>
+        <div className="sc-val" style={{fontSize:'18px'}}>{fmt(monthPaid)}</div>
+        <div className="sc-sub">trong tháng này</div>
+      </div>
+      <div className="stat-card sc-red">
+        <div className="sc-label">Đã chi tháng {parseInt(curMonth)}</div>
+        <div className="sc-val" style={{fontSize:'18px'}}>{fmt(monthSpent)}</div>
+        <div className="sc-sub">{monthSessionCount} buổi</div>
+      </div>
+      <div className="stat-card sc-purple">
+        <div className="sc-label">Số buổi tháng {parseInt(curMonth)}</div>
+        <div className="sc-val">{monthSessionCount}</div>
+        <div className="sc-sub">buổi đã đi</div>
+      </div>
+      <div className="stat-card sc-orange">
+        <div className="sc-label">Tổng trận đã đánh</div>
+        <div className="sc-val">{matches.length}</div>
+        <div className="sc-sub">{wins}W · {losses}L</div>
+      </div>
+    </div>
+
+    <div className="fun-section-title">📜 Bảng Phong Thần {hof.monthLabel ? `· ${hof.monthLabel}` : ''}</div>
+    {!hof.hasData ? (
+      <div style={{textAlign:'center',padding:'40px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',marginBottom:'20px'}}>
+        <div style={{fontSize:'32px',marginBottom:'8px'}}>📜</div>
+        <div>Chưa có trận nào trong tháng này.</div>
+        <div style={{fontSize:'12px',marginTop:'4px'}}>Ghi trận để bảng phong thần tháng này có dữ liệu nhé!</div>
+      </div>
+    ) : (
+      <div className="hof-card" style={{marginBottom:'20px'}}>
+        <div className="hof-month">📅 {hof.monthLabel} · {hof.monthMatches.length} trận đã đấu</div>
+        {hof.topWinner && (
+          <div className="hof-caption">
+            🔥 <b>{last(hof.topWinner.name)}</b> đang thống trị tháng này với <b>{hof.topWinner.wins} trận thắng</b> — không ai cản được!
+          </div>
+        )}
+        {hof.topGainer && hof.topGainer.gain>0 && (
+          <div className="hof-caption">
+            📈 <b>{last(hof.topGainer.name)}</b> leo hạng nhanh nhất, ELO tăng <b>+{hof.topGainer.gain}</b> chỉ trong tháng này.
+          </div>
+        )}
+        {hof.bestPair && (
+          <div className="hof-caption">
+            🤝 Cặp đôi ăn ý nhất: <b>{hof.bestPair.names.split(' & ').map(n=>last(n)).join(' & ')}</b> thắng {hof.bestPair.w}/{hof.bestPair.total} trận đánh đôi cùng nhau.
+          </div>
+        )}
+        {hof.topLoser && (
+          <div className="hof-caption" style={{opacity:.85}}>
+            💀 <b>{last(hof.topLoser.name)}</b> đang có tháng hơi "đen", thua {hof.topLoser.losses} trận — cố lên, gỡ kèo tháng sau!
+          </div>
+        )}
+        <div className="hof-sub">💡 Bảng này tự cập nhật theo trận đấu thật trong tháng — không cần nhập tay.</div>
+      </div>
+    )}
+
+    <div className="match-header">
+      <div className="section-title">Trận gần đây</div>
+      <button className="btn-ghi" onClick={onAdd}>+ Ghi trận</button>
+    </div>
+    {/* Danh sách trận — hiện 5 hoặc tất cả */}
+    <div className="match-list">
+      {(showAll ? matches : matches.slice(0,5)).map(m=>(
+        <MatchItem key={m.id} m={m} showDel={false}/>
+      ))}
+      {matches.length===0 && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Chưa có trận nào. Ghi trận đầu tiên nào!</div>}
+    </div>
+    {matches.length>5 && (
+      <button onClick={()=>setShowAll(v=>!v)} style={{width:'100%',marginTop:'10px',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'11px',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+        {showAll ? '▲ Thu gọn' : `📋 Xem thêm ${matches.length - 5} trận còn lại`}
+      </button>
+    )}
+  </>;
+}
+
+/* ─── EDIT MATCH MODAL ───────────────────────────────────── */
+function EditMatchModal({match,players,onClose,onSave}){
+  const [type,setType]=useState(match.type||'Đôi');
+  const [date,setDate]=useState(match.date||'');
+  const [score1,setScore1]=useState(String(match.score1??''));
+  const [score2,setScore2]=useState(String(match.score2??''));
+  const t1p=match.team1Players||[];
+  const t2p=match.team2Players||[];
+  const [p1,setP1]=useState(t1p[0]||'');
+  const [p2,setP2]=useState(t2p[0]||'');
+  const [t1a,setT1a]=useState(t1p[0]||'');
+  const [t1b,setT1b]=useState(t1p[1]||'');
+  const [t2a,setT2a]=useState(t2p[0]||'');
+  const [t2b,setT2b]=useState(t2p[1]||'');
+  const s1=parseInt(score1)||0,s2=parseInt(score2)||0;
+  const win=s1>s2;
+  const pOpts=players.map(p=>p.name);
+  const sel=(val,fn,others=[])=>(
+    <select className="fi" value={val} onChange={e=>fn(e.target.value)}>
+      <option value="">-- Chọn --</option>
+      {pOpts.filter(n=>n===val||!others.filter(Boolean).includes(n)).map(n=><option key={n}>{n}</option>)}
+    </select>
+  );
+  const eloPreview=useMemo(()=>{
+    if(!score1||!score2) return null;
+    if(type==='Đơn'){
+      const pa=players.find(p=>p.name===p1),pb=players.find(p=>p.name===p2);
+      if(!pa||!pb) return null;
+      const d=calcEloChangePair(pa.elo,pb.elo,win,'Đơn');
+      return [{name:pa.name,delta:d},{name:pb.name,delta:-d}];
+    } else {
+      const pa=players.find(p=>p.name===t1a),pb=players.find(p=>p.name===t1b);
+      const pc=players.find(p=>p.name===t2a),pd=players.find(p=>p.name===t2b);
+      if(!pa||!pc) return null;
+      const elo1=pa&&pb?Math.round((pa.elo+(pb?.elo||pa.elo))/2):pa?.elo||1500;
+      const elo2=pc&&pd?Math.round((pc.elo+(pd?.elo||pc.elo))/2):pc?.elo||1500;
+      const d=calcEloChangePair(elo1,elo2,win,'Đôi');
+      const res=[];
+      if(pa)res.push({name:pa.name,delta:d});
+      if(pb)res.push({name:pb.name,delta:d});
+      if(pc)res.push({name:pc.name,delta:-d});
+      if(pd)res.push({name:pd.name,delta:-d});
+      return res;
+    }
+  },[score1,score2,type,p1,p2,t1a,t1b,t2a,t2b,players]);
+
+  const save=()=>{
+    if(!score1||!score2) return;
+    let team1,team2,team1P,team2P;
+    if(type==='Đơn'){if(!p1||!p2)return;team1=p1;team2=p2;team1P=[p1];team2P=[p2];}
+    else{if(!t1a||!t2a)return;team1=t1b?`${t1a} & ${t1b}`:t1a;team2=t2b?`${t2a} & ${t2b}`:t2a;team1P=[t1a,t1b].filter(Boolean);team2P=[t2a,t2b].filter(Boolean);}
+    onSave({...match,type,date,score1:s1,score2:s2,result:win?'W':'L',myTeam:team1,oppTeam:team2,team1Players:team1P,team2Players:team2P,eloChanges:eloPreview||[]});
+    onClose();
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">✏️ Sửa trận đấu</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
+          {['Đơn','Đôi'].map(t=>(
+            <button key={t} onClick={()=>setType(t)} style={{flex:1,padding:'8px',borderRadius:'8px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,
+              borderColor:type===t?'var(--green)':'var(--border)',background:type===t?'var(--green-bg)':'var(--surface)',color:type===t?'var(--green)':'var(--muted)'}}>
+              {t==='Đơn'?'🧍 Đánh Đơn':'👥 Đánh Đôi'}
+            </button>
+          ))}
+        </div>
+        {type==='Đơn'?(
+          <div className="form-grid" style={{marginBottom:'12px'}}>
+            <div className="fg"><label className="fl">Người 1 (Đội A)</label>{sel(p1,setP1,[p2])}</div>
+            <div className="fg"><label className="fl">Người 2 (Đội B)</label>{sel(p2,setP2,[p1])}</div>
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'center',marginBottom:'12px'}}>
+            <div>
+              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--green)'}}>⚡ Đội A</div>
+              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t1a,setT1a,[t1b,t2a,t2b])}</div>
+              <div className="fg"><label className="fl">Người 2</label>{sel(t1b,setT1b,[t1a,t2a,t2b])}</div>
+            </div>
+            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:700,color:'var(--muted)',fontSize:'14px',paddingTop:'16px'}}>VS</div>
+            <div>
+              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--red)'}}>🔥 Đội B</div>
+              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t2a,setT2a,[t1a,t1b,t2b])}</div>
+              <div className="fg"><label className="fl">Người 2</label>{sel(t2b,setT2b,[t1a,t1b,t2a])}</div>
+            </div>
+          </div>
+        )}
+        <div className="score-row">
+          <div className="score-team">
+            <div className="score-lbl" style={{color:'var(--green)'}}>Đội A</div>
+            <input className="score-num" type="number" min="0" max="99" value={score1} onChange={e=>setScore1(e.target.value)} placeholder="0"/>
+          </div>
+          <div className="score-vs">VS</div>
+          <div className="score-team">
+            <div className="score-lbl" style={{color:'var(--red)'}}>Đội B</div>
+            <input className="score-num" type="number" min="0" max="99" value={score2} onChange={e=>setScore2(e.target.value)} placeholder="0"/>
+          </div>
+        </div>
+        {eloPreview&&(
+          <div className="elo-preview">
+            <div className="ep-label">ELO dự kiến sau chỉnh sửa</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',marginTop:'6px'}}>
+              {eloPreview.map(e=>(
+                <span key={e.name} style={{fontSize:'13px',fontWeight:700,fontFamily:'Quicksand,sans-serif',color:e.delta>=0?'var(--green)':'var(--red)'}}>
+                  {e.name}: {e.delta>0?'+':''}{e.delta}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="fg" style={{marginTop:'12px'}}>
+          <label className="fl">📅 Ngày</label>
+          <DateInput value={date} onChange={setDate}/>
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={save}>Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── MATCH LIST ─────────────────────────────────────────── */
+function MatchItem({m, showDel, onDelete, onEdit, perspective}){
+  const [expanded, setExpanded] = React.useState(false);
+  const team1 = m.team1Players || (m.myTeam ? [m.myTeam] : []);
+  const team2 = m.team2Players || (m.oppTeam ? [m.oppTeam] : []);
+  const eloChanges = m.eloChanges || [];
+
+  // m.result luôn theo góc nhìn Đội A. Nếu đang lọc/xem theo 1 người cụ thể
+  // và người đó ở Đội B thì phải đảo lại kết quả cho đúng góc nhìn của họ.
+  const inT1 = perspective ? team1.includes(perspective) : true;
+  const displayResult = perspective ? (inT1 ? m.result : (m.result==='W'?'L':'W')) : m.result;
+
+  return (
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',marginBottom:'8px',overflow:'hidden'}}>
+      {/* Row chính — tap để mở rộng */}
+      <div style={{padding:'13px 15px',display:'grid',gridTemplateColumns:showDel?'34px 1fr 56px 30px 30px':'34px 1fr 56px 28px',gap:'8px',alignItems:'center',cursor:'pointer'}}
+        onClick={()=>setExpanded(e=>!e)}>
+        <div className={`result-badge rb-${displayResult}`}>{displayResult}</div>
+        <div style={{minWidth:0,overflow:'hidden'}}>
+          <div className="m-vs">{m.myTeam} vs {m.oppTeam}</div>
+          <div className="m-meta"><span>{m.date}</span><span>{m.type}</span></div>
+        </div>
+        <div>
+          <div className="m-score" style={{color:displayResult==='W'?'var(--green)':'var(--red)'}}>{m.score1}–{m.score2}</div>
+        </div>
+        {showDel && <button className="del-btn" title="Sửa" onClick={e=>{e.stopPropagation();onEdit&&onEdit(m);}} style={{background:'var(--blue-bg)',color:'var(--blue)'}}>✏️</button>}
+        {showDel && <button className="del-btn" onClick={e=>{e.stopPropagation();onDelete(m.id);}}>🗑</button>}
+        {!showDel && <div style={{textAlign:'center',fontSize:'11px',color:'var(--muted)',opacity:.5}}>{expanded?'▲':'▼'}</div>}
+      </div>
+
+      {/* Chi tiết mở rộng */}
+      {expanded && (
+        <div style={{borderTop:'1px solid var(--border)',background:'var(--bg3)',padding:'12px 15px',fontSize:'13px'}}>
+          {/* Đội A */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'start',marginBottom:'10px'}}>
+            <div>
+              <div style={{fontSize:'10px',color:'var(--green)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'5px'}}>Đội A {m.result==='W'?'🏆':''}</div>
+              {team1.map(name=>{
+                const ch=eloChanges.find(e=>e.name===name);
+                return (
+                  <div key={name} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 8px',background:'var(--surface)',borderRadius:'7px',marginBottom:'3px',border:'1px solid var(--border)'}}>
+                    <span style={{fontWeight:600,fontSize:'12px'}}>{name}</span>
+                    {ch && <span style={{fontSize:'11px',fontWeight:700,color:ch.delta>0?'var(--green)':'var(--red)'}}>{ch.delta>0?'+':''}{ch.delta}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{textAlign:'center',paddingTop:'18px',fontFamily:'Quicksand,sans-serif',fontSize:'20px',fontWeight:700,color:'var(--muted)'}}>VS</div>
+            <div>
+              <div style={{fontSize:'10px',color:'var(--red)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'5px'}}>Đội B {m.result==='L'?'🏆':''}</div>
+              {team2.map(name=>{
+                const ch=eloChanges.find(e=>e.name===name);
+                return (
+                  <div key={name} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 8px',background:'var(--surface)',borderRadius:'7px',marginBottom:'3px',border:'1px solid var(--border)'}}>
+                    <span style={{fontWeight:600,fontSize:'12px'}}>{name}</span>
+                    {ch && <span style={{fontSize:'11px',fontWeight:700,color:ch.delta>0?'var(--green)':'var(--red)'}}>{ch.delta>0?'+':''}{ch.delta}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'var(--muted)',paddingTop:'6px',borderTop:'1px solid var(--border)'}}>
+            <span>📅 {m.date} · {m.type==='Đôi'?'👥 Đánh đôi':'🧍 Đánh đơn'}</span>
+            <span style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'14px',color:displayResult==='W'?'var(--green)':'var(--red)'}}>{m.score1}–{m.score2}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchList({matches,showDel,onDelete,players,onEdit,perspective}){
+  if(!matches.length) return <div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Chưa có trận nào</div>;
+  return (
+    <div className="match-list">
+      {matches.map(m=>(
+        <MatchItem key={m.id} m={m} showDel={showDel} onDelete={onDelete} onEdit={onEdit} perspective={perspective}/>
+      ))}
+    </div>
+  );
+}
+
+/* ─── DATE PICKER HELPER ─────────────────────────────────── */
+// Convert DD/MM string <-> YYYY-MM-DD for input[type=date]
+function toInputDate(ddmm){
+  if(!ddmm) return '';
+  const [d,m]=ddmm.split('/');
+  if(!d||!m) return '';
+  const y=new Date().getFullYear();
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+function fromInputDate(val){
+  if(!val) return '';
+  const [,m,d]=val.split('-');
+  return `${d}/${m}`;
+}
+function DateInput({value,onChange,style}){
+  return (
+    <input
+      type="date"
+      className="fi"
+      style={{...style,colorScheme:'dark'}}
+      value={toInputDate(value)}
+      onChange={e=>onChange(fromInputDate(e.target.value))}
+    />
+  );
+}
+
+/* ─── ADD MATCH MODAL (MULTI-PLAYER) ─────────────────────── */
+function AddMatchModal({players,onClose,onSave}){
+  const [type,setType]=useState('Đôi');
+  const today=new Date();
+  const [date,setDate]=useState(`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`);
+  const [score1,setScore1]=useState('');
+  const [score2,setScore2]=useState('');
+  // Đơn
+  const [p1,setP1]=useState('');
+  const [p2,setP2]=useState('');
+  // Đôi
+  const [t1a,setT1a]=useState('');
+  const [t1b,setT1b]=useState('');
+  const [t2a,setT2a]=useState('');
+  const [t2b,setT2b]=useState('');
+
+  const s1=parseInt(score1)||0, s2=parseInt(score2)||0;
+  const hasScore=score1!==''&&score2!=='';
+  const win=s1>s2;
+
+  // compute ELO preview
+  const eloPreview=useMemo(()=>{
+    if(!hasScore) return null;
+    if(type==='Đơn'){
+      const pa=players.find(p=>p.name===p1), pb=players.find(p=>p.name===p2);
+      if(!pa||!pb) return null;
+      const d=calcEloChangePair(pa.elo,pb.elo,win,'Đơn');
+      return [{name:pa.name,delta:d},{name:pb.name,delta:-d}];
+    } else {
+      const pa=players.find(p=>p.name===t1a),pb=players.find(p=>p.name===t1b);
+      const pc=players.find(p=>p.name===t2a),pd=players.find(p=>p.name===t2b);
+      if(!pa||!pc) return null;
+      const elo1=pa&&pb?Math.round((pa.elo+(pb?.elo||pa.elo))/2):pa?.elo||1500;
+      const elo2=pc&&pd?Math.round((pc.elo+(pd?.elo||pc.elo))/2):pc?.elo||1500;
+      const d=calcEloChangePair(elo1,elo2,win,'Đôi');
+      const res=[];
+      if(pa) res.push({name:pa.name,delta:d});
+      if(pb) res.push({name:pb.name,delta:d});
+      if(pc) res.push({name:pc.name,delta:-d});
+      if(pd) res.push({name:pd.name,delta:-d});
+      return res;
+    }
+  },[hasScore,win,type,p1,p2,t1a,t1b,t2a,t2b,players]);
+
+  const pOpts=players.map(p=>p.name);
+  const sel=(val,fn,others=[])=>{
+    const taken=(others||[]).filter(Boolean);
+    return (
+      <select className="fi" value={val} onChange={e=>fn(e.target.value)}>
+        <option value="">-- Chọn người --</option>
+        {pOpts.filter(n=>n===val||!taken.includes(n)).map(n=><option key={n}>{n}</option>)}
+      </select>
+    );
+  };
+
+  const save=()=>{
+    if(!hasScore||score1===''||score2==='') return;
+    let team1,team2;
+    if(type==='Đơn'){if(!p1||!p2)return;team1=p1;team2=p2;}
+    else{if(!t1a||!t2a)return;team1=t1b?`${t1a} & ${t1b}`:t1a;team2=t2b?`${t2a} & ${t2b}`:t2a;}
+    onSave({id:Date.now(),type,date,score1:s1,score2:s2,result:win?'W':'L',
+      myTeam:team1,oppTeam:team2,
+      team1Players:type==='Đơn'?[p1]:[t1a,t1b].filter(Boolean),
+      team2Players:type==='Đơn'?[p2]:[t2a,t2b].filter(Boolean),
+      eloChanges:eloPreview||[]
+    });
+    onClose();
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">🏓 Ghi trận đấu</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Loại */}
+        <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
+          {['Đơn','Đôi'].map(t=>(
+            <button key={t} onClick={()=>setType(t)} style={{flex:1,padding:'8px',borderRadius:'8px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,
+              borderColor:type===t?'var(--green)':'var(--border)',
+              background:type===t?'var(--green-bg)':'var(--surface)',
+              color:type===t?'var(--green)':'var(--muted)'}}>
+              {t==='Đơn'?'🧍 Đánh Đơn':'👥 Đánh Đôi'}
+            </button>
+          ))}
+        </div>
+
+        {/* Players */}
+        {type==='Đơn'?(
+          <div className="form-grid" style={{marginBottom:'12px'}}>
+            <div className="fg"><label className="fl">Người 1 (Đội A)</label>{sel(p1,setP1,[p2])}</div>
+            <div className="fg"><label className="fl">Người 2 (Đội B)</label>{sel(p2,setP2,[p1])}</div>
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'center',marginBottom:'12px'}}>
+            <div>
+              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--green)'}}>⚡ Đội A</div>
+              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t1a,setT1a,[t1b,t2a,t2b])}</div>
+              <div className="fg"><label className="fl">Người 2 (tuỳ chọn)</label>{sel(t1b,setT1b,[t1a,t2a,t2b])}</div>
+            </div>
+            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:700,color:'var(--muted)',fontSize:'14px',paddingTop:'16px'}}>VS</div>
+            <div>
+              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--red)'}}>🔥 Đội B</div>
+              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t2a,setT2a,[t1a,t1b,t2b])}</div>
+              <div className="fg"><label className="fl">Người 2 (tuỳ chọn)</label>{sel(t2b,setT2b,[t1a,t1b,t2a])}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Score */}
+        <div className="score-row">
+          <div className="score-team">
+            <div className="score-lbl" style={{color:'var(--green)'}}>Đội A</div>
+            <input className="score-num" type="number" min="0" max="99" value={score1} onChange={e=>setScore1(e.target.value)} placeholder="0"/>
+          </div>
+          <div className="score-vs">VS</div>
+          <div className="score-team">
+            <div className="score-lbl" style={{color:'var(--red)'}}>Đội B</div>
+            <input className="score-num" type="number" min="0" max="99" value={score2} onChange={e=>setScore2(e.target.value)} placeholder="0"/>
+          </div>
+        </div>
+
+        {/* ELO preview */}
+        {eloPreview && (
+          <div className="elo-preview">
+            <div className="ep-label">Thay đổi ELO dự kiến</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'8px',justifyContent:'center',marginTop:'6px'}}>
+              {eloPreview.map(e=>(
+                <span key={e.name} style={{fontSize:'13px',fontWeight:700,fontFamily:'Quicksand,sans-serif',color:e.delta>=0?'var(--green)':'var(--red)'}}>
+                  {e.name}: {e.delta>0?'+':''}{e.delta}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="fg" style={{marginTop:'12px'}}>
+          <label className="fl">📅 Ngày</label>
+          <DateInput value={date} onChange={setDate}/>
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={save}>Lưu trận</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── CONFIRM DELETE (2 bước) ───────────────────────────── */
+function PinModal({onConfirm,onClose}){
+  const [pin,setPin]=useState('');
+  const [error,setError]=useState(false);
+  const submit=()=>{
+    if(pin===ADMIN_PIN){ onConfirm(); }
+    else { setError(true); setPin(''); }
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'320px',textAlign:'center',padding:'24px'}}>
+        <div style={{fontSize:'34px',marginBottom:'8px'}}>🔒</div>
+        <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'16px',marginBottom:'4px'}}>Nhập mã PIN quản trị</div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}}>Chỉ chủ CLB mới chỉnh sửa được dữ liệu</div>
+        <input
+          type="password" inputMode="numeric" value={pin} autoFocus
+          onChange={e=>{setPin(e.target.value.replace(/\D/g,'')); setError(false);}}
+          onKeyDown={e=>e.key==='Enter'&&submit()}
+          style={{width:'100%',textAlign:'center',letterSpacing:'4px',fontSize:'18px',padding:'10px',
+            borderRadius:'10px',border:`1px solid ${error?'var(--red)':'var(--border)'}`,outline:'none',
+            background:'var(--surface2)',color:'var(--text)',fontFamily:'Quicksand,sans-serif',marginBottom:'10px'}}
+          placeholder="••••••"
+        />
+        {error && <div style={{color:'var(--red)',fontSize:'12px',marginBottom:'10px'}}>Sai mã PIN, thử lại nhé!</div>}
+        <div style={{display:'flex',gap:'8px'}}>
+          <button onClick={onClose} style={{flex:1,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'10px',fontSize:'13px',fontWeight:600,cursor:'pointer',color:'var(--muted)',fontFamily:'Nunito,sans-serif'}}>Huỷ</button>
+          <button onClick={submit} style={{flex:1,background:'var(--purple)',border:'none',borderRadius:'10px',padding:'10px',fontSize:'13px',fontWeight:700,cursor:'pointer',color:'#fff',fontFamily:'Nunito,sans-serif'}}>Mở khoá</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmModal({msg,onConfirm,onClose}){
+  const [step,setStep]=useState(1);
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:'360px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">{step===1?'⚠️ Xác nhận xóa':'🚨 Xác nhận lần cuối'}</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        {step===1?(
+          <>
+            <p className="confirm-msg">{msg}</p>
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={onClose}>Hủy</button>
+              <button className="btn-danger" onClick={()=>setStep(2)}>Xóa</button>
+            </div>
+          </>
+        ):(
+          <>
+            <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'14px',marginBottom:'16px',textAlign:'center'}}>
+              <div style={{fontSize:'28px',marginBottom:'6px'}}>🗑️</div>
+              <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'16px',color:'var(--red)',marginBottom:'4px'}}>Xóa là mất luôn đấy!</div>
+              <div style={{fontSize:'13px',color:'var(--muted)'}}>Dữ liệu này không thể khôi phục sau khi xóa. Bạn có chắc chắn không?</div>
+            </div>
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={onClose}>Thôi, không xóa</button>
+              <button className="btn-danger" onClick={onConfirm} style={{background:'#b91c1c'}}>Xóa vĩnh viễn</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── EXPORT CSV ─────────────────────────────────────────── */
+function exportCSV(matches,players){
+  // Matches sheet
+  const mRows=[['Ngày','Loại','Đội A','Đội B','Tỉ số','Kết quả','ELO thay đổi']];
+  matches.forEach(m=>{
+    const eloStr=(m.eloChanges||[]).map(e=>`${e.name}:${e.delta>0?'+':''}${e.delta}`).join(' | ');
+    mRows.push([m.date,m.type,m.myTeam,m.oppTeam,`${m.score1}-${m.score2}`,m.result,eloStr]);
+  });
+  // Players sheet
+  const pRows=[['Tên','ELO','Thắng','Thua','Tỉ lệ thắng']];
+  [...players].sort((a,b)=>b.elo-a.elo).forEach(p=>{
+    const total=p.wins+p.losses;
+    pRows.push([p.name,p.elo,p.wins,p.losses,total?Math.round(p.wins/total*100)+'%':'—']);
+  });
+  const toCSV=rows=>rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const csv='=== LỊCH SỬ TRẬN ===\n'+toCSV(mRows)+'\n\n=== BXH NGƯỜI CHƠI ===\n'+toCSV(pRows);
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='picklepro_export.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ─── ELO HISTORY CHART ──────────────────────────────────── */
+function EloChart({players,matches}){
+  const [selected,setSelected]=useState('');
+  const player=players.find(p=>p.name===selected);
+
+  const history=useMemo(()=>{
+    if(!player) return [];
+    // build elo timeline from matches (oldest first)
+    let elo=1500;
+    const sorted=[...matches].reverse();
+    const pts=[{date:'Bắt đầu',elo:1500}];
+    sorted.forEach(m=>{
+      const change=(m.eloChanges||[]).find(e=>e.name===player.name);
+      if(change){elo+=change.delta;pts.push({date:m.date,elo,delta:change.delta});}
+    });
+    return pts;
+  },[player,matches]);
+
+  const minE=history.length?Math.min(...history.map(h=>h.elo))-30:1470;
+  const maxE=history.length?Math.max(...history.map(h=>h.elo))+30:1530;
+  const W=560,H=180,PAD=40;
+  const xScale=i=>history.length>1?PAD+(i/(history.length-1))*(W-PAD*2):W/2;
+  const yScale=e=>H-PAD-((e-minE)/(maxE-minE))*(H-PAD*2);
+
+  const pathD=history.map((h,i)=>`${i===0?'M':'L'}${xScale(i)},${yScale(h.elo)}`).join(' ');
+
+  return (
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+        <div className="section-title" style={{fontSize:'15px'}}>📈 Biểu đồ ELO</div>
+        <select className="month-sel" value={selected} onChange={e=>setSelected(e.target.value)} style={{fontSize:'12px',padding:'5px 10px'}}>
+          <option value="">-- Chọn người chơi --</option>
+          {players.map(p=><option key={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      {!selected && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',fontSize:'13px'}}>Chọn người chơi để xem biểu đồ ELO</div>}
+      {selected && history.length<=1 && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',fontSize:'13px'}}>Chưa có đủ dữ liệu trận đấu</div>}
+      {selected && history.length>1 && (
+        <>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+            {/* Grid lines */}
+            {[0,.25,.5,.75,1].map(t=>{
+              const y=PAD+(1-t)*(H-PAD*2);
+              const v=Math.round(minE+(maxE-minE)*t);
+              return <g key={t}>
+                <line x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3"/>
+                <text x={PAD-4} y={y+4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
+              </g>;
+            })}
+            {/* Path */}
+            <path d={pathD} fill="none" stroke="var(--green)" strokeWidth="2" strokeLinejoin="round"/>
+            {/* Fill */}
+            <path d={pathD+` L${xScale(history.length-1)},${H-PAD} L${PAD},${H-PAD} Z`} fill="var(--green)" opacity="0.08"/>
+            {/* Points */}
+            {history.map((h,i)=>(
+              <g key={i}>
+                <circle cx={xScale(i)} cy={yScale(h.elo)} r="3" fill={h.delta>0?'var(--green)':h.delta<0?'var(--red)':'var(--muted)'} stroke="var(--bg)" strokeWidth="1.5"/>
+              </g>
+            ))}
+          </svg>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px',fontSize:'11px',color:'var(--muted)',padding:`0 ${PAD}px`}}>
+            <span>{history[0]?.date}</span>
+            <span style={{fontFamily:'Quicksand',fontSize:'14px',fontWeight:700,color:player.elo>=1500?'var(--green)':'var(--red)'}}>
+              ELO hiện tại: {player.elo}
+            </span>
+            <span>{history[history.length-1]?.date}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── MATCHES TAB ───────────────────────────────────────── */
+function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
+  const [typeFilter,setTypeFilter]=useState('Tất cả');
+  const [monthFilter,setMonthFilter]=useState('Tất cả');
+  const [playerFilter,setPlayerFilter]=useState('Tất cả');
+  const [editMatch,setEditMatch]=useState(null);
+
+  // extract unique months from match dates (DD/MM or DD-MM)
+  const months=useMemo(()=>{
+    const s=new Set();
+    matches.forEach(m=>{
+      const parts=m.date.split(/[\/\-]/);
+      if(parts.length>=2) s.add(parts[1]);
+    });
+    return ['Tất cả',...[...s].sort((a,b)=>parseInt(a)-parseInt(b)).map(m=>`Tháng ${m}`)];
+  },[matches]);
+
+  const playerNames=['Tất cả',...players.map(p=>p.name)];
+
+  const filtered=useMemo(()=>{
+    return matches.filter(m=>{
+      if(typeFilter!=='Tất cả'&&m.type!==typeFilter) return false;
+      if(monthFilter!=='Tất cả'){
+        const mon=monthFilter.replace('Tháng ','');
+        const parts=m.date.split(/[\/\-]/);
+        if(parts.length<2||parts[1]!==mon) return false;
+      }
+      if(playerFilter!=='Tất cả'){
+        const all=[...(m.team1Players||[]),...(m.team2Players||[])];
+        if(!all.includes(playerFilter)) return false;
+      }
+      return true;
+    });
+  },[matches,typeFilter,monthFilter,playerFilter]);
+
+  // Khi có lọc theo người: tính W/L theo đúng góc nhìn của người đó
+  // (m.result luôn theo Đội A, nên nếu người này ở Đội B thì phải đảo lại).
+  const wins = playerFilter!=='Tất cả'
+    ? filtered.filter(m=>{
+        const inT1 = (m.team1Players||[]).includes(playerFilter);
+        return inT1 ? m.result==='W' : m.result==='L';
+      }).length
+    : filtered.filter(m=>m.result==='W').length;
+  const losses = filtered.length - wins;
+  const winRate = filtered.length ? Math.round((wins/filtered.length)*100) : 0;
+
+  return <>
+    <div className="match-header">
+      <div className="section-title">Lịch sử trận đấu</div>
+      <div style={{display:'flex',gap:'6px'}}>
+        <button onClick={()=>exportCSV(matches,players)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>📥 Xuất CSV</button>
+        <button className="btn-ghi" onClick={onAdd}>+ Ghi trận</button>
+      </div>
+    </div>
+    <EloCard myElo={myElo}/>
+    <EloChart players={players} matches={matches}/>
+
+    {/* Filters */}
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'12px 14px',marginBottom:'14px'}}>
+      <div style={{fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.6px',marginBottom:'10px'}}>🔍 Lọc trận</div>
+      <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+        <div style={{flex:'1 1 130px'}}>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>Loại trận</div>
+          <select className="fi" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
+            {['Tất cả','Đơn','Đôi'].map(t=><option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={{flex:'1 1 130px'}}>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>Theo tháng</div>
+          <select className="fi" value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
+            {months.map(m=><option key={m}>{m}</option>)}
+          </select>
+        </div>
+        <div style={{flex:'1 1 130px'}}>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>Theo người</div>
+          <select className="fi" value={playerFilter} onChange={e=>setPlayerFilter(e.target.value)}>
+            {playerNames.map(n=><option key={n}>{n}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {playerFilter!=='Tất cả' && filtered.length>0 && (
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'16px'}}>
+        <div style={{position:'relative',width:'56px',height:'56px',flexShrink:0}}>
+          <svg width="56" height="56" viewBox="0 0 56 56" style={{transform:'rotate(-90deg)'}}>
+            <circle cx="28" cy="28" r="24" fill="none" stroke="var(--border)" strokeWidth="6"/>
+            <circle cx="28" cy="28" r="24" fill="none" stroke={winRate>=50?'var(--green)':'var(--red)'} strokeWidth="6"
+              strokeDasharray={`${2*Math.PI*24}`} strokeDashoffset={`${2*Math.PI*24*(1-winRate/100)}`} strokeLinecap="round"/>
+          </svg>
+          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'13px'}}>{winRate}%</div>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'2px'}}>Thống kê của <b style={{color:'var(--text)'}}>{playerFilter}</b></div>
+          <div style={{display:'flex',gap:'14px',fontSize:'13px'}}>
+            <span style={{color:'var(--green)',fontWeight:700}}>{wins} thắng</span>
+            <span style={{color:'var(--red)',fontWeight:700}}>{losses} thua</span>
+            <span style={{color:'var(--muted)'}}>{filtered.length} trận</span>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+      <span style={{fontSize:'13px',color:'var(--muted)'}}>{filtered.length} trận · {wins}W {losses}L</span>
+    </div>
+    <MatchList matches={filtered} showDel={true} onDelete={onDelete} players={players} onEdit={m=>setEditMatch(m)} perspective={playerFilter!=='Tất cả'?playerFilter:null}/>
+    {editMatch&&<EditMatchModal match={editMatch} players={players} onClose={()=>setEditMatch(null)} onSave={m=>{onEditMatch(m);setEditMatch(null);}}/>}
+  </>;
+}
+
+/* ─── LEADERBOARD ───────────────────────────────────────── */
+function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvatar}){
+  const [bxhSeg,setBxhSeg]=useState('bxh');
+  const [h2hA,setH2hA]=useState('');
+  const [h2hB,setH2hB]=useState('');
+  const [showAddPlayer,setShowAddPlayer]=useState(false);
+  const [newName,setNewName]=useState('');
+  const [newElo,setNewElo]=useState('1500');
+  const [search,setSearch]=useState('');
+  const [monthFilter,setMonthFilter]=useState('all');
+  const [confirmDeletePlayer,setConfirmDeletePlayer]=useState(null);
+
+  // Danh sách các tháng có dữ liệu trận đấu (để hiện trong dropdown lọc)
+  const availableMonths=useMemo(()=>{
+    const set=new Set();
+    matches.forEach(m=>{
+      const mm=parseMatchMonth(m.date);
+      if(mm) set.add(mm);
+    });
+    return [...set].sort();
+  },[matches]);
+
+  const monthMatches=useMemo(()=>{
+    if(monthFilter==='all') return matches;
+    return matches.filter(m=>parseMatchMonth(m.date)===monthFilter);
+  },[matches,monthFilter]);
+
+  // Tính lại thắng/thua/tổng trận theo phạm vi lọc (tất cả hoặc theo tháng) — không dùng trực tiếp p.wins/p.losses lũy kế
+  const statsForRange=useMemo(()=>{
+    const map={};
+    players.forEach(p=>{ map[p.name]={wins:0,losses:0}; });
+    monthMatches.forEach(m=>{
+      (m.eloChanges||[]).forEach(({name,delta})=>{
+        if(!map[name]) map[name]={wins:0,losses:0};
+        if(delta>0) map[name].wins++;
+        else if(delta<0) map[name].losses++;
+      });
+    });
+    return map;
+  },[players,monthMatches]);
+
+  const filteredSorted=useMemo(()=>{
+    let list=[...players].sort((a,b)=>b.elo-a.elo);
+    if(search.trim()){
+      const q=search.trim().toLowerCase();
+      list=list.filter(p=>p.name.toLowerCase().includes(q));
+    }
+    return list;
+  },[players,search]);
+
+  // Tổng kết toàn CLB cho phạm vi đang lọc
+  const clubSummary=useMemo(()=>{
+    let totalWins=0,totalLosses=0;
+    Object.values(statsForRange).forEach(s=>{ totalWins+=s.wins; totalLosses+=s.losses; });
+    return {totalMatches:monthMatches.length, totalWins, totalLosses};
+  },[statsForRange,monthMatches]);
+
+  const sorted=filteredSorted;
+  const maxElo=sorted.length?sorted[0].elo:1600;
+  const minElo=1400;
+
+  // head-to-head
+  const h2hData=useMemo(()=>{
+    if(!h2hA||!h2hB) return null;
+    const relevant=matches.filter(m=>{
+      const allP=[...(m.team1Players||[]),(m.team2Players||[])];
+      return (m.team1Players||[]).includes(h2hA)&&(m.team2Players||[]).includes(h2hB)||
+             (m.team1Players||[]).includes(h2hB)&&(m.team2Players||[]).includes(h2hA);
+    });
+    let wA=0,wB=0;
+    relevant.forEach(m=>{
+      const aInT1=(m.team1Players||[]).includes(h2hA);
+      if(aInT1&&m.result==='W') wA++;
+      else if(!aInT1&&m.result==='L') wA++;
+      else wB++;
+    });
+    return {matches:relevant,wA,wB};
+  },[h2hA,h2hB,matches]);
+
+  return <>
+    {/* Segment */}
+    <div style={{display:'flex',background:'var(--surface)',borderRadius:'10px',padding:'4px',gap:'4px',marginBottom:'16px',width:'fit-content'}}>
+      {[['bxh','🏆 Bảng Xếp Hạng'],['h2h','⚔️ Đối Đầu']].map(([id,lb])=>(
+        <button key={id} onClick={()=>setBxhSeg(id)} className={`seg-btn${bxhSeg===id?' active':''}`}>{lb}</button>
+      ))}
+    </div>
+
+    {bxhSeg==='bxh' && <>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px',flexWrap:'wrap',gap:'8px'}}>
+        <div className="section-title">🏆 BXH Điểm Kỹ Năng (Rating)</div>
+        <button onClick={()=>setShowAddPlayer(!showAddPlayer)} style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'8px',color:'var(--green)',padding:'6px 14px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm người chơi</button>
+      </div>
+
+      {showAddPlayer && (
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'14px',marginBottom:'14px'}}>
+          <div style={{display:'flex',gap:'10px',alignItems:'flex-end',marginBottom:'0'}}>
+            <div className="fg" style={{flex:2}}><label className="fl">Tên người chơi</label><input className="fi" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nguyễn Văn A"/></div>
+            <div className="fg" style={{flex:1}}>
+              <label className="fl">ELO ban đầu</label>
+              <input className="fi" type="number" value={newElo} onChange={e=>setNewElo(e.target.value)} placeholder="1500" min="0" max="3000"/>
+            </div>
+          </div>
+          <div style={{fontSize:'11px',color:'var(--muted)',margin:'6px 0 10px'}}>
+            Chuyên ≥1700 · Nâng cao ≥1580 · Trung bình ≥1450 · Mới bắt đầu &lt;1450
+          </div>
+          <div style={{display:'flex',gap:'8px'}}>
+            <button className="btn-save" style={{flex:1}} onClick={()=>{if(newName.trim()){onAddPlayer(newName.trim(),newElo);setNewName('');setNewElo('1500');setShowAddPlayer(false);}}}>Thêm</button>
+            <button className="btn-cancel" onClick={()=>{setShowAddPlayer(false);setNewElo('1500');}}>Hủy</button>
+          </div>
+        </div>
+      )}
+
+      {/* Tìm kiếm + lọc tháng */}
+      <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap'}}>
+        <div style={{position:'relative',flex:'1 1 200px'}}>
+          <span style={{position:'absolute',left:'12px',top:'50%',transform:'translateY(-50%)',fontSize:'13px',color:'var(--muted)',pointerEvents:'none'}}>🔍</span>
+          <input
+            className="fi"
+            style={{paddingLeft:'32px'}}
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Tìm tên người chơi..."
+          />
+        </div>
+        <select className="month-sel" value={monthFilter} onChange={e=>setMonthFilter(e.target.value)} style={{flex:'0 0 auto'}}>
+          <option value="all">📅 Tất cả thời gian</option>
+          {availableMonths.map(mm=><option key={mm} value={mm}>Tháng {mm}</option>)}
+        </select>
+      </div>
+
+      {/* Tổng kết */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'14px'}}>
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+          <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'3px'}}>Tổng trận</div>
+          <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'18px'}}>{clubSummary.totalMatches}</div>
+        </div>
+        <div style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+          <div style={{fontSize:'10px',color:'var(--green)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'3px'}}>Tổng thắng</div>
+          <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'18px',color:'var(--green)'}}>{clubSummary.totalWins}</div>
+        </div>
+        <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+          <div style={{fontSize:'10px',color:'var(--red)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'3px'}}>Tổng thua</div>
+          <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'18px',color:'var(--red)'}}>{clubSummary.totalLosses}</div>
+        </div>
+      </div>
+
+      {/* Tier legend */}
+      <div style={{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap'}}>
+        {TIERS.map(t=>(
+          <span key={t.label} style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:t.bg,color:t.color,fontWeight:600}}>
+            {t.icon} {t.label} {t.min>0?`≥${t.min}`:''}
+          </span>
+        ))}
+      </div>
+
+      {sorted.length===0 && (
+        <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>
+          <div style={{fontSize:'32px',marginBottom:'8px'}}>👥</div>
+          <div>{search.trim()?'Không tìm thấy người chơi nào.':'Chưa có người chơi nào. Thêm người chơi để bắt đầu!'}</div>
+        </div>
+      )}
+
+      <div className="bxh-card">
+        <div className="bxh-header-row">
+          <div>#</div><div>Người chơi</div>
+          <div style={{textAlign:'center'}}>ELO</div>
+          <div style={{textAlign:'center'}}>W/L</div>
+          <div></div>
+        </div>
+        {sorted.map((p,i)=>{
+          const rangeStats=statsForRange[p.name]||{wins:0,losses:0};
+          const total=rangeStats.wins+rangeStats.losses;
+          const barW=maxElo>minElo?Math.round(Math.max(0,(p.elo-minElo)/(maxElo-minElo))*100):50;
+          const tier=getTier(p.elo);
+          const allBadges=computeBadges(sorted,matches);
+          const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===p.id);
+          return (
+            <div className="bxh-row" key={p.id}>
+              <div className={`rank-num${i===0?' r1':i===1?' r2':i===2?' r3':''}`}>
+                {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
+              </div>
+              <div className="player-cell">
+                <PlayerAvatar player={p} onUpdateAvatar={onUpdateAvatar} size={34}/>
+                <div style={{minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'3px',flexWrap:'wrap'}}>
+                    <div className="player-name" style={{fontSize:'13px'}}>{p.name.split(' ').slice(-2).join(' ')}</div>
+                    {myBadges.map(b=>(
+                      <span key={b.id} title={b.title} style={{fontSize:'12px',cursor:'default'}}>{b.emoji}</span>
+                    ))}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px',marginTop:'2px',flexWrap:'wrap'}}>
+                    <div className="elo-bar-wrap" style={{width:'40px',flexShrink:0}}><div className="elo-bar" style={{width:barW+'%'}}/></div>
+                    <span style={{fontSize:'9px',padding:'1px 5px',borderRadius:'10px',background:tier.bg,color:tier.color,fontWeight:600,whiteSpace:'nowrap'}}>{tier.icon} {tier.label}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="elo-val" style={{fontSize:'14px'}}>{p.elo}</div>
+              <div style={{textAlign:'center',fontSize:'13px',fontWeight:700}}>
+                <span style={{color:'var(--green)'}}>{rangeStats.wins}</span>
+                <span style={{color:'var(--muted)',fontWeight:500}}> / </span>
+                <span style={{color:'var(--red)'}}>{rangeStats.losses}</span>
+              </div>
+              <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>
+            </div>
+          );
+        })}
+      </div>
+      {confirmDeletePlayer&&<ConfirmModal
+        msg={`Xóa người chơi "${players.find(p=>p.id===confirmDeletePlayer)?.name}"? Toàn bộ dữ liệu ELO và lịch sử người này sẽ bị xóa.`}
+        onConfirm={()=>{onDeletePlayer(confirmDeletePlayer);setConfirmDeletePlayer(null);}}
+        onClose={()=>setConfirmDeletePlayer(null)}
+      />}
+
+      {/* ── HUY HIỆU CLB (gộp vào BXH) ── */}
+      <div style={{marginTop:'24px'}}>
+        <div className="fun-section-title" style={{marginTop:0}}>🏅 Huy Hiệu CLB</div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px',marginTop:'-10px'}}>Tap vào huy hiệu để xem ý nghĩa & điều kiện đạt được</div>
+        {players.length===0 ? (
+          <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
+            <div style={{fontSize:'32px',marginBottom:'8px'}}>🏅</div>
+            <div>Thêm người chơi và ghi trận để xét huy hiệu.</div>
+          </div>
+        ) : (
+          <BadgeSection players={sorted} matches={matches}/>
+        )}
+      </div>
+    </>}
+
+    {bxhSeg==='h2h' && <>
+      <div className="section-title" style={{marginBottom:'14px'}}>⚔️ Đối Đầu Trực Tiếp</div>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'center'}}>
+          <div>
+            <div className="fl" style={{marginBottom:'6px'}}>Người / Đội A</div>
+            <select className="fi" value={h2hA} onChange={e=>setH2hA(e.target.value)}>
+              <option value="">-- Chọn --</option>
+              {players.map(p=><option key={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:700,color:'var(--orange)',fontSize:'18px'}}>VS</div>
+          <div>
+            <div className="fl" style={{marginBottom:'6px'}}>Người / Đội B</div>
+            <select className="fi" value={h2hB} onChange={e=>setH2hB(e.target.value)}>
+              <option value="">-- Chọn --</option>
+              {players.map(p=><option key={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {h2hData && h2hA && h2hB && h2hA!==h2hB && (
+        <>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'16px'}}>
+            <div style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'12px',padding:'16px',textAlign:'center'}}>
+              <div style={{fontSize:'11px',color:'var(--green)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.7px',marginBottom:'6px'}}>{h2hA}</div>
+              <div style={{fontFamily:'Quicksand',fontSize:'36px',fontWeight:800,color:'var(--green)'}}>{h2hData.wA}</div>
+              <div style={{fontSize:'11px',color:'var(--muted)'}}>trận thắng</div>
+            </div>
+            <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'12px',padding:'16px',textAlign:'center'}}>
+              <div style={{fontSize:'11px',color:'var(--red)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.7px',marginBottom:'6px'}}>{h2hB}</div>
+              <div style={{fontFamily:'Quicksand',fontSize:'36px',fontWeight:800,color:'var(--red)'}}>{h2hData.wB}</div>
+              <div style={{fontSize:'11px',color:'var(--muted)'}}>trận thắng</div>
+            </div>
+          </div>
+          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'12px',marginBottom:'8px',textAlign:'center'}}>
+            <span style={{fontSize:'13px',color:'var(--muted)'}}>Tổng {h2hData.matches.length} trận đã gặp nhau</span>
+            {h2hData.matches.length>0 && <span style={{marginLeft:'12px',fontWeight:700,color:h2hData.wA>h2hData.wB?'var(--green)':h2hData.wA<h2hData.wB?'var(--red)':'var(--yellow)'}}>
+              {h2hData.wA>h2hData.wB?`${h2hA} đang dẫn`:h2hData.wA<h2hData.wB?`${h2hB} đang dẫn`:'Hoà bằng nhau'}
+            </span>}
+          </div>
+          {h2hData.matches.length===0&&<div style={{textAlign:'center',padding:'20px',color:'var(--muted)'}}>Chưa có trận nào giữa 2 người này</div>}
+          <div className="match-list">
+            {h2hData.matches.map(m=>(
+              <div className="match-item" key={m.id}>
+                <div className={`result-badge rb-${(m.team1Players||[]).includes(h2hA)?m.result:m.result==='W'?'L':'W'}`}>
+                  {(m.team1Players||[]).includes(h2hA)?m.result:m.result==='W'?'L':'W'}
+                </div>
+                <div>
+                  <div className="m-vs">{m.myTeam} vs {m.oppTeam}</div>
+                  <div className="m-meta"><span>{m.date}</span><span>{m.type}</span></div>
+                </div>
+                <div>
+                  <div className="m-score" style={{color:m.result==='W'?'var(--green)':'var(--red)'}}>{m.score1}–{m.score2}</div>
+                </div>
+                <div/>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {(!h2hA||!h2hB||h2hA===h2hB)&&<div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Chọn 2 người chơi khác nhau để xem lịch sử đối đầu</div>}
+    </>}
+  </>;
+}
+
+/* ─── SO KEO TAB ─────────────────────────────────────────── */
+
+function SoKeoTab({players, matches}){
+  const [mode,setMode]=useState('doi'); // 'don' | 'doi'
+  const [mainTab,setMainTab]=useState('sokeo'); // 'sokeo' | 'partner' 
+  // Đơn
+  const [pA,setPa]=useState('');
+  const [pB,setPb]=useState('');
+  // Đôi
+  const [d1a,setD1a]=useState('');
+  const [d1b,setD1b]=useState('');
+  const [d2a,setD2a]=useState('');
+  const [d2b,setD2b]=useState('');
+  // Partner analysis
+  const [partnerFor,setPartnerFor]=useState('');
+  // H2H expanded
+  const [h2hExpanded,setH2hExpanded]=useState(false);
+
+  const pOpts=players.map(p=>p.name);
+  const sel=(val,fn,exclude=[])=>(
+    <select className="fi" value={val} onChange={e=>fn(e.target.value)}>
+      <option value="">-- Chọn --</option>
+      {pOpts.filter(n=>!exclude.includes(n)).map(n=><option key={n}>{n}</option>)}
+    </select>
+  );
+
+  const analysis = useMemo(()=>{
+    if(mode==='don'){
+      const pa=players.find(p=>p.name===pA), pb=players.find(p=>p.name===pB);
+      if(!pa||!pb||pa===pb) return null;
+      const diff=pa.elo-pb.elo;
+      const winPctA=Math.round(1/(1+Math.pow(10,-diff/400))*100);
+      // handicap: số quả chấp (mỗi 50 ELO ~ 1 quả chấp trong pickleball)
+      const handicap=Math.round(Math.abs(diff)/60);
+      const stronger=diff>0?pa:pb;
+      const weaker=diff>0?pb:pa;
+      // h2h
+      const h2h=matches.filter(m=>{
+        return (m.team1Players||[]).includes(pa.name)&&(m.team2Players||[]).includes(pb.name)||
+               (m.team1Players||[]).includes(pb.name)&&(m.team2Players||[]).includes(pa.name);
+      });
+      let wA=0,wB=0;
+      h2h.forEach(m=>{
+        const aInT1=(m.team1Players||[]).includes(pa.name);
+        if(aInT1&&m.result==='W') wA++;
+        else if(!aInT1&&m.result==='L') wA++;
+        else wB++;
+      });
+      return {type:'don',pa,pb,diff:Math.abs(diff),winPctA,winPctB:100-winPctA,handicap,stronger,weaker,h2h,wA,wB,
+        quality:Math.max(0,100-Math.round(Math.abs(diff)/8))};
+    } else {
+      const pa=players.find(p=>p.name===d1a),pb=players.find(p=>p.name===d1b);
+      const pc=players.find(p=>p.name===d2a),pd=players.find(p=>p.name===d2b);
+      if(!pa||!pc) return null;
+      const elo1=Math.round((pa.elo+(pb?.elo||pa.elo))/2);
+      const elo2=Math.round((pc.elo+(pd?.elo||pc.elo))/2);
+      const diff=elo1-elo2;
+      const winPct1=Math.round(1/(1+Math.pow(10,-diff/400))*100);
+      const handicap=Math.round(Math.abs(diff)/60);
+      const t1=[pa,pb].filter(Boolean), t2=[pc,pd].filter(Boolean);
+      const stronger=diff>0?t1.map(p=>p.name).join(' & '):t2.map(p=>p.name).join(' & ');
+      const weaker=diff>0?t2.map(p=>p.name).join(' & '):t1.map(p=>p.name).join(' & ');
+      // h2h for team
+      const h2h=matches.filter(m=>{
+        const t1p=m.team1Players||[], t2p=m.team2Players||[];
+        return (t1p.includes(d1a)||t1p.includes(d1b||'__'))&&(t2p.includes(d2a)||t2p.includes(d2b||'__'))||
+               (t2p.includes(d1a)||t2p.includes(d1b||'__'))&&(t1p.includes(d2a)||t1p.includes(d2b||'__'));
+      });
+      return {type:'doi',t1,t2,elo1,elo2,diff:Math.abs(diff),winPct1,winPct2:100-winPct1,handicap,stronger,weaker,h2h,
+        quality:Math.max(0,100-Math.round(Math.abs(diff)/8))};
+    }
+  },[mode,pA,pB,d1a,d1b,d2a,d2b,players,matches]);
+
+  const qColor=q=>q>=75?'var(--green)':q>=50?'var(--yellow)':'var(--red)';
+
+  // Partner analysis: tính tỷ lệ thắng khi ghép đôi với từng người
+  const partnerStats = useMemo(()=>{
+    if(!partnerFor) return [];
+    return players.filter(p=>p.name!==partnerFor).map(partner=>{
+      const paired = matches.filter(m=>{
+        if(m.type!=='Đôi') return false;
+        const t1=m.team1Players||[], t2=m.team2Players||[];
+        return (t1.includes(partnerFor)&&t1.includes(partner.name))||
+               (t2.includes(partnerFor)&&t2.includes(partner.name));
+      });
+      let wins=0;
+      paired.forEach(m=>{
+        const inT1=(m.team1Players||[]).includes(partnerFor);
+        if((inT1&&m.result==='W')||(!inT1&&m.result==='L')) wins++;
+      });
+      const total=paired.length;
+      const wr=total>0?Math.round(wins/total*100):null;
+      return {name:partner.name, color:partner.color, avatar:partner.avatar, elo:partner.elo, wins, total, wr, matches:paired};
+    }).sort((a,b)=>{
+      // Ưu tiên: có trận nhiều nhất trước, sau đó tỷ lệ thắng
+      if(b.total!==a.total) return b.total-a.total;
+      return (b.wr||0)-(a.wr||0);
+    });
+  },[partnerFor,players,matches]);
+
+  return <>
+    <div className="section-title" style={{marginBottom:'16px'}}>⚔️ So Kèo & Đánh Giá Chấp</div>
+
+    {/* Main tab toggle */}
+    <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
+      {[['sokeo','⚔️ So Kèo'],['partner','🤝 Người Ăn Ý']].map(([id,lb])=>(
+        <button key={id} onClick={()=>setMainTab(id)} style={{flex:1,padding:'10px',borderRadius:'10px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
+          borderColor:mainTab===id?'var(--purple)':'var(--border)',
+          background:mainTab===id?'var(--purple-bg)':'var(--surface)',
+          color:mainTab===id?'var(--purple)':'var(--muted)'}}>
+          {lb}
+        </button>
+      ))}
+    </div>
+
+    {/* ── PARTNER TAB ── */}
+    {mainTab==='partner' && <>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
+        <div className="fl" style={{marginBottom:'8px'}}>🎯 Chọn người muốn xem</div>
+        <select className="fi" value={partnerFor} onChange={e=>setPartnerFor(e.target.value)}>
+          <option value="">-- Chọn người chơi --</option>
+          {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+      </div>
+
+      {partnerFor && partnerStats.length>0 && (
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',overflow:'hidden',marginBottom:'16px'}}>
+          <div style={{padding:'12px 16px',background:'var(--bg3)',borderBottom:'1px solid var(--border)',fontSize:'12px',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.6px'}}>
+            🤝 Khi {partnerFor.split(' ').slice(-2).join(' ')} đánh đôi cùng...
+          </div>
+          {partnerStats.map((p,i)=>{
+            const hasData=p.total>0;
+            const wrColor=!hasData?'var(--muted)':p.wr>=60?'var(--green)':p.wr>=40?'var(--yellow)':'var(--red)';
+            return (
+              <div key={p.name} style={{padding:'13px 16px',borderBottom:i<partnerStats.length-1?'1px solid var(--border)':'none',display:'flex',alignItems:'center',gap:'12px'}}>
+                {/* Avatar */}
+                <div style={{width:38,height:38,borderRadius:'50%',background:p.avatar?'transparent':p.color+'22',color:p.color,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:'13px',flexShrink:0,overflow:'hidden'}}>
+                  {p.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:p.name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase()}
+                </div>
+                {/* Name + bar */}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:'14px',marginBottom:'5px'}}>{p.name}</div>
+                  {hasData ? (
+                    <>
+                      <div style={{height:'5px',background:'var(--bg3)',borderRadius:'3px',overflow:'hidden',marginBottom:'3px'}}>
+                        <div style={{height:'100%',width:p.wr+'%',background:wrColor,borderRadius:'3px',transition:'width .4s ease'}}/>
+                      </div>
+                      <div style={{fontSize:'11px',color:'var(--muted)'}}>{p.wins} thắng / {p.total} trận</div>
+                    </>
+                  ) : (
+                    <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa đánh đôi cùng nhau</div>
+                  )}
+                </div>
+                {/* WR badge */}
+                <div style={{textAlign:'right',flexShrink:0}}>
+                  {hasData ? (
+                    <>
+                      <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'22px',fontWeight:800,color:wrColor,lineHeight:1}}>{p.wr}%</div>
+                      <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'2px'}}>thắng</div>
+                    </>
+                  ) : (
+                    <div style={{fontSize:'20px'}}>—</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {partnerFor && partnerStats.every(p=>p.total===0) && (
+        <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
+          <div style={{fontSize:'32px',marginBottom:'8px'}}>🏓</div>
+          <div>Chưa có trận đôi nào được ghi lại cho {partnerFor}</div>
+        </div>
+      )}
+    </>}
+
+    {/* ── SO KÈO TAB ── */}
+    {mainTab==='sokeo' && <>
+    {/* Mode */}
+    <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
+      {[['don','🧍 Đơn'],['doi','👥 Đôi']].map(([id,lb])=>(
+        <button key={id} onClick={()=>setMode(id)} style={{flex:1,padding:'10px',borderRadius:'10px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
+          borderColor:mode===id?'var(--purple)':'var(--border)',
+          background:mode===id?'var(--purple-bg)':'var(--surface)',
+          color:mode===id?'var(--purple)':'var(--muted)'}}>
+          {lb}
+        </button>
+      ))}
+    </div>
+
+    {/* Player selection */}
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
+      {mode==='don'?(
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'center'}}>
+          <div>
+            <div className="fl" style={{marginBottom:'6px',color:'var(--green)'}}>⚡ Người A</div>
+            {sel(pA,setPa,[pB])}
+            {pA&&<div style={{textAlign:'center',marginTop:'6px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'15px'}}>{players.find(p=>p.name===pA)?.elo||''} ELO</div>}
+          </div>
+          <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px'}}>VS</div>
+          <div>
+            <div className="fl" style={{marginBottom:'6px',color:'var(--red)'}}>🔥 Người B</div>
+            {sel(pB,setPb,[pA])}
+            {pB&&<div style={{textAlign:'center',marginTop:'6px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'15px'}}>{players.find(p=>p.name===pB)?.elo||''} ELO</div>}
+          </div>
+        </div>
+      ):(
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'start'}}>
+          <div>
+            <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--green)'}}>⚡ Cặp 1</div>
+            <div style={{marginBottom:'8px'}}><div className="fl" style={{marginBottom:'4px'}}>Người 1</div>{sel(d1a,setD1a,[d1b,d2a,d2b])}</div>
+            <div><div className="fl" style={{marginBottom:'4px'}}>Người 2</div>{sel(d1b,setD1b,[d1a,d2a,d2b])}</div>
+            {(d1a||d1b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'13px'}}>
+              TB: {analysis?.elo1||'—'} ELO
+            </div>}
+          </div>
+          <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px',paddingTop:'28px'}}>VS</div>
+          <div>
+            <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--red)'}}>🔥 Cặp 2</div>
+            <div style={{marginBottom:'8px'}}><div className="fl" style={{marginBottom:'4px'}}>Người 1</div>{sel(d2a,setD2a,[d1a,d1b,d2b])}</div>
+            <div><div className="fl" style={{marginBottom:'4px'}}>Người 2</div>{sel(d2b,setD2b,[d1a,d1b,d2a])}</div>
+            {(d2a||d2b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'13px'}}>
+              TB: {analysis?.elo2||'—'} ELO
+            </div>}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {players.length===0&&(
+      <div style={{textAlign:'center',padding:'40px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
+        <div style={{fontSize:'32px',marginBottom:'8px'}}>👥</div>
+        <div>Chưa có người chơi nào trong hệ thống.</div>
+        <div style={{fontSize:'12px',marginTop:'4px'}}>Vào tab BXH để thêm người chơi trước.</div>
+      </div>
+    )}
+
+    {/* Analysis card */}
+    {analysis && (
+      <>
+        {/* Match quality */}
+        <div style={{background:'linear-gradient(135deg,#1a1040,#2d1b69)',border:'1px solid var(--purple)',borderRadius:'14px',padding:'18px',marginBottom:'12px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{fontSize:'20px'}}>🤖</span>
+              <span style={{fontWeight:700,fontSize:'14px',color:'#c4b5fd'}}>NHẬN ĐỊNH TRẬN ĐẤU</span>
+            </div>
+            <span style={{background:'rgba(0,0,0,.3)',borderRadius:'20px',padding:'3px 10px',fontSize:'11px',fontWeight:700,color:qColor(analysis.quality)}}>
+              MATCH QUALITY: {analysis.quality}/100
+            </span>
+          </div>
+
+          {/* Handicap box */}
+          <div style={{background:'rgba(0,0,0,.35)',borderRadius:'10px',padding:'14px',marginBottom:'12px'}}>
+            {analysis.diff===0?(
+              <div style={{textAlign:'center',color:'var(--green)',fontWeight:700,fontSize:'15px'}}>⚖️ Hai bên cân bằng — Trận thẳng không cần chấp</div>
+            ):(
+              <>
+                <div style={{color:'#a78bfa',fontWeight:600,fontSize:'13px',marginBottom:'8px'}}>🛡️ Kèo Chấp Đề Xuất</div>
+                <div style={{fontSize:'16px',fontWeight:800,color:'#fff',fontFamily:'Quicksand,sans-serif'}}>
+                  {analysis.stronger} chấp {analysis.weaker} {analysis.handicap} quả
+                </div>
+                <div style={{fontSize:'12px',color:'#a78bfa',marginTop:'6px'}}>
+                  Chênh lệch ELO: {analysis.diff} điểm (~{analysis.handicap} quả mỗi game)
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Win probability bar */}
+          <div style={{marginBottom:'8px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:'#a78bfa',marginBottom:'6px'}}>
+              <span>{mode==='don'?analysis.pa?.name:analysis.t1?.map(p=>p.name).join(' & ')}</span>
+              <span>{mode==='don'?analysis.pb?.name:analysis.t2?.map(p=>p.name).join(' & ')}</span>
+            </div>
+            <div style={{background:'rgba(0,0,0,.3)',borderRadius:'20px',height:'10px',overflow:'hidden'}}>
+              <div style={{height:'100%',background:'linear-gradient(90deg,#22c55e,#3b82f6)',borderRadius:'20px',
+                width:`${mode==='don'?analysis.winPctA:analysis.winPct1}%`,transition:'width .5s ease'}}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',fontWeight:700,marginTop:'5px'}}>
+              <span style={{color:'var(--green)'}}>{mode==='don'?analysis.winPctA:analysis.winPct1}%</span>
+              <span style={{color:'var(--red)'}}>{mode==='don'?analysis.winPctB:analysis.winPct2}%</span>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div style={{borderTop:'1px solid rgba(167,139,250,.2)',paddingTop:'10px',fontSize:'12px',color:'#a78bfa',lineHeight:'1.6'}}>
+            {analysis.diff===0&&'💡 Trận này cực kỳ căng — ai thắng đều xứng đáng.'}
+            {analysis.diff>0&&analysis.diff<=80&&'💡 Chênh lệch nhỏ, trận đấu khó đoán. Không cần chấp nhiều.'}
+            {analysis.diff>80&&analysis.diff<=200&&'💡 Chênh lệch vừa. Người mạnh hơn nên chấp để trận thêm hấp dẫn.'}
+            {analysis.diff>200&&'⚠️ Chênh lệch lớn. Nên chấp hoặc ghép đội cân bằng hơn.'}
+          </div>
+        </div>
+
+        {/* Head-to-head — expandable */}
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',overflow:'hidden',marginBottom:'12px'}}>
+          {/* Header — click để toggle */}
+          <div style={{padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:analysis.h2h.length>0?'pointer':'default'}}
+            onClick={()=>analysis.h2h.length>0&&setH2hExpanded(e=>!e)}>
+            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.6px'}}>
+              ⏱ Lịch sử đối đầu ({analysis.h2h.length} trận)
+            </div>
+            {analysis.h2h.length>0&&<span style={{fontSize:'11px',color:'var(--purple)',fontWeight:600}}>{h2hExpanded?'▲ Thu gọn':'▼ Xem chi tiết'}</span>}
+          </div>
+
+          {/* Score summary */}
+          {analysis.h2h.length>0&&mode==='don'&&(
+            <div style={{display:'flex',gap:'8px',alignItems:'center',padding:'0 16px 13px'}}>
+              <div style={{flex:1,textAlign:'center',background:'var(--green-bg)',borderRadius:'10px',padding:'10px'}}>
+                <div style={{fontSize:'11px',color:'var(--green)',fontWeight:600,marginBottom:'2px'}}>{analysis.pa.name}</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'24px',fontWeight:800,color:'var(--green)'}}>{analysis.wA}</div>
+              </div>
+              <div style={{fontSize:'13px',color:'var(--muted)',fontWeight:700}}>VS</div>
+              <div style={{flex:1,textAlign:'center',background:'var(--red-bg)',borderRadius:'10px',padding:'10px'}}>
+                <div style={{fontSize:'11px',color:'var(--red)',fontWeight:600,marginBottom:'2px'}}>{analysis.pb.name}</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'24px',fontWeight:800,color:'var(--red)'}}>{analysis.wB}</div>
+              </div>
+            </div>
+          )}
+          {analysis.h2h.length>0&&mode==='doi'&&(
+            <div style={{display:'flex',gap:'8px',alignItems:'center',padding:'0 16px 13px'}}>
+              <div style={{flex:1,textAlign:'center',background:'var(--green-bg)',borderRadius:'10px',padding:'10px'}}>
+                <div style={{fontSize:'11px',color:'var(--green)',fontWeight:600,marginBottom:'2px'}}>{analysis.t1.map(p=>p.name).join(' & ')}</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'24px',fontWeight:800,color:'var(--green)'}}>
+                  {analysis.h2h.filter(m=>{const inT1=(m.team1Players||[]).includes(d1a);return (inT1&&m.result==='W')||(!inT1&&m.result==='L');}).length}
+                </div>
+              </div>
+              <div style={{fontSize:'13px',color:'var(--muted)',fontWeight:700}}>VS</div>
+              <div style={{flex:1,textAlign:'center',background:'var(--red-bg)',borderRadius:'10px',padding:'10px'}}>
+                <div style={{fontSize:'11px',color:'var(--red)',fontWeight:600,marginBottom:'2px'}}>{analysis.t2.map(p=>p.name).join(' & ')}</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'24px',fontWeight:800,color:'var(--red)'}}>
+                  {analysis.h2h.filter(m=>{const inT1=(m.team1Players||[]).includes(d1a);return (!inT1&&m.result==='W')||(inT1&&m.result==='L');}).length}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {analysis.h2h.length===0&&(
+            <div style={{textAlign:'center',padding:'14px',color:'var(--muted)',fontSize:'13px',borderTop:'1px solid var(--border)'}}>
+              Chưa có lịch sử đối đầu giữa hai bên
+            </div>
+          )}
+
+          {/* Chi tiết từng trận */}
+          {h2hExpanded&&analysis.h2h.length>0&&(
+            <div style={{borderTop:'1px solid var(--border)'}}>
+              {analysis.h2h.map((m,i)=>{
+                const refName=mode==='don'?pA:d1a;
+                const inT1=(m.team1Players||[]).includes(refName);
+                const myResult=inT1?m.result:(m.result==='W'?'L':'W');
+                const myTeam=inT1?(m.team1Players||[]):(m.team2Players||[]);
+                const oppTeam=inT1?(m.team2Players||[]):(m.team1Players||[]);
+                return (
+                  <div key={m.id||i} style={{padding:'11px 16px',borderBottom:i<analysis.h2h.length-1?'1px solid var(--border)':'none',display:'flex',alignItems:'center',gap:'10px'}}>
+                    {/* W/L badge */}
+                    <div style={{width:32,height:32,borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:800,flexShrink:0,
+                      background:myResult==='W'?'var(--green-bg)':'var(--red-bg)',
+                      color:myResult==='W'?'var(--green)':'var(--red)'}}>
+                      {myResult}
+                    </div>
+                    {/* Teams */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {myTeam.join(' & ')} <span style={{color:'var(--muted)',fontWeight:400}}>vs</span> {oppTeam.join(' & ')}
+                      </div>
+                      <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'2px',display:'flex',gap:'8px'}}>
+                        <span>📅 {m.date}</span>
+                        {m.type&&<span>· {m.type}</span>}
+                      </div>
+                    </div>
+                    {/* Score */}
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'17px',fontWeight:700}}>{m.score||'—'}</div>
+                      {m.eloChanges&&(()=>{
+                        const myChange=m.eloChanges.find(e=>e.name===refName);
+                        return myChange?<div style={{fontSize:'11px',fontWeight:600,color:myChange.delta>0?'var(--green)':'var(--red)'}}>{myChange.delta>0?'+':''}{myChange.delta} ELO</div>:null;
+                      })()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </>
+    )}
+    </>}
+  </>;
+}
+
+/* ─── EDIT SESSION MODAL ─────────────────────────────────── */
+function EditSessionModal({session,members,onClose,onSave}){
+  const [date,setDate]=useState(session.date||'');
+  const [total,setTotal]=useState(String(session.total||''));
+  const [note,setNote]=useState(session.note||'');
+  const [xeVeCount,setXeVeCount]=useState(String(session.xeVeCount||1));
+  // attendees: copy from session, default all false if missing
+  const initAtt=()=>{
+    const obj={};
+    members.forEach(m=>{ obj[m.name]=!!(session.attendees?.[m.name]); });
+    return obj;
+  };
+  const [attendees,setAttendees]=useState(initAtt);
+  const toggle=name=>setAttendees(p=>({...p,[name]:!p[name]}));
+
+  const attending=Object.entries(attendees).filter(([,v])=>v).map(([k])=>k);
+  const xeVeOn=attending.includes('Xé Vé');
+  const xeVeCnt=xeVeOn?Math.max(1,parseInt(xeVeCount)||1):0;
+  const others=attending.filter(n=>n!=='Xé Vé').length;
+  const shares=others+xeVeCnt;
+  const perPerson=shares>0&&total?Math.round(parseInt(total)/shares):0;
+
+  const save=()=>{
+    if(!date||!total) return;
+    onSave({
+      ...session,
+      date,
+      total:parseInt(total),
+      note,
+      attendees,
+      players:attending.length,
+      xeVeCount:xeVeOn?xeVeCnt:undefined,
+    });
+  };
+
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">✏️ Sửa buổi chơi</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="form-grid" style={{marginBottom:'12px'}}>
+          <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={date} onChange={setDate}/></div>
+          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><input className="fi" type="number" value={total} onChange={e=>setTotal(e.target.value)} placeholder="380000"/></div>
+        </div>
+
+        {/* Xé Vé count */}
+        {xeVeOn&&(
+          <div style={{background:'var(--bg3)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',border:'1px solid var(--border)'}}>
+            <div style={{fontSize:'12px',color:'var(--yellow)',fontWeight:600,marginBottom:'8px'}}>🎫 Xé vé tùy biến</div>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <label className="fl" style={{whiteSpace:'nowrap'}}>Số người xé vé:</label>
+              <input className="fi" type="number" min="1" value={xeVeCount} onChange={e=>setXeVeCount(e.target.value)} placeholder="2" style={{width:'70px',padding:'5px 8px',fontSize:'13px'}}/>
+            </div>
+          </div>
+        )}
+
+        {/* Attendees */}
+        <div style={{marginBottom:'10px'}}>
+          <div className="fl" style={{marginBottom:'8px'}}>Ai đi buổi này? ({attending.length} người)</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+            {members.map(m=>{
+              const on=!!attendees[m.name];
+              return(
+                <button key={m.name} onClick={()=>toggle(m.name)} style={{
+                  padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',transition:'.15s',
+                  borderColor:on?m.color:'var(--border)',
+                  background:on?m.color+'33':'transparent',
+                  color:on?m.color:'var(--muted)',fontWeight:on?600:400
+                }}>{m.name}</button>
+              );
+            })}
+          </div>
+          {total&&attending.length>0&&(
+            <div style={{marginTop:'8px',fontSize:'12px',color:'var(--green)',fontWeight:600}}>
+              Mỗi người: {fmt(perPerson)}{xeVeOn&&xeVeCnt>1?` · Nhóm Xé Vé (${xeVeCnt} người) tổng: ${fmt(perPerson*xeVeCnt)}`:''}
+            </div>
+          )}
+        </div>
+
+        <div className="fg" style={{marginBottom:'12px'}}>
+          <label className="fl">📝 Ghi chú</label>
+          <input className="fi" value={note} onChange={e=>setNote(e.target.value)} placeholder="VD: Sân Hoàng Anh 200k, cầu 150k..."/>
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={save}>💾 Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── FUND TAB ───────────────────────────────────────────── */
+function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches}){
+  const memberNames = FUND_MEMBERS.map(m=>m.name);
+  // Data được load/save bởi App cha — FundTab chỉ dùng trực tiếp
+  const [showAdd,setShowAdd]=useState(false);
+  const [showAddMember,setShowAddMember]=useState(false);
+  const [newMember,setNewMember]=useState({name:'',paid:''});
+  const [expandedSession,setExpandedSession]=useState(null);
+  const [depositTarget,setDepositTarget]=useState(null); // {name, idx}
+  const [depositAmt,setDepositAmt]=useState('');
+  const [depositDate,setDepositDate]=useState('');
+  const [f,setF]=useState({date:'',total:'',attendees:{},note:''});
+  const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+  const [renamingMember,setRenamingMember]=useState(null); // idx
+  const [renameVal,setRenameVal]=useState('');
+  const [confirmDeleteSession,setConfirmDeleteSession]=useState(null);
+  const [confirmDeleteMember,setConfirmDeleteMember]=useState(null);
+  const [showAllMembers,setShowAllMembers]=useState(false);
+  const [editingSession,setEditingSession]=useState(null);
+
+  // computed per member: how much they owe from sessions
+  const memberSpent = useMemo(()=>{
+    const spent = {};
+    members.forEach(m=>{ spent[m.name]=0; });
+    sessions.forEach(s=>{
+      if(s.attendees && Object.keys(s.attendees).length>0){
+        const attending = Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k);
+        const share = shareAmount(s);
+        attending.forEach(name=>{
+          if(spent[name]===undefined) return;
+          if(name==='Xé Vé'){
+            const cnt=Math.max(1, parseInt(s.xeVeCount)||1);
+            spent[name]+=share*cnt;
+          } else {
+            spent[name]+=share;
+          }
+        });
+      } else {
+        // legacy: split equally
+        const share = s.players>0 ? Math.round(s.total/s.players) : 0;
+        members.forEach(m=>{ spent[m.name]+=share; });
+      }
+    });
+    return spent;
+  },[sessions,members]);
+
+  const totalFund=members.reduce((a,m)=>a+m.paid,0);
+  const totalSpent=sessions.reduce((a,s)=>a+s.total,0);
+  const remaining=totalFund-totalSpent;
+
+  const toggleAttendee=(name)=>{
+    setF(p=>({...p,attendees:{...p.attendees,[name]:!p.attendees[name]}}));
+  };
+
+  const addSession=()=>{
+    if(!f.date||!f.total) return;
+    const att = f.attendees;
+    const attending = Object.entries(att).filter(([,v])=>v).map(([k])=>k);
+    setSessions(p=>[...p,{id:Date.now(),date:f.date,players:attending.length,total:parseInt(f.total),attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||''}]);
+    setF({date:'',total:'',attendees:{},note:''});
+    setShowAdd(false);
+  };
+
+  const deleteSession=(id)=>{
+    setSessions(p=>p.filter(s=>s.id!==id));
+    setConfirmDeleteSession(null);
+  };
+
+  const addMember=()=>{
+    if(!newMember.name||!newMember.paid) return;
+    setMembers(p=>{
+      const usedColors=p.map(m=>m.color);
+      const nextColor=COLORS.find(c=>!usedColors.includes(c))||COLORS[p.length%COLORS.length];
+      return [...p,{name:newMember.name,paid:parseInt(newMember.paid),color:nextColor,deposits:[{date:'Ban đầu',amount:parseInt(newMember.paid)}]}];
+    });
+    setNewMember({name:'',paid:''});
+    setShowAddMember(false);
+  };
+
+  const deleteMember=(idx)=>{
+    setMembers(p=>p.filter((_,i)=>i!==idx));
+    setConfirmDeleteMember(null);
+  };
+
+  const renameMember=(idx,newName)=>{
+    const oldName=members[idx].name;
+    if(!newName||newName===oldName){ setRenamingMember(null);setRenameVal(''); return; }
+    setMembers(p=>p.map((m,i)=>i===idx?{...m,name:newName}:m));
+    // đồng bộ tên trong players (BXH)
+    if(setPlayers) setPlayers(p=>p.map(pl=>pl.name===oldName?{...pl,name:newName}:pl));
+    // đồng bộ tên trong attendees của tất cả buổi chơi đã lưu (tránh mất dữ liệu chi tiêu)
+    setSessions(p=>p.map(s=>{
+      if(!s.attendees || !(oldName in s.attendees)) return s;
+      const {[oldName]:val, ...rest}=s.attendees;
+      return {...s, attendees:{...rest, [newName]:val}};
+    }));
+    // đồng bộ tên trong toàn bộ lịch sử đấu (myTeam/oppTeam là chuỗi "A & B", team1Players/team2Players là mảng tên, eloChanges là mảng {name,delta})
+    if(setMatches) setMatches(p=>p.map(mt=>{
+      const swapTeamStr=str=>!str?str:str.split(' & ').map(n=>n===oldName?newName:n).join(' & ');
+      const swapArr=arr=>(arr||[]).map(n=>n===oldName?newName:n);
+      const swapElo=arr=>(arr||[]).map(e=>e.name===oldName?{...e,name:newName}:e);
+      const usesOldName=mt.myTeam===oldName||mt.oppTeam===oldName||
+        (mt.myTeam||'').split(' & ').includes(oldName)||(mt.oppTeam||'').split(' & ').includes(oldName)||
+        (mt.team1Players||[]).includes(oldName)||(mt.team2Players||[]).includes(oldName)||
+        (mt.eloChanges||[]).some(e=>e.name===oldName);
+      if(!usesOldName) return mt;
+      return {...mt,
+        myTeam:swapTeamStr(mt.myTeam),
+        oppTeam:swapTeamStr(mt.oppTeam),
+        team1Players:swapArr(mt.team1Players),
+        team2Players:swapArr(mt.team2Players),
+        eloChanges:swapElo(mt.eloChanges)
+      };
+    }));
+    setRenamingMember(null);setRenameVal('');
+  };
+
+  const addDeposit=()=>{
+    if(!depositTarget||!depositAmt) return;
+    const amt=parseInt(depositAmt);
+    setMembers(p=>p.map((m,i)=>i===depositTarget.idx?{...m,paid:m.paid+amt,deposits:[...(m.deposits||[]),{date:depositDate||'—',amount:amt}]}:m));
+    setDepositTarget(null);setDepositAmt('');setDepositDate('');
+  };
+
+  // Month filter
+  const [monthFund,setMonthFund]=useState('Tất cả');
+  const fundMonths=useMemo(()=>{
+    const s=new Set();
+    sessions.forEach(s2=>{const p=s2.date.split(/[\/\-]/);if(p.length>=2)s.add(p[1]);});
+    return ['Tất cả',...[...s].sort((a,b)=>parseInt(a)-parseInt(b)).map(m=>`Tháng ${m}`)];
+  },[sessions]);
+
+  const filteredSessions=useMemo(()=>{
+    if(monthFund==='Tất cả') return sessions;
+    const mon=monthFund.replace('Tháng ','');
+    return sessions.filter(s2=>{const p=s2.date.split(/[\/\-]/);return p.length>=2&&p[1]===mon;});
+  },[sessions,monthFund]);
+
+  const monthTotal=filteredSessions.reduce((a,s2)=>a+s2.total,0);
+
+  // Export fund CSV
+  const exportFundCSV=()=>{
+    const rows=[['Ngày','Số người','Tổng','Mỗi người','Người tham dự']];
+    [...sessions].reverse().forEach(s2=>{
+      const att=s2.attendees?Object.entries(s2.attendees).filter(([,v])=>v).map(([k])=>k):[];
+      const per=att.length>0?shareAmount(s2):(s2.players>0?Math.round(s2.total/s2.players):0);
+      rows.push([s2.date,s2.players,s2.total,per,att.join(' | ')]);
+    });
+    const mRows=[['Tên','Đã đóng','Đã chi','Còn lại']];
+    members.forEach(m2=>{
+      const sp=memberSpent[m2.name]||0;
+      mRows.push([m2.name,m2.paid,sp,m2.paid-sp]);
+    });
+    const toCSV=rs=>rs.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+    const csv='=== LỊCH SỬ BUỔI CHƠI ===\n'+toCSV(rows)+'\n\n=== TÌNH TRẠNG THÀNH VIÊN ===\n'+toCSV(mRows);
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='picklepro_quy.csv';a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // âm quỹ members
+  const amQuy=members.filter(m2=>(m2.paid-(memberSpent[m2.name]||0))<0);
+
+  return <>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+      <div className="section-title">💰 Quỹ CLB</div>
+      <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
+    </div>
+
+    <div className="stats-grid" style={{marginBottom:'16px'}}>
+      <div className="stat-card sc-green"><div className="sc-label">Tổng đã đóng</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalFund)}</div></div>
+      <div className="stat-card sc-red"><div className="sc-label">Đã chi</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalSpent)}</div></div>
+      <div className="stat-card sc-purple" style={{gridColumn:'span 2'}}><div className="sc-label">Còn lại trong quỹ</div><div className="sc-val" style={{fontSize:'22px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
+    </div>
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+      <div className="section-title" style={{fontSize:'14px'}}>Tình trạng từng thành viên</div>
+      <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>
+    </div>
+
+    {showAddMember && (
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'14px',marginBottom:'12px'}}>
+        <div className="form-grid">
+          <div className="fg"><label className="fl">Tên</label><input className="fi" value={newMember.name} onChange={e=>setNewMember(p=>({...p,name:e.target.value}))} placeholder="Tên thành viên"/></div>
+          <div className="fg"><label className="fl">Đã đóng (VNĐ)</label><input className="fi" type="number" value={newMember.paid} onChange={e=>setNewMember(p=>({...p,paid:e.target.value}))} placeholder="500000"/></div>
+        </div>
+        <div className="form-actions"><button className="btn-cancel" onClick={()=>setShowAddMember(false)}>Hủy</button><button className="btn-save" onClick={addMember}>Thêm</button></div>
+      </div>
+    )}
+
+    <div className="fund-members">
+      {(showAllMembers?members:members.slice(0,2)).map((m,i)=>{
+        const spent=memberSpent[m.name]||0;
+        const rem=m.paid-spent;
+        const isDepTarget=depositTarget?.idx===i;
+        const isRenaming=renamingMember===i;
+        const matchedPlayer=(players||[]).find(p=>p.name===m.name);
+        return (
+          <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderTop:`3px solid ${m.color}`,borderRadius:'12px',padding:'14px'}}>
+            {isRenaming?(
+              <div style={{marginBottom:'10px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
+                  <div style={{width:'30px',height:'30px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700}}>
+                    {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
+                  </div>
+                  <input className="fi" style={{padding:'7px 10px',fontSize:'13px',flex:1,minWidth:0}} value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');}}} autoFocus/>
+                </div>
+                <div style={{display:'flex',gap:'6px'}}>
+                  <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
+                  <button onClick={()=>{setRenamingMember(null);setRenameVal('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
+                </div>
+              </div>
+            ):(
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',gap:'6px',minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px',flex:1,minWidth:0}}>
+                  <div style={{width:'30px',height:'30px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700}}>
+                    {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px',minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:'14px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
+                    <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} title="Sửa tên" style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',padding:'0 2px',opacity:.6,flexShrink:0}}>✏️</button>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:'4px',flexShrink:0}}>
+                  <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
+                    background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
+                    borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'3px 6px',fontSize:'10px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
+                  }}>+ Nạp</button>
+                  <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'3px 5px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.7,flexShrink:0}}>🗑</button>
+                </div>
+              </div>
+            )}
+
+            {isDepTarget&&(
+              <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
+                  <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
+                  <div className="fg"><label className="fl">Số tiền (đ)</label><input className="fi" style={{padding:'6px 8px',fontSize:'12px'}} type="number" value={depositAmt} onChange={e=>setDepositAmt(e.target.value)} placeholder="500000"/></div>
+                </div>
+                <div style={{display:'flex',gap:'6px'}}>
+                  <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
+                  <button onClick={()=>{setDepositTarget(null);setDepositAmt('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+                </div>
+              </div>
+            )}
+
+            <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
+            <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
+            <div className="fm-row"><span className="fm-lbl">Còn lại</span><span className={`fm-val ${rem>=0?'pos':'neg'}`}>{rem<0?'-':''}{fmt(Math.abs(rem))}</span></div>
+
+            {(m.deposits||[]).length>1&&(
+              <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
+                <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
+                {(m.deposits||[]).map((d,di)=>(
+                  <div key={di} style={{display:'flex',justifyContent:'space-between',fontSize:'11px',padding:'2px 0',color:'var(--muted)'}}>
+                    <span>{d.date}</span>
+                    <span style={{color:m.color,fontWeight:600}}>+{fmt(d.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+    {members.length>2&&(
+      <button onClick={()=>setShowAllMembers(v=>!v)} style={{
+        display:'block',width:'100%',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',
+        color:'var(--muted)',padding:'10px',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',marginBottom:'20px',marginTop:'-10px'
+      }}>{showAllMembers?`▲ Thu gọn`:`▼ Xem thêm ${members.length-2} thành viên`}</button>
+    )}
+
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',marginTop:'4px'}}>
+      <div className="section-title" style={{fontSize:'14px'}}>Lịch sử buổi chơi</div>
+      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+        {fundMonths.map(m2=>(
+          <button key={m2} onClick={()=>setMonthFund(m2)} style={{
+            padding:'4px 12px',borderRadius:'20px',border:'1px solid',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:500,
+            borderColor:monthFund===m2?'var(--blue)':'var(--border)',
+            background:monthFund===m2?'var(--blue-bg)':'transparent',
+            color:monthFund===m2?'var(--blue)':'var(--muted)'
+          }}>{m2}</button>
+        ))}
+      </div>
+    </div>
+    {monthFund!=='Tất cả'&&(
+      <div style={{background:'var(--blue-bg)',border:'1px solid var(--blue)',borderRadius:'10px',padding:'10px 14px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:'13px',color:'var(--blue)',fontWeight:600}}>{monthFund}: {filteredSessions.length} buổi</span>
+        <span style={{fontFamily:'Quicksand',fontSize:'16px',fontWeight:700,color:'var(--blue)'}}>Tổng: {fmt(monthTotal)}</span>
+      </div>
+    )}
+    <button className="add-session-btn" onClick={()=>setShowAdd(!showAdd)}>+ Thêm buổi chơi</button>
+
+    {showAdd && (
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
+        <div className="form-grid" style={{marginBottom:'12px'}}>
+          <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={f.date} onChange={v=>setF(p=>({...p,date:v}))}/></div>
+          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><input className="fi" type="number" value={f.total} onChange={sf('total')} placeholder="380000"/></div>
+        </div>
+
+        {/* Xé vé tùy biến */}
+        {!!f.attendees['Xé Vé']&&(
+          <div style={{background:'var(--bg3)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',border:'1px solid var(--border)'}}>
+            <div style={{fontSize:'12px',color:'var(--yellow)',fontWeight:600,marginBottom:'8px'}}>🎫 Xé vé tùy biến</div>
+            <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'6px'}}>
+              <label className="fl" style={{whiteSpace:'nowrap'}}>Số người xé vé:</label>
+              <input className="fi" type="number" min="1" value={f.xeVeCount||''} onChange={e=>setF(p=>({...p,xeVeCount:e.target.value}))} placeholder="2" style={{width:'70px',padding:'5px 8px',fontSize:'13px'}}/>
+            </div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>Tiền của nhóm Xé Vé sẽ được chia đều cho đúng số người này (vẫn tính là 1 phần chung trong tổng buổi, nhưng chia nhỏ ra cho từng người xé vé).</div>
+          </div>
+        )}
+
+        <div style={{marginBottom:'10px'}}>
+          <div className="fl" style={{marginBottom:'8px'}}>Ai đi buổi này? ({Object.entries(f.attendees).filter(([,v])=>v).length} người)</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+            {members.map(m=>{
+              const on=!!f.attendees[m.name];
+              return (
+                <button key={m.name} onClick={()=>toggleAttendee(m.name)} style={{
+                  padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',transition:'.15s',
+                  borderColor:on?m.color:'var(--border)',
+                  background:on?m.color+'33':'transparent',
+                  color:on?m.color:'var(--muted)',fontWeight:on?600:400
+                }}>{m.name}</button>
+              );
+            })}
+          </div>
+          {f.total && Object.values(f.attendees).filter(Boolean).length>0 && (()=>{
+            const attending=Object.entries(f.attendees).filter(([,v])=>v).map(([k])=>k);
+            const xeVeOn=attending.includes('Xé Vé');
+            const xeVeCnt=xeVeOn?Math.max(1,parseInt(f.xeVeCount)||1):0;
+            const others=attending.filter(n=>n!=='Xé Vé').length;
+            const shares=others+xeVeCnt;
+            const per=shares>0?Math.round(parseInt(f.total)/shares):0;
+            return (
+              <div style={{marginTop:'8px',fontSize:'12px',color:'var(--green)'}}>
+                Mỗi người: {fmt(per)}{xeVeOn&&xeVeCnt>1?` · Nhóm Xé Vé (${xeVeCnt} người) tổng: ${fmt(per*xeVeCnt)}`:''}
+              </div>
+            );
+          })()}
+        </div>
+        <div className="fg" style={{marginBottom:'12px'}}>
+          <label className="fl">📝 Ghi chú chi tiêu (sân, cầu, nước...)</label>
+          <input className="fi" value={f.note||''} onChange={sf('note')} placeholder="VD: Sân Hoàng Anh 200k, cầu 150k, nước 30k"/>
+        </div>
+        <div className="form-actions"><button className="btn-cancel" onClick={()=>setShowAdd(false)}>Hủy</button><button className="btn-save" onClick={addSession}>Thêm</button></div>
+      </div>
+    )}
+
+    <div className="fund-sessions">
+      <div className="fs-header" style={{gridTemplateColumns:'62px 1fr 70px 70px 32px'}}>
+        <div>Ngày</div><div>Số người</div><div>Mỗi người</div><div>Tổng</div><div></div>
+      </div>
+      {[...filteredSessions].reverse().map(s=>{
+        const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
+        const perPerson = attending.length>0 ? shareAmount(s) : (s.players>0 ? Math.round(s.total/s.players) : 0);
+        const xeVeCnt = attending.includes('Xé Vé') ? Math.max(1,parseInt(s.xeVeCount)||1) : 0;
+        const isExpanded = expandedSession===s.id;
+        return (
+          <div key={s.id}>
+            <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',borderBottom:'1px solid var(--border)',fontSize:'13px',alignItems:'center',cursor:'pointer',transition:'.1s'}}
+              onClick={()=>setExpandedSession(isExpanded?null:s.id)}>
+              <div style={{fontWeight:500}}>{s.date}</div>
+              <div style={{color:'var(--muted)',fontSize:'13px',display:'flex',alignItems:'center',gap:'4px'}}>
+                <span style={{fontWeight:600,color:'var(--text)'}}>{attending.length>0?attending.length:s.players}</span>
+                <span>người</span>
+                <span style={{fontSize:'10px',opacity:.6}}>{isExpanded?'▲':'▼'}</span>
+              </div>
+              <div style={{color:'var(--yellow)',fontWeight:600,fontFamily:'Quicksand,sans-serif',textAlign:'center'}}>
+                {perPerson?fmt(perPerson):'—'}
+              </div>
+              <div style={{fontWeight:600,fontFamily:'Quicksand,sans-serif'}}>{fmt(s.total)}</div>
+              {/* Nút sửa + xóa — e.stopPropagation() để không toggle expand */}
+              <div style={{display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+                <button title="Chỉnh sửa" onClick={()=>setEditingSession(s)} style={{background:'var(--blue-bg)',border:'none',borderRadius:'6px',color:'var(--blue)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>✏️</button>
+                <button title="Xóa" onClick={()=>setConfirmDeleteSession(s.id)} style={{background:'var(--red-bg)',border:'none',borderRadius:'6px',color:'var(--red)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>🗑</button>
+              </div>
+            </div>
+            {isExpanded && (
+              <div style={{background:'var(--bg3)',padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+                {attending.length>0&&(
+                  <>
+                    <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.5px'}}>Chi tiết người tham dự</div>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:s.note?'8px':'0'}}>
+                      {attending.map(name=>{
+                        const mem=members.find(m=>m.name===name);
+                        const isXeVe=name==='Xé Vé';
+                        const label=isXeVe&&xeVeCnt>1?`${name} (${xeVeCnt} người)`:name;
+                        const amt=isXeVe&&xeVeCnt>1?`${fmt(perPerson)}/người · ${fmt(perPerson*xeVeCnt)} tổng`:fmt(perPerson);
+                        return <span key={name} style={{fontSize:'12px',padding:'3px 10px',borderRadius:'20px',background:(mem?.color||'#888')+'22',color:mem?.color||'#888',fontWeight:500}}>{label} · {amt}</span>;
+                      })}
+                    </div>
+                  </>
+                )}
+                {s.note&&(
+                  <div style={{marginTop:'6px',padding:'7px 10px',background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'8px',fontSize:'12px',color:'var(--text)'}}>
+                    <span style={{fontSize:'10px',fontWeight:700,color:'var(--yellow)',textTransform:'uppercase',letterSpacing:'.5px',marginRight:'6px'}}>📝 Ghi chú:</span>{s.note}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {/* Footer tổng cộng */}
+      <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',background:'var(--bg3)',borderTop:'2px solid var(--border)',fontSize:'13px',fontWeight:700}}>
+        <div style={{color:'var(--muted)',fontSize:'11px'}}>TỔNG</div>
+        <div style={{color:'var(--muted)',fontSize:'11px'}}>{filteredSessions.length} buổi</div>
+        <div></div>
+        <div style={{color:'var(--yellow)',fontFamily:'Quicksand,sans-serif'}}>{fmt(monthTotal)}</div>
+        <div></div>
+      </div>
+    </div>
+
+    {/* Modal chỉnh sửa buổi chơi */}
+    {editingSession&&(
+      <EditSessionModal
+        session={editingSession}
+        members={members}
+        onClose={()=>setEditingSession(null)}
+        onSave={updated=>{
+          setSessions(p=>p.map(s=>s.id===updated.id?updated:s));
+          setEditingSession(null);
+        }}
+      />
+    )}
+
+    {confirmDeleteSession&&<ConfirmModal
+      msg={`Xóa buổi chơi ngày ${sessions.find(s=>s.id===confirmDeleteSession)?.date||''}? Dữ liệu chi tiêu buổi này sẽ bị xóa.`}
+      onConfirm={()=>deleteSession(confirmDeleteSession)}
+      onClose={()=>setConfirmDeleteSession(null)}
+    />}
+    {confirmDeleteMember!=null&&<ConfirmModal
+      msg={`Xóa thành viên "${members[confirmDeleteMember]?.name}"? Toàn bộ lịch sử nạp tiền của người này sẽ bị xóa.`}
+      onConfirm={()=>deleteMember(confirmDeleteMember)}
+      onClose={()=>setConfirmDeleteMember(null)}
+    />}
+  </>;
+}
+
+/* ─── LOCALSTORAGE HELPERS ───────────────────────────────── */
+/* ─── FIREBASE CONFIG ─────────────────────────────────────
+   1) Tạo Firebase project: https://console.firebase.google.com
+   2) Vào Realtime Database → Create database (chọn test mode)
+   3) Copy URL (dạng https://xxx-default-rtdb.firebaseio.com)
+   4) Dán vào FB_URL bên dưới rồi deploy lại
+──────────────────────────────────────────────────────── */
+const ADMIN_PIN = '142536';
+const FB_URL = 'https://test-7df23-default-rtdb.firebaseio.com';
+
+async function fbGet(path){
+  try{const r=await fetch(FB_URL+'/'+path+'.json');if(!r.ok)return null;const d=await r.json();
+  // Nếu data được wrap với _ts thì unwrap
+  if(d&&typeof d==='object'&&'_data' in d) return d._data;
+  return d;}catch{return null;}
+}
+
+// Timestamp lần cuối mình ghi lên Firebase cho từng path
+const _fbLastWrite={};
+// Flag đang trong quá trình fetch PUT
+const _fbSaving={};
+
+async function fbSet(path,val){
+  _fbSaving[path]=true;
+  const ts=Date.now();
+  _fbLastWrite[path]=ts;
+  try{
+    await fetch(FB_URL+'/'+path+'.json',{method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({_data:val,_ts:ts})
+    });
+  }catch{}finally{
+    setTimeout(()=>{ _fbSaving[path]=false; },2000);
+  }
+}
+
+// Poll an toàn: chỉ apply data nếu server _ts MỚI HƠN lần cuối mình write + 5s
+// → tránh poll kéo data cũ về ghi đè thay đổi local vừa làm
+async function fbPoll(path){
+  if(_fbSaving[path]) return null;
+  try{
+    const r=await fetch(FB_URL+'/'+path+'.json');
+    if(!r.ok) return null;
+    const d=await r.json();
+    if(!d||typeof d!=='object') return null;
+    const serverTs=d._ts||0;
+    const myLastWrite=_fbLastWrite[path]||0;
+    // Bỏ qua nếu server timestamp chưa vượt quá lần cuối mình ghi + 5s buffer
+    if(serverTs < myLastWrite + 5000) return null;
+    return ('_data' in d) ? d._data : d;
+  }catch{ return null; }
+}
+
+/* ─── FUN TAB (HUY HIỆU + BẢNG PHONG THẦN) ──────────────── */
+/* Mô tả điều kiện đạt huy hiệu */
+const BADGE_CONDITIONS = {
+  streak:   'Thắng <b>3 trận liên tiếp</b> (không thua xen giữa) trong toàn bộ lịch sử.',
+  consistent:'Tỷ lệ thắng <b>cao nhất CLB</b> với tối thiểu 3 trận đã đánh.',
+  comeback: 'Có trận thua rồi sau đó <b>thắng liền 2 trận</b> — gỡ kèo ngoạn mục nhất.',
+  nemesis:  'Bị một đối thủ cụ thể <b>thắng nhiều lần nhất</b> — kẻ thù không đội trời chung!',
+  upset:    'Thắng đối thủ mạnh hơn nhiều nhất — nhận ELO <b>≥14 điểm/trận</b> do kèo lệch.',
+  breakout: 'Tăng ELO <b>nhiều nhất so với mốc 1500</b> ban đầu.',
+};
+
+function BadgePopup({badge, onClose}){
+  const has = !!badge.holder;
+  return (
+    <div className="badge-popup-overlay" onClick={onClose}>
+      <div className="badge-popup" onClick={e=>e.stopPropagation()}>
+        <div style={{width:'40px',height:'4px',background:'var(--border2)',borderRadius:'2px',margin:'0 auto 20px'}}/>
+        <div className="badge-glow" style={{background:badge.color,position:'absolute',top:'-20px',left:'50%',transform:'translateX(-50%)',width:'120px',height:'120px',borderRadius:'50%',filter:'blur(40px)',opacity:.3,pointerEvents:'none'}}/>
+        <span className="badge-popup-emoji">{badge.emoji}</span>
+        <div className="badge-popup-title">{badge.title}</div>
+        <div className="badge-popup-desc">{badge.desc}</div>
+
+        <div className="badge-popup-holder">
+          {has ? (
+            <>
+              <div className="av" style={{width:'44px',height:'44px',fontSize:'16px',flexShrink:0,background:badge.holder.avatar?'transparent':badge.holder.color+'22',color:badge.holder.color,overflow:'hidden'}}>
+                {badge.holder.avatar ? <img src={badge.holder.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(badge.holder.name)}
+              </div>
+              <div>
+                <div style={{fontWeight:700,fontSize:'15px'}}>{badge.holder.name}</div>
+                {badge.extra && <div style={{fontSize:'13px',color:'var(--muted)',marginTop:'2px'}}>{badge.extra}</div>}
+                <div style={{fontSize:'11px',color:badge.color,fontWeight:600,marginTop:'4px'}}>🏅 Đang giữ huy hiệu này</div>
+              </div>
+            </>
+          ) : (
+            <div style={{width:'100%',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>😴 Chưa có ai đạt được huy hiệu này</div>
+          )}
+        </div>
+
+        <div className="badge-popup-cond">
+          <div style={{fontSize:'10px',textTransform:'uppercase',letterSpacing:'.7px',fontWeight:700,color:'var(--muted)',marginBottom:'6px'}}>📋 Điều kiện đạt được</div>
+          <div dangerouslySetInnerHTML={{__html: BADGE_CONDITIONS[badge.id] || badge.desc}}/>
+        </div>
+
+        <button onClick={onClose} style={{width:'100%',marginTop:'14px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'11px',fontSize:'14px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>Đóng</button>
+      </div>
+    </div>
+  );
+}
+
+function BadgeCard({badge, onTap}){
+  const has = !!badge.holder;
+  return (
+    <div className={`badge-card${has?' won':' empty'}`} onClick={()=>onTap&&onTap(badge)} style={{cursor:'pointer',userSelect:'none'}}>
+      <div className="badge-glow" style={{background:badge.color}}/>
+      <span className="badge-emoji">{badge.emoji}</span>
+      <div className="badge-title">{badge.title}</div>
+      <div className="badge-desc">{badge.desc}</div>
+      {has ? (
+        <div className="badge-holder">
+          <div className="av" style={{background:badge.holder.avatar?'transparent':badge.holder.color+'22',color:badge.holder.color,overflow:'hidden'}}>
+            {badge.holder.avatar ? <img src={badge.holder.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(badge.holder.name)}
+          </div>
+          <div>
+            <div>{badge.holder.name.split(' ').slice(-2).join(' ')}</div>
+            {badge.extra && <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:500}}>{badge.extra}</div>}
+          </div>
+        </div>
+      ) : (
+        <div className="badge-holder" style={{color:'var(--muted)',fontWeight:500}}>Chưa có ai đạt được</div>
+      )}
+      <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'6px',textAlign:'right',opacity:.6}}>Tap để xem chi tiết ›</div>
+    </div>
+  );
+}
+
+/* ─── MATCH HISTORY DRAWER ───────────────────────────────── */
+function MatchHistoryDrawer({matches, onClose}){
+  const [filter, setFilter] = React.useState('all'); // 'all' | 'W' | 'L'
+  const filtered = filter==='all' ? matches : matches.filter(m=>m.result===filter);
+  return (
+    <div className="history-drawer-overlay" onClick={onClose}>
+      <div className="history-drawer" onClick={e=>e.stopPropagation()}>
+        <div className="history-drawer-handle"/>
+        <div className="history-drawer-head">
+          <div style={{fontFamily:'Quicksand,sans-serif',fontSize:'17px',fontWeight:700}}>📋 Toàn bộ lịch sử</div>
+          <button onClick={onClose} style={{background:'var(--surface2)',border:'none',borderRadius:'8px',color:'var(--muted)',width:'32px',height:'32px',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        </div>
+
+        {/* Filter pills */}
+        <div style={{display:'flex',gap:'6px',padding:'0 18px 12px'}}>
+          {[['all','Tất cả',matches.length],['W','Thắng',matches.filter(m=>m.result==='W').length],['L','Thua',matches.filter(m=>m.result==='L').length]].map(([val,lb,cnt])=>(
+            <button key={val} onClick={()=>setFilter(val)} style={{
+              padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',
+              borderColor:filter===val?(val==='W'?'var(--green)':val==='L'?'var(--red)':'var(--purple)'):'var(--border)',
+              background:filter===val?(val==='W'?'var(--green-bg)':val==='L'?'var(--red-bg)':'var(--purple-bg)'):'transparent',
+              color:filter===val?(val==='W'?'var(--green)':val==='L'?'var(--red)':'var(--purple)'):'var(--muted)'
+            }}>{lb} <span style={{opacity:.7}}>({cnt})</span></button>
+          ))}
+        </div>
+
+        <div className="history-drawer-body">
+          {filtered.length===0 && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Không có trận nào</div>}
+          <div className="match-list">
+            {filtered.map(m=>(
+              <MatchItem key={m.id} m={m} showDel={false}/>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BadgeSection({players, matches}){
+  const [selectedBadge, setSelectedBadge] = React.useState(null);
+  const badges = useMemo(()=>computeBadges(players, matches), [players, matches]);
+  return (
+    <>
+      <div className="badge-grid">
+        {badges.map(b=><BadgeCard key={b.id} badge={b} onTap={setSelectedBadge}/>)}
+      </div>
+      {selectedBadge && <BadgePopup badge={selectedBadge} onClose={()=>setSelectedBadge(null)}/>}
+    </>
+  );
+}
+
+function FunTab({players, matches}){
+  const badges = useMemo(()=>computeBadges(players, matches), [players, matches]);
+
+  return <>
+    <div className="fun-section-title">🏅 Huy Hiệu CLB</div>
+    {players.length===0 ? (
+      <div style={{textAlign:'center',padding:'40px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
+        <div style={{fontSize:'32px',marginBottom:'8px'}}>🏅</div>
+        <div>Chưa có người chơi nào để xét huy hiệu.</div>
+        <div style={{fontSize:'12px',marginTop:'4px'}}>Vào tab BXH để thêm người chơi và ghi trận trước.</div>
+      </div>
+    ) : (
+      <div className="badge-grid">
+        {badges.map(b=><BadgeCard key={b.id} badge={b}/>)}
+      </div>
+    )}
+  </>;
+}
+
+/* ─── APP ────────────────────────────────────────────────── */
+function App(){
+  const [tab,setTab]=useState('dashboard');
+  const [players,setPlayers]=useState(INIT_PLAYERS);
+  const [matches,setMatches]=useState(INIT_MATCHES);
+  const [sessions,setSessions]=useState(INIT_SESSIONS);
+  const [members,setMembers]=useState([
+    {name:'Huy Xinh',        paid:1500000,color:COLORS[0],deposits:[{date:'Ban đầu',amount:500000},{date:'11/04',amount:500000},{date:'05/05',amount:500000}]},
+    {name:'Nhi Xinh',        paid:1332000,color:COLORS[1],deposits:[{date:'Ban đầu',amount:332000},{date:'11/04',amount:500000},{date:'05/05',amount:500000}]},
+    {name:'Chị Thương Xinh', paid:1500000,color:COLORS[2],deposits:[{date:'Ban đầu',amount:500000},{date:'21/04',amount:500000},{date:'05/05',amount:500000}]},
+    {name:'Em Thương Xinh',  paid:1000000,color:COLORS[3],deposits:[{date:'Ban đầu',amount:500000},{date:'23/03',amount:500000}]},
+    {name:'Tuấn Xinh',       paid:1500000,color:COLORS[4],deposits:[{date:'Ban đầu',amount:500000},{date:'23/03',amount:500000},{date:'05/05',amount:500000}]},
+    {name:'Xé Vé',           paid:435000, color:COLORS[5],deposits:[{date:'Ban đầu',amount:75000},{date:'Ban đầu',amount:70000},{date:'Ban đầu',amount:140000},{date:'06/03',amount:150000}]},
+  ]);
+  const [dbReady,setDbReady]=useState(false);
+  const [syncing,setSyncing]=useState(false);
+  const [bannerImg,setBannerImg]=useState(null);
+  const [bannerTitle,setBannerTitle]=useState('Pích Cờ Bôn Phông Bạt');
+  const [bannerSub,setBannerSub]=useState('Stats & Quỹ CLB · Phông Bạt 🏓');
+
+  // Load tất cả data từ Firebase khi khởi động
+  useEffect(()=>{
+    (async()=>{
+      setSyncing(true);
+      const [p,m,s,mb,bn]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner')]);
+      if(Array.isArray(p)&&p.length) setPlayers(p);
+      if(Array.isArray(m)&&m.length) setMatches(m);
+      if(Array.isArray(s)&&s.length) setSessions(s);
+      if(Array.isArray(mb)&&mb.length) setMembers(mb);
+      if(bn&&typeof bn==='object'){
+        if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
+        if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
+        if(bn.bannerSub) setBannerSub(bn.bannerSub);
+      }
+      setDbReady(true);
+      setSyncing(false);
+    })();
+    // Poll mỗi 30s — dùng fbPoll để bỏ qua khi đang ghi (tăng lên 30s tránh ghi đè khi đang chỉnh)
+    const id=setInterval(async()=>{
+      const [p,m,s,mb,bn]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner')]);
+      if(Array.isArray(p)&&p.length) setPlayers(p);
+      if(Array.isArray(m)&&m.length) setMatches(m);
+      if(Array.isArray(s)&&s.length) setSessions(s);
+      if(Array.isArray(mb)&&mb.length) setMembers(mb);
+      if(bn&&typeof bn==='object'&&!_fbSaving['banner']){
+        if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
+        if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
+        if(bn.bannerSub) setBannerSub(bn.bannerSub);
+      }
+    },30000);
+    return ()=>clearInterval(id);
+  },[]);
+
+  // Sync lên Firebase khi data thay đổi
+  // Dùng useRef để skip N lần render đầu (trước khi Firebase load xong)
+  const _skipPlayers=React.useRef(1);
+  const _skipMatches=React.useRef(1);
+  const _skipSessions=React.useRef(1);
+  const _skipMembers=React.useRef(1);
+  const _skipBanner=React.useRef(1);
+  useEffect(()=>{
+    if(_skipPlayers.current>0){_skipPlayers.current--;return;}
+    if(dbReady)fbSet('players',players);
+  },[players]);
+  useEffect(()=>{
+    if(_skipMatches.current>0){_skipMatches.current--;return;}
+    if(dbReady)fbSet('matches',matches);
+  },[matches]);
+  useEffect(()=>{
+    if(_skipSessions.current>0){_skipSessions.current--;return;}
+    if(dbReady)fbSet('sessions',sessions);
+  },[sessions]);
+  useEffect(()=>{
+    if(_skipMembers.current>0){_skipMembers.current--;return;}
+    if(dbReady)fbSet('members',members);
+  },[members]);
+  useEffect(()=>{
+    if(_skipBanner.current>0){_skipBanner.current--;return;}
+    if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub});
+  },[bannerImg,bannerTitle,bannerSub]);
+  const [showAdd,setShowAdd]=useState(false);
+  const [confirmId,setConfirmId]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [isAdmin,setIsAdmin]=useState(()=>{ try{ return localStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
+  const [showPin,setShowPin]=useState(false);
+  const pendingAction=React.useRef(null);
+
+  const requireAdmin=fn=>(...args)=>{
+    if(isAdmin){ fn(...args); return; }
+    pendingAction.current=()=>fn(...args);
+    setShowPin(true);
+  };
+  const handlePinConfirm=()=>{
+    setIsAdmin(true);
+    try{ localStorage.setItem('pcb_admin','1'); }catch(e){}
+    setShowPin(false);
+    if(pendingAction.current){ const fn=pendingAction.current; pendingAction.current=null; fn(); }
+  };
+  const toggleLock=()=>{
+    if(isAdmin){
+      setIsAdmin(false);
+      try{ localStorage.removeItem('pcb_admin'); }catch(e){}
+      showToast('Đã khoá quyền chỉnh sửa');
+    } else {
+      setShowPin(true);
+    }
+  };
+  const [matchSeg,setMatchSeg]=useState('Đôi');
+
+  const showToast=msg=>setToast(msg);
+  const openAdd=requireAdmin(()=>setShowAdd(true));
+
+  // Derive "myElo" as the first player's ELO, or 1500
+  const myElo=players.length?players[0].elo:1500;
+
+  const addPlayer=(name,elo=1500)=>{
+    const id=Date.now();
+    const color=COLORS[players.length%COLORS.length];
+    const eloVal=parseInt(elo)||1500;
+    setPlayers(p=>[...p,{id,name,elo:eloVal,wins:0,losses:0,color,avatar:null}]);
+    showToast(`Đã thêm ${name} (ELO ${eloVal})`);
+  };
+
+  const deletePlayer=(id)=>{
+    setPlayers(p=>p.filter(x=>x.id!==id));
+    showToast('Đã xóa người chơi');
+  };
+
+  const updatePlayerAvatar=(id, dataUrl)=>{
+    setPlayers(p=>p.map(x=>x.id===id?{...x, avatar:dataUrl}:x));
+    showToast('Đã cập nhật ảnh đại diện');
+  };
+
+  const addMatch=m=>{
+    // Apply ELO changes to all involved players
+    setPlayers(prev=>{
+      const updated=[...prev];
+      (m.eloChanges||[]).forEach(({name,delta})=>{
+        const idx=updated.findIndex(p=>p.name===name);
+        if(idx>=0){
+          const win=delta>0;
+          updated[idx]={...updated[idx],
+            elo:updated[idx].elo+delta,
+            wins:updated[idx].wins+(win?1:0),
+            losses:updated[idx].losses+(win?0:1)
+          };
+        }
+      });
+      return updated;
+    });
+    setMatches(p=>[m,...p]);
+    showToast('Đã lưu trận & cập nhật ELO!');
+  };
+
+  const editMatch=m=>{
+    // Reverse old ELO, apply new ELO
+    const old=matches.find(x=>x.id===m.id);
+    setPlayers(prev=>{
+      let updated=[...prev];
+      // hoàn ELO cũ
+      (old?.eloChanges||[]).forEach(({name,delta})=>{
+        const idx=updated.findIndex(p=>p.name===name);
+        if(idx>=0){const wasWin=delta>0;updated[idx]={...updated[idx],elo:updated[idx].elo-delta,wins:updated[idx].wins-(wasWin?1:0),losses:updated[idx].losses-(wasWin?0:1)};}
+      });
+      // áp ELO mới
+      (m.eloChanges||[]).forEach(({name,delta})=>{
+        const idx=updated.findIndex(p=>p.name===name);
+        if(idx>=0){const win=delta>0;updated[idx]={...updated[idx],elo:updated[idx].elo+delta,wins:updated[idx].wins+(win?1:0),losses:updated[idx].losses+(win?0:1)};}
+      });
+      return updated;
+    });
+    setMatches(p=>p.map(x=>x.id===m.id?m:x));
+    showToast('Đã cập nhật trận & ELO!');
+  };
+
+  const deleteMatch=id=>{
+    const m=matches.find(x=>x.id===id);
+    if(!m) return;
+    // Reverse ELO changes
+    setPlayers(prev=>{
+      const updated=[...prev];
+      (m.eloChanges||[]).forEach(({name,delta})=>{
+        const idx=updated.findIndex(p=>p.name===name);
+        if(idx>=0){
+          const wasWin=delta>0;
+          updated[idx]={...updated[idx],
+            elo:updated[idx].elo-delta,
+            wins:updated[idx].wins-(wasWin?1:0),
+            losses:updated[idx].losses-(wasWin?0:1)
+          };
+        }
+      });
+      return updated;
+    });
+    setMatches(p=>p.filter(x=>x.id!==id));
+    setConfirmId(null);
+    showToast('Đã xóa trận & hoàn ELO!');
+  };
+
+  const guardedDeleteMatch=requireAdmin(id=>setConfirmId(id));
+  const guardedEditMatch=requireAdmin(editMatch);
+  const guardedAddPlayer=requireAdmin(addPlayer);
+  const guardedDeletePlayer=requireAdmin(deletePlayer);
+  const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
+  const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s})=>{
+    setBannerImg(img);
+    setBannerTitle(t);
+    setBannerSub(s);
+  });
+
+  const TABS=[
+    {id:'dashboard',label:'Tổng Quan',icon:'📊'},
+    {id:'matches',  label:'Lịch Sử',icon:'🏓'},
+    {id:'bxh',      label:'BXH',icon:'🏆'},
+    {id:'sokeo',    label:'So Kèo',icon:'⚔️'},
+  ];
+
+  return <>
+    <div className="topbar">
+      <div className="logo">
+        <div className="logo-icon">⚡</div>
+        <div>
+          <div className="logo-text">PÍCH CỜ BÔN</div>
+          <span className="logo-sub">Phông Bạt</span>
+        </div>
+      </div>
+      <div className="nav-tabs">
+        {TABS.map(t=>(
+          <button key={t.id} className={`nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+      <div className="nav-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
+        {syncing&&<span style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 10px',border:'1px solid var(--border)'}}>⏳ Đang đồng bộ...</span>}
+        {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️ Chưa có DB</span>}
+        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>💰 Quỹ CLB</button>
+        <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
+        <button className="btn-ghi" onClick={openAdd}>+ Ghi Trận</button>
+      </div>
+    </div>
+
+    {/* Mobile header */}
+    <div className="mobile-header">
+      <div className="logo">
+        <div className="logo-icon">⚡</div>
+        <div>
+          <div className="logo-text">PÍCH CỜ BÔN</div>
+          <span className="logo-sub">Phông Bạt</span>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+        <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'6px 10px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
+        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>💰 Quỹ CLB</button>
+      </div>
+    </div>
+
+    <Banner
+      bannerImg={bannerImg}
+      bannerTitle={bannerTitle}
+      bannerSub={bannerSub}
+      editable={isAdmin}
+      onUpdate={guardedBannerUpdate}
+    />
+
+    {tab!=='bxh' && tab!=='fund' && (
+      <div className="seg-wrap">
+        <div className="seg">
+          <button className={`seg-btn${matchSeg==='Đôi'?' active':''}`} onClick={()=>setMatchSeg('Đôi')}>👥 Chỉ Số Đánh Đôi</button>
+          <button className={`seg-btn${matchSeg==='Đơn'?' active':''}`} onClick={()=>setMatchSeg('Đơn')}>🧍 Chỉ Số Đánh Đơn</button>
+        </div>
+      </div>
+    )}
+
+    <div className="main">
+      {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players}/>}
+      {tab==='matches'   && <MatchesTab matches={matches} players={players} myElo={myElo} onAdd={openAdd} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
+      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onUpdateAvatar={guardedUpdateAvatar}/>}
+      {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
+      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches}/>}
+    </div>
+
+    {showAdd && <AddMatchModal players={players} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
+    {confirmId && <ConfirmModal
+      msg="Bạn có chắc muốn xóa trận này không? ELO sẽ được hoàn lại."
+      onConfirm={()=>deleteMatch(confirmId)}
+      onClose={()=>setConfirmId(null)}
+    />}
+    {toast && <Toast msg={toast} onClose={()=>setToast(null)}/>}
+    {showPin && <PinModal onConfirm={handlePinConfirm} onClose={()=>{setShowPin(false); pendingAction.current=null;}}/>}
+
+    {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs */}
+    <nav className="mobile-nav">
+      {TABS.slice(0,2).map(t=>(
+        <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+          <span className="mni">{t.icon}</span>
+          <span>{t.label}</span>
+        </button>
+      ))}
+      <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu">
+        <span>+</span>
+      </button>
+      {TABS.slice(2).map(t=>(
+        <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+          <span className="mni">{t.icon}</span>
+          <span>{t.label}</span>
+        </button>
+      ))}
+    </nav>
+  </>;
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+
+<script>
+// Đăng ký Service Worker để app chạy như PWA (cài lên màn hình chính, mở nhanh, đỡ trắng màn hình khi mạng chập chờn)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
