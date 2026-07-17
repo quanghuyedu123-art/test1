@@ -2477,8 +2477,10 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const [renameVal,setRenameVal]=useState('');
   const [confirmDeleteSession,setConfirmDeleteSession]=useState(null);
   const [confirmDeleteMember,setConfirmDeleteMember]=useState(null);
-  const [showAllMembers,setShowAllMembers]=useState(false);
   const [editingSession,setEditingSession]=useState(null);
+  const [expandedMember,setExpandedMember]=useState(null); // idx đang mở chi tiết
+  const [memberSearch,setMemberSearch]=useState('');
+  const [onlyDebt,setOnlyDebt]=useState(false);
 
   // computed per member: how much they owe from sessions
   const memberSpent = useMemo(()=>{
@@ -2637,7 +2639,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       <div className="stat-card sc-purple" style={{gridColumn:'span 2'}}><div className="sc-label">Còn lại trong quỹ</div><div className="sc-val" style={{fontSize:'22px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
     </div>
 
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Tình trạng từng thành viên</div>
       <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>
     </div>
@@ -2652,87 +2654,109 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       </div>
     )}
 
-    <div className="fund-members">
-      {(showAllMembers?members:members.slice(0,2)).map((m,i)=>{
-        const spent=memberSpent[m.name]||0;
-        const rem=m.paid-spent;
+    {/* Tìm nhanh + lọc người còn nợ quỹ — hữu ích khi CLB đông thành viên */}
+    <div style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
+      <input className="fi" style={{flex:1,padding:'8px 12px',fontSize:'13px'}} value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="🔍 Tìm theo tên..."/>
+      <button onClick={()=>setOnlyDebt(v=>!v)} style={{
+        flexShrink:0,padding:'0 12px',borderRadius:'9px',border:'1px solid',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap',
+        borderColor:onlyDebt?'var(--red)':'var(--border)',
+        background:onlyDebt?'var(--red-bg)':'var(--surface)',
+        color:onlyDebt?'var(--red)':'var(--muted)'
+      }}>{onlyDebt?'🔴 Đang lọc: còn nợ':'Chỉ hiện người còn nợ'}</button>
+    </div>
+
+    <div className="fund-members" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+      {members.map((m,i)=>({m,i})).filter(({m})=>{
+        if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
+        if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
+        return true;
+      }).map(({m,i})=>{
+        const spent = memberSpent[m.name]||0;
+        const rem = m.paid-spent;
         const isDepTarget=depositTarget?.idx===i;
         const isRenaming=renamingMember===i;
+        const isExpanded=expandedMember===i;
         const matchedPlayer=(players||[]).find(p=>p.name===m.name);
         return (
-          <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderTop:`3px solid ${m.color}`,borderRadius:'12px',padding:'14px'}}>
-            {isRenaming?(
-              <div style={{marginBottom:'10px'}}>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
-                  <div style={{width:'30px',height:'30px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700}}>
-                    {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
-                  </div>
-                  <input className="fi" style={{padding:'7px 10px',fontSize:'13px',flex:1,minWidth:0}} value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');}}} autoFocus/>
-                </div>
-                <div style={{display:'flex',gap:'6px'}}>
-                  <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
-                  <button onClick={()=>{setRenamingMember(null);setRenameVal('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
-                </div>
+          <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:'10px',overflow:'hidden'}}>
+            {/* Dòng gọn — bấm để mở/thu chi tiết */}
+            <div onClick={()=>setExpandedMember(isExpanded?null:i)} style={{display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer'}}>
+              <div style={{width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
+                {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
               </div>
-            ):(
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',gap:'6px',minWidth:0}}>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',flex:1,minWidth:0}}>
-                  <div style={{width:'30px',height:'30px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700}}>
-                    {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px',minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:'14px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
-                    <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} title="Sửa tên" style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',padding:'0 2px',opacity:.6,flexShrink:0}}>✏️</button>
-                  </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:'13px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px'}}>
+                  {m.name}{rem<0&&<span style={{fontSize:'9px'}}>🔴</span>}
                 </div>
-                <div style={{display:'flex',gap:'4px',flexShrink:0}}>
-                  <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
-                    background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
-                    borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'3px 6px',fontSize:'10px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
-                  }}>+ Nạp</button>
-                  <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'3px 5px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.7,flexShrink:0}}>🗑</button>
-                </div>
+                <div style={{fontSize:'10.5px',color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Đóng {fmt(m.paid)} · Chi {fmt(spent)}</div>
               </div>
-            )}
-
-            {isDepTarget&&(
-              <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
-                  <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
-                  <div className="fg"><label className="fl">Số tiền (đ)</label><input className="fi" style={{padding:'6px 8px',fontSize:'12px'}} type="number" value={depositAmt} onChange={e=>setDepositAmt(e.target.value)} placeholder="500000"/></div>
-                </div>
-                <div style={{display:'flex',gap:'6px'}}>
-                  <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
-                  <button onClick={()=>{setDepositTarget(null);setDepositAmt('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
-                </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div className={rem>=0?'pos':'neg'} style={{fontWeight:800,fontSize:'13.5px'}}>{rem<0?'-':''}{fmt(Math.abs(rem))}</div>
               </div>
-            )}
+              <div style={{color:'var(--muted2)',fontSize:'10px',flexShrink:0,transform:isExpanded?'rotate(180deg)':'none',transition:'transform .15s'}}>▾</div>
+            </div>
 
-            <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
-            <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
-            <div className="fm-row"><span className="fm-lbl">Còn lại</span><span className={`fm-val ${rem>=0?'pos':'neg'}`}>{rem<0?'-':''}{fmt(Math.abs(rem))}</span></div>
-
-            {(m.deposits||[]).length>1&&(
-              <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
-                <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
-                {(m.deposits||[]).map((d,di)=>(
-                  <div key={di} style={{display:'flex',justifyContent:'space-between',fontSize:'11px',padding:'2px 0',color:'var(--muted)'}}>
-                    <span>{d.date}</span>
-                    <span style={{color:m.color,fontWeight:600}}>+{fmt(d.amount)}</span>
+            {isExpanded && (
+              <div style={{padding:'0 12px 12px'}}>
+                {isRenaming?(
+                  <div style={{marginBottom:'10px'}}>
+                    <input className="fi" style={{padding:'7px 10px',fontSize:'13px',width:'100%',marginBottom:'8px'}} value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');}}} autoFocus/>
+                    <div style={{display:'flex',gap:'6px'}}>
+                      <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
+                      <button onClick={()=>{setRenamingMember(null);setRenameVal('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
+                    </div>
                   </div>
-                ))}
+                ):(
+                  <div style={{display:'flex',gap:'6px',marginBottom:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
+                    <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
+                      background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
+                      borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
+                    }}>+ Nạp tiền</button>
+                    <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>
+                    <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>
+                  </div>
+                )}
+
+                {isDepTarget&&(
+                  <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
+                      <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
+                      <div className="fg"><label className="fl">Số tiền (đ)</label><input className="fi" style={{padding:'6px 8px',fontSize:'12px'}} type="number" value={depositAmt} onChange={e=>setDepositAmt(e.target.value)} placeholder="500000"/></div>
+                    </div>
+                    <div style={{display:'flex',gap:'6px'}}>
+                      <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
+                      <button onClick={()=>{setDepositTarget(null);setDepositAmt('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
+                <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
+
+                {(m.deposits||[]).length>1&&(
+                  <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
+                    {(m.deposits||[]).map((d,di)=>(
+                      <div key={di} style={{display:'flex',justifyContent:'space-between',fontSize:'11px',padding:'2px 0',color:'var(--muted)'}}>
+                        <span>{d.date}</span>
+                        <span style={{color:m.color,fontWeight:600}}>+{fmt(d.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         );
       })}
+      {members.length>0 && members.filter(m=>{
+        if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
+        if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
+        return true;
+      }).length===0 && (
+        <div style={{textAlign:'center',padding:'20px',color:'var(--muted)',fontSize:'13px'}}>Không tìm thấy thành viên nào phù hợp</div>
+      )}
     </div>
-    {members.length>2&&(
-      <button onClick={()=>setShowAllMembers(v=>!v)} style={{
-        display:'block',width:'100%',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',
-        color:'var(--muted)',padding:'10px',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',marginBottom:'20px',marginTop:'-10px'
-      }}>{showAllMembers?`▲ Thu gọn`:`▼ Xem thêm ${members.length-2} thành viên`}</button>
-    )}
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',marginTop:'4px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Lịch sử buổi chơi</div>
