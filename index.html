@@ -95,8 +95,8 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 
 /* BXH */
 .bxh-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:20px;overflow-x:auto;max-width:100%}
-.bxh-header-row{display:grid;grid-template-columns:40px 1fr 60px 64px 28px;gap:6px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;min-width:320px}
-.bxh-row{display:grid;grid-template-columns:40px 1fr 60px 64px 28px;gap:6px;padding:13px 14px;border-bottom:1px solid var(--border);align-items:center;transition:.1s;min-width:320px}
+.bxh-header-row{display:grid;grid-template-columns:40px 1fr 60px 64px 46px;gap:6px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;min-width:320px}
+.bxh-row{display:grid;grid-template-columns:40px 1fr 60px 64px 46px;gap:6px;padding:13px 14px;border-bottom:1px solid var(--border);align-items:center;transition:.1s;min-width:320px}
 .bxh-row:hover{background:var(--surface2)}
 .bxh-row:last-child{border-bottom:none}
 .rank-num{font-family:'Quicksand',sans-serif;font-size:16px;font-weight:700;color:var(--muted)}
@@ -270,7 +270,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 
 @media(max-width:768px){
   /* BXH mobile: #, tên+huy hiệu, ELO, W/L - bỏ cột xóa */
-  .bxh-header-row,.bxh-row{grid-template-columns:26px 1fr 44px 50px 0px;min-width:0;padding:10px 10px;gap:5px}
+  .bxh-header-row,.bxh-row{grid-template-columns:26px 1fr 44px 50px 40px;min-width:0;padding:10px 10px;gap:5px}
   .bxh-header-row>*:last-child,.bxh-row>*:last-child{display:none}
   .bxh-card{overflow-x:visible}
   .fs-header,.fs-row{grid-template-columns:60px 1fr 70px 70px 28px}
@@ -330,6 +330,14 @@ function quickEloTable(myElo = 1500) {
 /* ─── COLORS / DATA ──────────────────────────────────────── */
 const COLORS = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
 function initials(n){ return n.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(); }
+// Kiểm tra tên đã tồn tại chưa (không phân biệt hoa/thường), dùng chung cho cả BXH và Quỹ vì 2 danh sách này đồng bộ tên với nhau
+function isNameTaken(name, players, members, excludeName){
+  const n=(name||'').trim().toLowerCase();
+  if(!n) return true;
+  const inPlayers=(players||[]).some(p=>p.name.toLowerCase()===n && p.name!==excludeName);
+  const inMembers=(members||[]).some(m=>m.name.toLowerCase()===n && m.name!==excludeName);
+  return inPlayers || inMembers;
+}
 
 /* ─── RESIZE ẢNH TRƯỚC KHI LƯU (tránh phình dữ liệu) ───────── */
 function resizeImageFile(file, maxSize=200){
@@ -912,8 +920,7 @@ function EloCard({myElo}){
 }
 
 /* ─── DASHBOARD ─────────────────────────────────────────── */
-function Dashboard({matches,myElo,onAdd,sessions,members,players}){
-  const [showAll, setShowAll] = React.useState(false);
+function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer}){
   const wins=matches.filter(m=>m.result==='W').length;
   const losses=matches.length-wins;
 
@@ -998,23 +1005,150 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players}){
       </div>
     )}
 
-    <div className="match-header">
-      <div className="section-title">Trận gần đây</div>
-      <button className="btn-ghi" onClick={onAdd}>+ Ghi trận</button>
-    </div>
-    {/* Danh sách trận — hiện 5 hoặc tất cả */}
-    <div className="match-list">
-      {(showAll ? matches : matches.slice(0,5)).map(m=>(
-        <MatchItem key={m.id} m={m} showDel={false}/>
-      ))}
-      {matches.length===0 && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Chưa có trận nào. Ghi trận đầu tiên nào!</div>}
-    </div>
-    {matches.length>5 && (
-      <button onClick={()=>setShowAll(v=>!v)} style={{width:'100%',marginTop:'10px',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'11px',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-        {showAll ? '▲ Thu gọn' : `📋 Xem thêm ${matches.length - 5} trận còn lại`}
-      </button>
-    )}
+    <FeaturedBadges players={players} matches={matches} onGoBadges={onGoBadges} onOpenPlayer={onOpenPlayer}/>
+
+    <MonthlyEloChart players={players} matches={matches}/>
   </>;
+}
+
+/* ─── HUY HIỆU NỔI BẬT (Dashboard) ───────────────────────── */
+function FeaturedBadges({players, matches, onGoBadges, onOpenPlayer}){
+  const [selectedBadge,setSelectedBadge]=React.useState(null);
+  const badges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
+  const featured=['king','fire','cold'];
+  const shown=featured.map(id=>badges.find(b=>b.id===id)).filter(b=>b && b.holder);
+
+  return (
+    <div style={{marginBottom:'20px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+        <div className="fun-section-title" style={{margin:0}}>🏅 Huy Hiệu Nổi Bật</div>
+        {onGoBadges && <button onClick={onGoBadges} style={{background:'none',border:'none',color:'var(--muted)',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xem tất cả ›</button>}
+      </div>
+      {shown.length===0 ? (
+        <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
+          🏅 Chưa có huy hiệu nào — ghi trận để xét huy hiệu nhé!
+        </div>
+      ) : (
+        <div className="badge-grid" style={{marginBottom:0}}>
+          {shown.map(b=>(
+            <div key={b.id} onClick={()=>setSelectedBadge(b)} style={{cursor:'pointer'}}>
+              <BadgeCard badge={b}/>
+            </div>
+          ))}
+        </div>
+      )}
+      {selectedBadge && <BadgePopup badge={selectedBadge} onClose={()=>setSelectedBadge(null)}/>}
+    </div>
+  );
+}
+
+/* ─── BIỂU ĐỒ TIẾN BỘ ELO THEO THÁNG (Dashboard) ─────────── */
+function MonthlyEloChart({players, matches}){
+  const [selectedNames,setSelectedNames]=React.useState(null); // null = auto chọn top 5
+
+  // Danh sách các tháng (MM) xuất hiện trong dữ liệu trận, theo thứ tự thời gian
+  const months=useMemo(()=>{
+    const set=new Set();
+    matches.forEach(m=>{ const mm=parseMatchMonth(m.date); if(mm) set.add(mm); });
+    return [...set].sort((a,b)=>parseInt(a)-parseInt(b));
+  },[matches]);
+
+  // ELO cuối mỗi tháng, cho từng người chơi
+  const seriesByPlayer=useMemo(()=>{
+    const result={};
+    (players||[]).forEach(p=>{
+      let elo=1500;
+      const byMonth={};
+      const sorted=[...matches].reverse(); // cũ → mới
+      sorted.forEach(m=>{
+        const mm=parseMatchMonth(m.date);
+        const change=(m.eloChanges||[]).find(e=>e.name===p.name);
+        if(change) elo+=change.delta;
+        if(mm) byMonth[mm]=elo;
+      });
+      result[p.name]=months.map(mm=>byMonth[mm]!==undefined?byMonth[mm]:null);
+    });
+    return result;
+  },[players,matches,months]);
+
+  const defaultTop=useMemo(()=>[...(players||[])].sort((a,b)=>b.elo-a.elo).slice(0,5).map(p=>p.name),[players]);
+  const activeNames=selectedNames||defaultTop;
+
+  const togglePlayer=name=>{
+    setSelectedNames(cur=>{
+      const base=cur||defaultTop;
+      return base.includes(name)?base.filter(n=>n!==name):[...base,name];
+    });
+  };
+
+  // fill forward các tháng null (giữ nguyên ELO nếu tháng đó không đấu)
+  const filledSeries={};
+  activeNames.forEach(name=>{
+    const raw=seriesByPlayer[name]||[];
+    let last=1500;
+    filledSeries[name]=raw.map(v=>{ if(v!==null){last=v;} return last; });
+  });
+
+  const allVals=Object.values(filledSeries).flat();
+  const minE=allVals.length?Math.min(...allVals)-30:1470;
+  const maxE=allVals.length?Math.max(...allVals)+30:1530;
+  const W=560,H=200,PAD_L=42,PAD_R=12,PAD_T=14,PAD_B=26;
+  const xScale=i=>months.length>1?PAD_L+(i/(months.length-1))*(W-PAD_L-PAD_R):W/2;
+  const yScale=e=>H-PAD_B-((e-minE)/(maxE-minE||1))*(H-PAD_T-PAD_B);
+
+  return (
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
+      <div className="section-title" style={{fontSize:'15px',marginBottom:'12px'}}>📈 Tiến Bộ ELO Theo Tháng</div>
+      {months.length<2 || (players||[]).length===0 ? (
+        <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',fontSize:'13px'}}>Cần dữ liệu trận đấu từ ít nhất 2 tháng để vẽ biểu đồ tiến bộ.</div>
+      ) : (
+        <>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+            {[0,.25,.5,.75,1].map(t=>{
+              const y=PAD_T+(1-t)*(H-PAD_T-PAD_B);
+              const v=Math.round(minE+(maxE-minE)*t);
+              return <g key={t}>
+                <line x1={PAD_L} y1={y} x2={W-PAD_R} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3"/>
+                <text x={PAD_L-4} y={y+4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
+              </g>;
+            })}
+            {months.map((mm,i)=>(
+              <text key={mm} x={xScale(i)} y={H-6} textAnchor="middle" fontSize="9" fill="var(--muted)">Th{parseInt(mm)}</text>
+            ))}
+            {activeNames.map(name=>{
+              const p=(players||[]).find(pl=>pl.name===name);
+              if(!p) return null;
+              const vals=filledSeries[name]||[];
+              const d=vals.map((v,i)=>`${i===0?'M':'L'}${xScale(i)},${yScale(v)}`).join(' ');
+              return (
+                <g key={name}>
+                  <path d={d} fill="none" stroke={p.color} strokeWidth="2" strokeLinejoin="round"/>
+                  {vals.map((v,i)=><circle key={i} cx={xScale(i)} cy={yScale(v)} r="2.5" fill={p.color} stroke="var(--bg)" strokeWidth="1"/>)}
+                </g>
+              );
+            })}
+          </svg>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginTop:'14px'}}>
+            {(players||[]).map(p=>{
+              const on=activeNames.includes(p.name);
+              return (
+                <button key={p.id} onClick={()=>togglePlayer(p.name)} style={{
+                  display:'flex',alignItems:'center',gap:'5px',padding:'4px 10px',borderRadius:'20px',border:'1px solid',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                  borderColor:on?p.color:'var(--border)',
+                  background:on?p.color+'22':'transparent',
+                  color:on?p.color:'var(--muted)'
+                }}>
+                  <span style={{width:'7px',height:'7px',borderRadius:'50%',background:p.color,opacity:on?1:.4}}/>
+                  {p.name.split(' ').slice(-2).join(' ')}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'10px'}}>💡 Bấm vào tên để bật/tắt hiển thị trên biểu đồ. Mặc định hiện 5 người có ELO cao nhất.</div>
+        </>
+      )}
+    </div>
+  );
 }
 
 /* ─── EDIT MATCH MODAL ───────────────────────────────────── */
@@ -1435,6 +1569,72 @@ function PinModal({onConfirm,onClose}){
   );
 }
 
+/* ─── THÙNG RÁC ───────────────────────────────────────────
+   Hiện các mục đã xóa (còn trong 30 ngày), cho phép khôi phục hoặc xóa vĩnh viễn. */
+function daysLeft(deletedAt){
+  const RETENTION=30;
+  const passed=(Date.now()-deletedAt)/(24*60*60*1000);
+  return Math.max(0, Math.ceil(RETENTION-passed));
+}
+function TrashSection({title, icon, items, renderLabel, onRestore, onPurge}){
+  if(!items.length) return null;
+  return (
+    <div style={{marginBottom:'18px'}}>
+      <div style={{fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>{icon} {title} ({items.length})</div>
+      <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+        {items.map((item,idx)=>(
+          <div key={idx} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'9px 12px',display:'flex',alignItems:'center',gap:'8px'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{renderLabel(item)}</div>
+              <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'2px'}}>Còn {daysLeft(item.deletedAt)} ngày trước khi tự xóa vĩnh viễn</div>
+            </div>
+            <button onClick={()=>onRestore(idx)} title="Khôi phục" style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'7px',color:'var(--green)',padding:'6px 10px',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>↩️ Khôi phục</button>
+            <button onClick={()=>onPurge(idx)} title="Xóa vĩnh viễn" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'7px',color:'var(--red)',padding:'6px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestoreSession, onRestoreMatch, onPurge}){
+  const total=trash.players.length+trash.members.length+trash.sessions.length+trash.matches.length;
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:'520px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">🗑 Thùng Rác</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'16px'}}>
+          Dữ liệu đã xóa được giữ ở đây 30 ngày trước khi tự động xóa vĩnh viễn. Bấm "Khôi phục" nếu lỡ xóa nhầm.
+        </div>
+        {total===0 ? (
+          <div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>
+            <div style={{fontSize:'32px',marginBottom:'8px'}}>🗑</div>
+            <div>Thùng rác trống.</div>
+          </div>
+        ) : (
+          <>
+            <TrashSection title="Người chơi (BXH)" icon="🏆" items={trash.players}
+              renderLabel={p=>`${p.name} · ELO ${p.elo}`}
+              onRestore={onRestorePlayer} onPurge={idx=>onPurge('players',idx)}/>
+            <TrashSection title="Thành viên quỹ" icon="💰" items={trash.members}
+              renderLabel={m=>`${m.name} · Đã đóng ${fmt(m.paid)}`}
+              onRestore={onRestoreMember} onPurge={idx=>onPurge('members',idx)}/>
+            <TrashSection title="Buổi chơi" icon="📅" items={trash.sessions}
+              renderLabel={s=>`${s.date} · Tổng ${fmt(s.total)}`}
+              onRestore={onRestoreSession} onPurge={idx=>onPurge('sessions',idx)}/>
+            <TrashSection title="Trận đấu" icon="🏓" items={trash.matches}
+              renderLabel={m=>`${m.date} · ${m.myTeam} vs ${m.oppTeam} (${m.score1}-${m.score2})`}
+              onRestore={onRestoreMatch} onPurge={idx=>onPurge('matches',idx)}/>
+          </>
+        )}
+        <button onClick={onClose} style={{width:'100%',marginTop:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'11px',fontSize:'14px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>Đóng</button>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmModal({msg,onConfirm,onClose}){
   const [step,setStep]=useState(1);
   return (
@@ -1566,6 +1766,104 @@ function EloChart({players,matches}){
   );
 }
 
+/* ─── TRANG CHI TIẾT NGƯỜI CHƠI ──────────────────────────── */
+function PlayerDetailModal({player, players, matches, onClose}){
+  const tier=getTier(player.elo);
+  const total=player.wins+player.losses;
+  const wr=total?Math.round(player.wins/total*100):0;
+
+  const allBadges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
+  const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===player.id);
+
+  const history=useMemo(()=>{
+    let elo=1500;
+    const sorted=[...matches].reverse();
+    const pts=[{date:'Bắt đầu',elo:1500}];
+    sorted.forEach(m=>{
+      const change=(m.eloChanges||[]).find(e=>e.name===player.name);
+      if(change){elo+=change.delta;pts.push({date:m.date,elo,delta:change.delta});}
+    });
+    return pts;
+  },[player,matches]);
+
+  const minE=history.length?Math.min(...history.map(h=>h.elo))-30:1470;
+  const maxE=history.length?Math.max(...history.map(h=>h.elo))+30:1530;
+  const W=460,H=160,PAD=36;
+  const xScale=i=>history.length>1?PAD+(i/(history.length-1))*(W-PAD*2):W/2;
+  const yScale=e=>H-PAD+8-((e-minE)/(maxE-minE||1))*(H-PAD*1.4);
+  const pathD=history.map((h,i)=>`${i===0?'M':'L'}${xScale(i)},${yScale(h.elo)}`).join(' ');
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:'480px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">Trang cá nhân</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{display:'flex',alignItems:'center',gap:'14px',marginBottom:'18px'}}>
+          <PlayerAvatar player={player} size={56}/>
+          <div style={{minWidth:0}}>
+            <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'18px'}}>{player.name}</div>
+            <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'4px'}}>
+              <span style={{fontSize:'10px',padding:'2px 8px',borderRadius:'20px',background:tier.bg,color:tier.color,fontWeight:700}}>{tier.icon} {tier.label}</span>
+              <span style={{fontSize:'13px',color:'var(--muted)'}}>ELO {player.elo}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'18px'}}>
+          <div style={{background:'var(--surface2)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Thắng</div>
+            <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'17px',color:'var(--green)'}}>{player.wins}</div>
+          </div>
+          <div style={{background:'var(--surface2)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Thua</div>
+            <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'17px',color:'var(--red)'}}>{player.losses}</div>
+          </div>
+          <div style={{background:'var(--surface2)',borderRadius:'10px',padding:'10px',textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Tỷ lệ thắng</div>
+            <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'17px'}}>{wr}%</div>
+          </div>
+        </div>
+
+        <div className="fun-section-title" style={{fontSize:'14px',margin:'0 0 10px'}}>🏅 Huy hiệu đang giữ</div>
+        {myBadges.length===0 ? (
+          <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'18px'}}>Chưa giữ huy hiệu nào — cố lên!</div>
+        ) : (
+          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'18px'}}>
+            {myBadges.map(b=>(
+              <span key={b.id} title={b.desc} style={{fontSize:'12px',padding:'5px 10px',borderRadius:'20px',background:b.color+'22',color:b.color,fontWeight:600}}>{b.emoji} {b.title}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="fun-section-title" style={{fontSize:'14px',margin:'0 0 10px'}}>📈 Lịch sử ELO cá nhân</div>
+        {history.length<=1 ? (
+          <div style={{fontSize:'12px',color:'var(--muted)',textAlign:'center',padding:'20px'}}>Chưa có đủ dữ liệu trận đấu.</div>
+        ) : (
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+            {[0,.5,1].map(t=>{
+              const y=PAD-8+(1-t)*(H-PAD*1.4);
+              const v=Math.round(minE+(maxE-minE)*t);
+              return <g key={t}>
+                <line x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3"/>
+                <text x={PAD-4} y={y+4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
+              </g>;
+            })}
+            <path d={pathD} fill="none" stroke={player.color} strokeWidth="2" strokeLinejoin="round"/>
+            {history.map((h,i)=>(
+              <circle key={i} cx={xScale(i)} cy={yScale(h.elo)} r="3" fill={h.delta>0?'var(--green)':h.delta<0?'var(--red)':player.color} stroke="var(--bg)" strokeWidth="1.5"/>
+            ))}
+          </svg>
+        )}
+
+        <button onClick={onClose} style={{width:'100%',marginTop:'16px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'11px',fontSize:'14px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>Đóng</button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── MATCHES TAB ───────────────────────────────────────── */
 function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
@@ -1678,16 +1976,21 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
 }
 
 /* ─── LEADERBOARD ───────────────────────────────────────── */
-function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvatar}){
+function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onUpdateAvatar,onRenamePlayer}){
   const [bxhSeg,setBxhSeg]=useState('bxh');
   const [h2hA,setH2hA]=useState('');
   const [h2hB,setH2hB]=useState('');
   const [showAddPlayer,setShowAddPlayer]=useState(false);
   const [newName,setNewName]=useState('');
   const [newElo,setNewElo]=useState('1500');
+  const [addPlayerError,setAddPlayerError]=useState('');
   const [search,setSearch]=useState('');
   const [monthFilter,setMonthFilter]=useState('all');
   const [confirmDeletePlayer,setConfirmDeletePlayer]=useState(null);
+  const [renamingId,setRenamingId]=useState(null);
+  const [renameVal,setRenameVal]=useState('');
+  const [renameError,setRenameError]=useState('');
+  const [detailPlayer,setDetailPlayer]=useState(null);
 
   // Danh sách các tháng có dữ liệu trận đấu (để hiện trong dropdown lọc)
   const availableMonths=useMemo(()=>{
@@ -1738,6 +2041,16 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
   const maxElo=sorted.length?sorted[0].elo:1600;
   const minElo=1400;
 
+  const doRename=(p)=>{
+    const nn=renameVal.trim();
+    if(!nn){ setRenameError('Vui lòng nhập tên'); return; }
+    if(nn===p.name){ setRenamingId(null); return; }
+    if(isNameTaken(nn, players, members, p.name)){ setRenameError('Tên này đã tồn tại, hãy chọn tên khác'); return; }
+    onRenamePlayer(p.name, nn);
+    setRenamingId(null);
+    setRenameError('');
+  };
+
   // head-to-head
   const h2hData=useMemo(()=>{
     if(!h2hA||!h2hB) return null;
@@ -1782,9 +2095,15 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
           <div style={{fontSize:'11px',color:'var(--muted)',margin:'6px 0 10px'}}>
             Chuyên ≥1700 · Nâng cao ≥1580 · Trung bình ≥1450 · Mới bắt đầu &lt;1450
           </div>
+          {addPlayerError && <div style={{fontSize:'12px',color:'var(--red)',marginBottom:'10px'}}>⚠️ {addPlayerError}</div>}
           <div style={{display:'flex',gap:'8px'}}>
-            <button className="btn-save" style={{flex:1}} onClick={()=>{if(newName.trim()){onAddPlayer(newName.trim(),newElo);setNewName('');setNewElo('1500');setShowAddPlayer(false);}}}>Thêm</button>
-            <button className="btn-cancel" onClick={()=>{setShowAddPlayer(false);setNewElo('1500');}}>Hủy</button>
+            <button className="btn-save" style={{flex:1}} onClick={()=>{
+              const nm=newName.trim();
+              if(!nm){ setAddPlayerError('Vui lòng nhập tên'); return; }
+              if(isNameTaken(nm, players, members)){ setAddPlayerError('Tên này đã tồn tại trong CLB, hãy chọn tên khác'); return; }
+              onAddPlayer(nm,newElo);setNewName('');setNewElo('1500');setShowAddPlayer(false);setAddPlayerError('');
+            }}>Thêm</button>
+            <button className="btn-cancel" onClick={()=>{setShowAddPlayer(false);setNewElo('1500');setAddPlayerError('');}}>Hủy</button>
           </div>
         </div>
       )}
@@ -1853,6 +2172,7 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
           const tier=getTier(p.elo);
           const allBadges=computeBadges(sorted,matches);
           const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===p.id);
+          const isRenaming=renamingId===p.id;
           return (
             <div className="bxh-row" key={p.id}>
               <div className={`rank-num${i===0?' r1':i===1?' r2':i===2?' r3':''}`}>
@@ -1860,17 +2180,30 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
               </div>
               <div className="player-cell">
                 <PlayerAvatar player={p} onUpdateAvatar={onUpdateAvatar} size={34}/>
-                <div style={{minWidth:0}}>
-                  <div style={{display:'flex',alignItems:'center',gap:'3px',flexWrap:'wrap'}}>
-                    <div className="player-name" style={{fontSize:'13px'}}>{p.name.split(' ').slice(-2).join(' ')}</div>
-                    {myBadges.map(b=>(
-                      <span key={b.id} title={b.title} style={{fontSize:'12px',cursor:'default'}}>{b.emoji}</span>
-                    ))}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px',marginTop:'2px',flexWrap:'wrap'}}>
-                    <div className="elo-bar-wrap" style={{width:'40px',flexShrink:0}}><div className="elo-bar" style={{width:barW+'%'}}/></div>
-                    <span style={{fontSize:'9px',padding:'1px 5px',borderRadius:'10px',background:tier.bg,color:tier.color,fontWeight:600,whiteSpace:'nowrap'}}>{tier.icon} {tier.label}</span>
-                  </div>
+                <div style={{minWidth:0,flex:1}}>
+                  {isRenaming ? (
+                    <div style={{display:'flex',gap:'4px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+                      <input className="fi" style={{padding:'4px 8px',fontSize:'12px',width:'120px'}} value={renameVal} autoFocus
+                        onChange={e=>{setRenameVal(e.target.value);setRenameError('');}}
+                        onKeyDown={e=>{if(e.key==='Enter')doRename(p);if(e.key==='Escape'){setRenamingId(null);setRenameError('');}}}/>
+                      <button onClick={()=>doRename(p)} style={{background:'var(--green)',border:'none',borderRadius:'6px',color:'#fff',padding:'4px 7px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓</button>
+                      <button onClick={()=>{setRenamingId(null);setRenameError('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'4px 7px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕</button>
+                    </div>
+                  ) : (
+                    <div onClick={()=>setDetailPlayer(p)} style={{cursor:'pointer'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'3px',flexWrap:'wrap'}}>
+                        <div className="player-name" style={{fontSize:'13px'}}>{p.name.split(' ').slice(-2).join(' ')}</div>
+                        {myBadges.map(b=>(
+                          <span key={b.id} title={b.title} style={{fontSize:'12px',cursor:'default'}}>{b.emoji}</span>
+                        ))}
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:'4px',marginTop:'2px',flexWrap:'wrap'}}>
+                        <div className="elo-bar-wrap" style={{width:'40px',flexShrink:0}}><div className="elo-bar" style={{width:barW+'%'}}/></div>
+                        <span style={{fontSize:'9px',padding:'1px 5px',borderRadius:'10px',background:tier.bg,color:tier.color,fontWeight:600,whiteSpace:'nowrap'}}>{tier.icon} {tier.label}</span>
+                      </div>
+                    </div>
+                  )}
+                  {isRenaming && renameError && <div style={{fontSize:'10px',color:'var(--red)',marginTop:'3px'}}>⚠️ {renameError}</div>}
                 </div>
               </div>
               <div className="elo-val" style={{fontSize:'14px'}}>{p.elo}</div>
@@ -1879,7 +2212,10 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
                 <span style={{color:'var(--muted)',fontWeight:500}}> / </span>
                 <span style={{color:'var(--red)'}}>{rangeStats.losses}</span>
               </div>
-              <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>
+              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                {!isRenaming && <button onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);setRenameError('');}} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',opacity:.5,padding:'0'}} title="Sửa tên">✏️</button>}
+                <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>
+              </div>
             </div>
           );
         })}
@@ -1889,6 +2225,7 @@ function LeaderboardTab({players,matches,onAddPlayer,onDeletePlayer,onUpdateAvat
         onConfirm={()=>{onDeletePlayer(confirmDeletePlayer);setConfirmDeletePlayer(null);}}
         onClose={()=>setConfirmDeletePlayer(null)}
       />}
+      {detailPlayer&&<PlayerDetailModal player={players.find(p=>p.id===detailPlayer.id)||detailPlayer} players={players} matches={matches} onClose={()=>setDetailPlayer(null)}/>}
 
       {/* ── HUY HIỆU CLB (gộp vào BXH) ── */}
       <div style={{marginTop:'24px'}}>
@@ -2461,12 +2798,13 @@ function EditSessionModal({session,members,onClose,onSave}){
 }
 
 /* ─── FUND TAB ───────────────────────────────────────────── */
-function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches}){
+function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd}){
   const memberNames = FUND_MEMBERS.map(m=>m.name);
   // Data được load/save bởi App cha — FundTab chỉ dùng trực tiếp
   const [showAdd,setShowAdd]=useState(false);
   const [showAddMember,setShowAddMember]=useState(false);
   const [newMember,setNewMember]=useState({name:'',paid:''});
+  const [addMemberError,setAddMemberError]=useState('');
   const [expandedSession,setExpandedSession]=useState(null);
   const [depositTarget,setDepositTarget]=useState(null); // {name, idx}
   const [depositAmt,setDepositAmt]=useState('');
@@ -2475,12 +2813,17 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const [renamingMember,setRenamingMember]=useState(null); // idx
   const [renameVal,setRenameVal]=useState('');
+  const [renameError,setRenameError]=useState('');
   const [confirmDeleteSession,setConfirmDeleteSession]=useState(null);
   const [confirmDeleteMember,setConfirmDeleteMember]=useState(null);
   const [editingSession,setEditingSession]=useState(null);
   const [expandedMember,setExpandedMember]=useState(null); // idx đang mở chi tiết
   const [memberSearch,setMemberSearch]=useState('');
   const [onlyDebt,setOnlyDebt]=useState(false);
+  const [showAllMembers,setShowAllMembers]=useState(false);
+  const [showAllSessions,setShowAllSessions]=useState(false);
+  const MEMBER_PAGE_SIZE=8;
+  const SESSION_PAGE_SIZE=10;
 
   // computed per member: how much they owe from sessions
   const memberSpent = useMemo(()=>{
@@ -2526,57 +2869,44 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   };
 
   const deleteSession=(id)=>{
+    const s=sessions.find(x=>x.id===id);
+    if(s && onTrashAdd) onTrashAdd('sessions', s);
     setSessions(p=>p.filter(s=>s.id!==id));
     setConfirmDeleteSession(null);
+    if(showToast) showToast('Đã chuyển buổi chơi vào Thùng rác');
   };
 
   const addMember=()=>{
-    if(!newMember.name||!newMember.paid) return;
+    const nm=(newMember.name||'').trim();
+    if(!nm||!newMember.paid) return;
+    if(isNameTaken(nm, players, members)){ setAddMemberError('Tên này đã tồn tại trong CLB, hãy chọn tên khác'); return; }
     setMembers(p=>{
       const usedColors=p.map(m=>m.color);
       const nextColor=COLORS.find(c=>!usedColors.includes(c))||COLORS[p.length%COLORS.length];
-      return [...p,{name:newMember.name,paid:parseInt(newMember.paid),color:nextColor,deposits:[{date:'Ban đầu',amount:parseInt(newMember.paid)}]}];
+      return [...p,{name:nm,paid:parseInt(newMember.paid),color:nextColor,deposits:[{date:'Ban đầu',amount:parseInt(newMember.paid)}]}];
     });
     setNewMember({name:'',paid:''});
     setShowAddMember(false);
+    setAddMemberError('');
   };
 
   const deleteMember=(idx)=>{
+    const m=members[idx];
+    if(m && onTrashAdd) onTrashAdd('members', m);
     setMembers(p=>p.filter((_,i)=>i!==idx));
     setConfirmDeleteMember(null);
+    if(showToast) showToast('Đã chuyển thành viên vào Thùng rác');
   };
 
+  // Đổi tên thành viên — dùng chung hàm đồng bộ tên với BXH (renameEverywhere ở App), có kiểm tra trùng tên
   const renameMember=(idx,newName)=>{
     const oldName=members[idx].name;
-    if(!newName||newName===oldName){ setRenamingMember(null);setRenameVal(''); return; }
-    setMembers(p=>p.map((m,i)=>i===idx?{...m,name:newName}:m));
-    // đồng bộ tên trong players (BXH)
-    if(setPlayers) setPlayers(p=>p.map(pl=>pl.name===oldName?{...pl,name:newName}:pl));
-    // đồng bộ tên trong attendees của tất cả buổi chơi đã lưu (tránh mất dữ liệu chi tiêu)
-    setSessions(p=>p.map(s=>{
-      if(!s.attendees || !(oldName in s.attendees)) return s;
-      const {[oldName]:val, ...rest}=s.attendees;
-      return {...s, attendees:{...rest, [newName]:val}};
-    }));
-    // đồng bộ tên trong toàn bộ lịch sử đấu (myTeam/oppTeam là chuỗi "A & B", team1Players/team2Players là mảng tên, eloChanges là mảng {name,delta})
-    if(setMatches) setMatches(p=>p.map(mt=>{
-      const swapTeamStr=str=>!str?str:str.split(' & ').map(n=>n===oldName?newName:n).join(' & ');
-      const swapArr=arr=>(arr||[]).map(n=>n===oldName?newName:n);
-      const swapElo=arr=>(arr||[]).map(e=>e.name===oldName?{...e,name:newName}:e);
-      const usesOldName=mt.myTeam===oldName||mt.oppTeam===oldName||
-        (mt.myTeam||'').split(' & ').includes(oldName)||(mt.oppTeam||'').split(' & ').includes(oldName)||
-        (mt.team1Players||[]).includes(oldName)||(mt.team2Players||[]).includes(oldName)||
-        (mt.eloChanges||[]).some(e=>e.name===oldName);
-      if(!usesOldName) return mt;
-      return {...mt,
-        myTeam:swapTeamStr(mt.myTeam),
-        oppTeam:swapTeamStr(mt.oppTeam),
-        team1Players:swapArr(mt.team1Players),
-        team2Players:swapArr(mt.team2Players),
-        eloChanges:swapElo(mt.eloChanges)
-      };
-    }));
-    setRenamingMember(null);setRenameVal('');
+    const nn=(newName||'').trim();
+    if(!nn){ setRenameError('Vui lòng nhập tên'); return; }
+    if(nn===oldName){ setRenamingMember(null);setRenameVal('');setRenameError(''); return; }
+    if(isNameTaken(nn, players, members, oldName)){ setRenameError('Tên này đã tồn tại, hãy chọn tên khác'); return; }
+    onRenameMember(oldName, nn);
+    setRenamingMember(null);setRenameVal('');setRenameError('');
   };
 
   const addDeposit=()=>{
@@ -2650,7 +2980,8 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
           <div className="fg"><label className="fl">Tên</label><input className="fi" value={newMember.name} onChange={e=>setNewMember(p=>({...p,name:e.target.value}))} placeholder="Tên thành viên"/></div>
           <div className="fg"><label className="fl">Đã đóng (VNĐ)</label><input className="fi" type="number" value={newMember.paid} onChange={e=>setNewMember(p=>({...p,paid:e.target.value}))} placeholder="500000"/></div>
         </div>
-        <div className="form-actions"><button className="btn-cancel" onClick={()=>setShowAddMember(false)}>Hủy</button><button className="btn-save" onClick={addMember}>Thêm</button></div>
+        {addMemberError && <div style={{fontSize:'12px',color:'var(--red)',marginTop:'8px'}}>⚠️ {addMemberError}</div>}
+        <div className="form-actions"><button className="btn-cancel" onClick={()=>{setShowAddMember(false);setAddMemberError('');}}>Hủy</button><button className="btn-save" onClick={addMember}>Thêm</button></div>
       </div>
     )}
 
@@ -2666,11 +2997,14 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     </div>
 
     <div className="fund-members" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-      {members.map((m,i)=>({m,i})).filter(({m})=>{
-        if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
-        if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
-        return true;
-      }).map(({m,i})=>{
+      {(()=>{
+        const filteredMembers=members.map((m,i)=>({m,i})).filter(({m})=>{
+          if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
+          if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
+          return true;
+        });
+        return (showAllMembers?filteredMembers:filteredMembers.slice(0,MEMBER_PAGE_SIZE));
+      })().map(({m,i})=>{
         const spent = memberSpent[m.name]||0;
         const rem = m.paid-spent;
         const isDepTarget=depositTarget?.idx===i;
@@ -2700,10 +3034,11 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
               <div style={{padding:'0 12px 12px'}}>
                 {isRenaming?(
                   <div style={{marginBottom:'10px'}}>
-                    <input className="fi" style={{padding:'7px 10px',fontSize:'13px',width:'100%',marginBottom:'8px'}} value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');}}} autoFocus/>
+                    <input className="fi" style={{padding:'7px 10px',fontSize:'13px',width:'100%',marginBottom:'8px'}} value={renameVal} onChange={e=>{setRenameVal(e.target.value);setRenameError('');}} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');setRenameError('');}}} autoFocus/>
+                    {renameError && <div style={{fontSize:'11px',color:'var(--red)',marginBottom:'8px'}}>⚠️ {renameError}</div>}
                     <div style={{display:'flex',gap:'6px'}}>
                       <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
-                      <button onClick={()=>{setRenamingMember(null);setRenameVal('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
+                      <button onClick={()=>{setRenamingMember(null);setRenameVal('');setRenameError('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
                     </div>
                   </div>
                 ):(
@@ -2757,6 +3092,18 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         <div style={{textAlign:'center',padding:'20px',color:'var(--muted)',fontSize:'13px'}}>Không tìm thấy thành viên nào phù hợp</div>
       )}
     </div>
+    {(()=>{
+      const filteredCount=members.filter(m=>{
+        if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
+        if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
+        return true;
+      }).length;
+      return filteredCount>MEMBER_PAGE_SIZE && (
+        <button onClick={()=>setShowAllMembers(v=>!v)} style={{width:'100%',marginTop:'8px',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>
+          {showAllMembers ? '▲ Thu gọn' : `👥 Xem thêm ${filteredCount-MEMBER_PAGE_SIZE} thành viên`}
+        </button>
+      );
+    })()}
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',marginTop:'4px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Lịch sử buổi chơi</div>
@@ -2839,7 +3186,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       <div className="fs-header" style={{gridTemplateColumns:'62px 1fr 70px 70px 32px'}}>
         <div>Ngày</div><div>Số người</div><div>Mỗi người</div><div>Tổng</div><div></div>
       </div>
-      {[...filteredSessions].reverse().map(s=>{
+      {(showAllSessions?[...filteredSessions].reverse():[...filteredSessions].reverse().slice(0,SESSION_PAGE_SIZE)).map(s=>{
         const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
         const perPerson = attending.length>0 ? shareAmount(s) : (s.players>0 ? Math.round(s.total/s.players) : 0);
         const xeVeCnt = attending.includes('Xé Vé') ? Math.max(1,parseInt(s.xeVeCount)||1) : 0;
@@ -2890,6 +3237,11 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
           </div>
         );
       })}
+      {filteredSessions.length>SESSION_PAGE_SIZE && (
+        <button onClick={()=>setShowAllSessions(v=>!v)} style={{width:'100%',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)',background:'var(--surface)',border:'none',borderBottom:'1px solid var(--border)'}}>
+          {showAllSessions ? '▲ Thu gọn' : `📋 Xem thêm ${filteredSessions.length-SESSION_PAGE_SIZE} buổi chơi`}
+        </button>
+      )}
       {/* Footer tổng cộng */}
       <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',background:'var(--bg3)',borderTop:'2px solid var(--border)',fontSize:'13px',fontWeight:700}}>
         <div style={{color:'var(--muted)',fontSize:'11px'}}>TỔNG</div>
@@ -3144,12 +3496,15 @@ function App(){
   const [bannerImg,setBannerImg]=useState(null);
   const [bannerTitle,setBannerTitle]=useState('Pích Cờ Bôn Phông Bạt');
   const [bannerSub,setBannerSub]=useState('Stats & Quỹ CLB · Phông Bạt 🏓');
+  // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
+  const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
+  const TRASH_RETENTION_DAYS=30;
 
   // Load tất cả data từ Firebase khi khởi động
   useEffect(()=>{
     (async()=>{
       setSyncing(true);
-      const [p,m,s,mb,bn]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner')]);
+      const [p,m,s,mb,bn,tr]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash')]);
       if(Array.isArray(p)&&p.length) setPlayers(p);
       if(Array.isArray(m)&&m.length) setMatches(m);
       if(Array.isArray(s)&&s.length) setSessions(s);
@@ -3159,12 +3514,22 @@ function App(){
         if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
       }
+      if(tr&&typeof tr==='object'){
+        const cutoff=Date.now()-TRASH_RETENTION_DAYS*24*60*60*1000;
+        const clean=t=>({
+          members:(t.members||[]).filter(x=>x.deletedAt>cutoff),
+          sessions:(t.sessions||[]).filter(x=>x.deletedAt>cutoff),
+          matches:(t.matches||[]).filter(x=>x.deletedAt>cutoff),
+          players:(t.players||[]).filter(x=>x.deletedAt>cutoff),
+        });
+        setTrash(clean(tr));
+      }
       setDbReady(true);
       setSyncing(false);
     })();
     // Poll mỗi 30s — dùng fbPoll để bỏ qua khi đang ghi (tăng lên 30s tránh ghi đè khi đang chỉnh)
     const id=setInterval(async()=>{
-      const [p,m,s,mb,bn]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner')]);
+      const [p,m,s,mb,bn,tr]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash')]);
       if(Array.isArray(p)&&p.length) setPlayers(p);
       if(Array.isArray(m)&&m.length) setMatches(m);
       if(Array.isArray(s)&&s.length) setSessions(s);
@@ -3174,6 +3539,7 @@ function App(){
         if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
       }
+      if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(tr);
     },30000);
     return ()=>clearInterval(id);
   },[]);
@@ -3185,6 +3551,7 @@ function App(){
   const _skipSessions=React.useRef(1);
   const _skipMembers=React.useRef(1);
   const _skipBanner=React.useRef(1);
+  const _skipTrash=React.useRef(1);
   useEffect(()=>{
     if(_skipPlayers.current>0){_skipPlayers.current--;return;}
     if(dbReady)fbSet('players',players);
@@ -3205,7 +3572,12 @@ function App(){
     if(_skipBanner.current>0){_skipBanner.current--;return;}
     if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub});
   },[bannerImg,bannerTitle,bannerSub]);
+  useEffect(()=>{
+    if(_skipTrash.current>0){_skipTrash.current--;return;}
+    if(dbReady)fbSet('trash',trash);
+  },[trash]);
   const [showAdd,setShowAdd]=useState(false);
+  const [showTrash,setShowTrash]=useState(false);
   const [confirmId,setConfirmId]=useState(null);
   const [toast,setToast]=useState(null);
   const [isAdmin,setIsAdmin]=useState(()=>{ try{ return localStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
@@ -3241,17 +3613,118 @@ function App(){
   const myElo=players.length?players[0].elo:1500;
 
   const addPlayer=(name,elo=1500)=>{
+    const nm=(name||'').trim();
+    if(!nm) return;
+    if(isNameTaken(nm, players, members)){ showToast('⚠️ Tên này đã tồn tại trong CLB'); return; }
     const id=Date.now();
     const color=COLORS[players.length%COLORS.length];
     const eloVal=parseInt(elo)||1500;
-    setPlayers(p=>[...p,{id,name,elo:eloVal,wins:0,losses:0,color,avatar:null}]);
-    showToast(`Đã thêm ${name} (ELO ${eloVal})`);
+    setPlayers(p=>[...p,{id,name:nm,elo:eloVal,wins:0,losses:0,color,avatar:null}]);
+    // Đồng bộ: tự tạo thành viên quỹ tương ứng nếu chưa có
+    setMembers(p=>{
+      if(p.some(m=>m.name.toLowerCase()===nm.toLowerCase())) return p;
+      const usedColors=p.map(m=>m.color);
+      const nextColor=COLORS.find(c=>!usedColors.includes(c))||color;
+      return [...p,{name:nm,paid:0,color:nextColor,deposits:[]}];
+    });
+    showToast(`Đã thêm ${nm} (ELO ${eloVal}) & tạo thành viên quỹ tương ứng`);
   };
 
   const deletePlayer=(id)=>{
+    const p=players.find(x=>x.id===id);
+    if(p) trashAdd('players', p);
     setPlayers(p=>p.filter(x=>x.id!==id));
-    showToast('Đã xóa người chơi');
+    showToast('Đã chuyển người chơi vào Thùng rác');
   };
+
+  // Đổi tên đồng bộ giữa BXH (players), Quỹ (members), lịch sử buổi chơi (sessions) và lịch sử trận đấu (matches)
+  const renameEverywhere=(oldName,newName)=>{
+    setPlayers(p=>p.map(pl=>pl.name===oldName?{...pl,name:newName}:pl));
+    setMembers(p=>p.map(m=>m.name===oldName?{...m,name:newName}:m));
+    setSessions(p=>p.map(s=>{
+      if(!s.attendees || !(oldName in s.attendees)) return s;
+      const {[oldName]:val, ...rest}=s.attendees;
+      return {...s, attendees:{...rest, [newName]:val}};
+    }));
+    setMatches(p=>p.map(mt=>{
+      const swapTeamStr=str=>!str?str:str.split(' & ').map(n=>n===oldName?newName:n).join(' & ');
+      const swapArr=arr=>(arr||[]).map(n=>n===oldName?newName:n);
+      const swapElo=arr=>(arr||[]).map(e=>e.name===oldName?{...e,name:newName}:e);
+      const usesOldName=mt.myTeam===oldName||mt.oppTeam===oldName||
+        (mt.myTeam||'').split(' & ').includes(oldName)||(mt.oppTeam||'').split(' & ').includes(oldName)||
+        (mt.team1Players||[]).includes(oldName)||(mt.team2Players||[]).includes(oldName)||
+        (mt.eloChanges||[]).some(e=>e.name===oldName);
+      if(!usesOldName) return mt;
+      return {...mt,
+        myTeam:swapTeamStr(mt.myTeam),
+        oppTeam:swapTeamStr(mt.oppTeam),
+        team1Players:swapArr(mt.team1Players),
+        team2Players:swapArr(mt.team2Players),
+        eloChanges:swapElo(mt.eloChanges)
+      };
+    }));
+  };
+
+  const doRenameEverywhere=(oldName,newName)=>{
+    const nn=(newName||'').trim();
+    if(!nn||nn===oldName) return;
+    if(isNameTaken(nn, players, members, oldName)){ showToast('⚠️ Tên đã tồn tại, chọn tên khác nhé'); return; }
+    renameEverywhere(oldName, nn);
+    showToast(`Đã đổi tên "${oldName}" → "${nn}"`);
+  };
+
+  /* ─── THÙNG RÁC: khôi phục dữ liệu khi lỡ xóa ─────────────
+     Xóa sẽ không mất ngay — mục bị xóa chuyển vào Thùng rác, giữ 30 ngày, admin có thể khôi phục lại. */
+  const trashAdd=(type,item)=>{
+    setTrash(t=>({...t,[type]:[{...item,deletedAt:Date.now()},...(t[type]||[])]}));
+  };
+
+  const trashRestorePlayer=(idx)=>{
+    const item=trash.players[idx]; if(!item) return;
+    const {deletedAt,...clean}=item;
+    if(isNameTaken(clean.name, players, members)){ showToast('⚠️ Không thể khôi phục — tên đã bị dùng lại'); return; }
+    setPlayers(p=>[...p,clean]);
+    setTrash(t=>({...t,players:t.players.filter((_,i)=>i!==idx)}));
+    showToast(`Đã khôi phục người chơi "${clean.name}"`);
+  };
+  const trashRestoreMember=(idx)=>{
+    const item=trash.members[idx]; if(!item) return;
+    const {deletedAt,...clean}=item;
+    if(isNameTaken(clean.name, players, members)){ showToast('⚠️ Không thể khôi phục — tên đã bị dùng lại'); return; }
+    setMembers(p=>[...p,clean]);
+    setTrash(t=>({...t,members:t.members.filter((_,i)=>i!==idx)}));
+    showToast(`Đã khôi phục thành viên "${clean.name}"`);
+  };
+  const trashRestoreSession=(idx)=>{
+    const item=trash.sessions[idx]; if(!item) return;
+    const {deletedAt,...clean}=item;
+    setSessions(p=>[...p,clean]);
+    setTrash(t=>({...t,sessions:t.sessions.filter((_,i)=>i!==idx)}));
+    showToast('Đã khôi phục buổi chơi');
+  };
+  const trashRestoreMatch=(idx)=>{
+    const item=trash.matches[idx]; if(!item) return;
+    const {deletedAt,...clean}=item;
+    // áp lại ELO như khi ghi trận mới
+    setPlayers(prev=>{
+      const updated=[...prev];
+      (clean.eloChanges||[]).forEach(({name,delta})=>{
+        const i=updated.findIndex(p=>p.name===name);
+        if(i>=0){
+          const win=delta>0;
+          updated[i]={...updated[i],elo:updated[i].elo+delta,wins:updated[i].wins+(win?1:0),losses:updated[i].losses+(win?0:1)};
+        }
+      });
+      return updated;
+    });
+    setMatches(p=>[clean,...p]);
+    setTrash(t=>({...t,matches:t.matches.filter((_,i)=>i!==idx)}));
+    showToast('Đã khôi phục trận đấu & cập nhật lại ELO');
+  };
+  const trashPurgeForever=(type,idx)=>{
+    setTrash(t=>({...t,[type]:t[type].filter((_,i)=>i!==idx)}));
+  };
+  const trashCount=trash.members.length+trash.sessions.length+trash.matches.length+trash.players.length;
 
   const updatePlayerAvatar=(id, dataUrl)=>{
     setPlayers(p=>p.map(x=>x.id===id?{...x, avatar:dataUrl}:x));
@@ -3303,6 +3776,7 @@ function App(){
   const deleteMatch=id=>{
     const m=matches.find(x=>x.id===id);
     if(!m) return;
+    trashAdd('matches', m);
     // Reverse ELO changes
     setPlayers(prev=>{
       const updated=[...prev];
@@ -3321,7 +3795,7 @@ function App(){
     });
     setMatches(p=>p.filter(x=>x.id!==id));
     setConfirmId(null);
-    showToast('Đã xóa trận & hoàn ELO!');
+    showToast('Đã chuyển trận vào Thùng rác & hoàn ELO!');
   };
 
   const guardedDeleteMatch=requireAdmin(id=>setConfirmId(id));
@@ -3329,11 +3803,37 @@ function App(){
   const guardedAddPlayer=requireAdmin(addPlayer);
   const guardedDeletePlayer=requireAdmin(deletePlayer);
   const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
+  const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
   const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s})=>{
     setBannerImg(img);
     setBannerTitle(t);
     setBannerSub(s);
   });
+  const guardedTrashRestorePlayer=requireAdmin(trashRestorePlayer);
+  const guardedTrashRestoreMember=requireAdmin(trashRestoreMember);
+  const guardedTrashRestoreSession=requireAdmin(trashRestoreSession);
+  const guardedTrashRestoreMatch=requireAdmin(trashRestoreMatch);
+  const guardedTrashPurgeForever=requireAdmin(trashPurgeForever);
+
+  // Thông báo real-time khi có huy hiệu đổi chủ (VD: vừa cướp ngôi Vua ELO sau khi ghi trận)
+  const prevBadgeHolders=React.useRef(null);
+  useEffect(()=>{
+    if(!dbReady) return;
+    const badges=computeBadges(players, matches);
+    const current={};
+    badges.forEach(b=>{ current[b.id]=b.holder?b.holder.id:null; });
+    if(prevBadgeHolders.current){
+      const changed=badges.find(b=>{
+        const newHolder=current[b.id], prevHolder=prevBadgeHolders.current[b.id];
+        return newHolder && newHolder!==prevHolder;
+      });
+      if(changed){
+        const p=players.find(x=>x.id===current[changed.id]);
+        if(p) showToast(`🎉 ${p.name} vừa đoạt huy hiệu ${changed.emoji} ${changed.title}!`);
+      }
+    }
+    prevBadgeHolders.current=current;
+  },[players,matches,dbReady]);
 
   const TABS=[
     {id:'dashboard',label:'Tổng Quan',icon:'📊'},
@@ -3360,6 +3860,9 @@ function App(){
         {syncing&&<span style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 10px',border:'1px solid var(--border)'}}>⏳ Đang đồng bộ...</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️ Chưa có DB</span>}
         <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>💰 Quỹ CLB</button>
+        {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác — khôi phục dữ liệu đã xóa" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
+          🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
+        </button>}
         <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
         <button className="btn-ghi" onClick={openAdd}>+ Ghi Trận</button>
       </div>
@@ -3376,6 +3879,9 @@ function App(){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
         <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'6px 10px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
+        {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
+          🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
+        </button>}
         <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>💰 Quỹ CLB</button>
       </div>
     </div>
@@ -3398,11 +3904,11 @@ function App(){
     )}
 
     <div className="main">
-      {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players}/>}
+      {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')}/>}
       {tab==='matches'   && <MatchesTab matches={matches} players={players} myElo={myElo} onAdd={openAdd} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
-      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onUpdateAvatar={guardedUpdateAvatar}/>}
+      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onUpdateAvatar={guardedUpdateAvatar} onRenamePlayer={guardedRenameEverywhere}/>}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
-      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches}/>}
+      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={doRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd}/>}
     </div>
 
     {showAdd && <AddMatchModal players={players} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
@@ -3413,6 +3919,15 @@ function App(){
     />}
     {toast && <Toast msg={toast} onClose={()=>setToast(null)}/>}
     {showPin && <PinModal onConfirm={handlePinConfirm} onClose={()=>{setShowPin(false); pendingAction.current=null;}}/>}
+    {showTrash && <TrashModal
+      trash={trash}
+      onClose={()=>setShowTrash(false)}
+      onRestorePlayer={guardedTrashRestorePlayer}
+      onRestoreMember={guardedTrashRestoreMember}
+      onRestoreSession={guardedTrashRestoreSession}
+      onRestoreMatch={guardedTrashRestoreMatch}
+      onPurge={guardedTrashPurgeForever}
+    />}
 
     {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs */}
     <nav className="mobile-nav">
