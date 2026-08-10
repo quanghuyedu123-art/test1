@@ -417,10 +417,17 @@ function PlayerAvatar({player, onUpdateAvatar, size=34}){
 
 /* ─── RANK TIERS ──────────────────────────────────────────── */
 const TIERS = [
-  {label:'Chuyên',    min:1700, color:'#f59e0b', icon:'👑', bg:'rgba(245,158,11,.15)'},
-  {label:'Nâng cao',  min:1580, color:'#a855f7', icon:'⚡', bg:'rgba(168,85,247,.15)'},
-  {label:'Trung bình',min:1450, color:'#3b82f6', icon:'🎯', bg:'rgba(59,130,246,.15)'},
-  {label:'Mới bắt đầu',min:0,  color:'#6b7280', icon:'🌱', bg:'rgba(107,114,128,.15)'},
+  {label:'Tối Cao',       min:1810, color:'#2dd4bf', icon:'🐯', bg:'rgba(45,212,191,.15)'},
+  {label:'Thách Đấu',     min:1750, color:'#f59e0b', icon:'🦅', bg:'rgba(245,158,11,.15)'},
+  {label:'Đại Cao Thủ',   min:1690, color:'#ef4444', icon:'🐉', bg:'rgba(239,68,68,.15)'},
+  {label:'Cao Thủ',       min:1630, color:'#a855f7', icon:'🦉', bg:'rgba(168,85,247,.15)'},
+  {label:'Kim Cương',     min:1570, color:'#38bdf8', icon:'🦌', bg:'rgba(56,189,248,.15)'},
+  {label:'Lục Bảo',       min:1510, color:'#10b981', icon:'🐍', bg:'rgba(16,185,129,.15)'},
+  {label:'Bạch Kim',      min:1450, color:'#22d3ee', icon:'🐺', bg:'rgba(34,211,238,.15)'},
+  {label:'Vàng',          min:1380, color:'#eab308', icon:'🐻', bg:'rgba(234,179,8,.15)'},
+  {label:'Bạc',           min:1300, color:'#94a3b8', icon:'🐲', bg:'rgba(148,163,184,.15)'},
+  {label:'Đồng',          min:1200, color:'#b45309', icon:'🐗', bg:'rgba(180,83,9,.15)'},
+  {label:'Sắt',           min:0,    color:'#78716c', icon:'🐂', bg:'rgba(120,113,108,.15)'},
 ];
 function getTier(elo){ return TIERS.find(t=>elo>=t.min)||TIERS[TIERS.length-1]; }
 
@@ -602,6 +609,91 @@ function calcEloChangePair(myElo, oppElo, win, type) {
 }
 
 const INIT_MATCHES = [];
+
+/* ─── DASHBOARD V2: DỮ LIỆU CHO CÁC KHỐI MỚI ──────────────── */
+// 1) Biến động ELO trong tháng — ai đang lên, ai đang xuống
+function computeMonthMovers(players, matches){
+  const now=new Date();
+  const curMonth=String(now.getMonth()+1).padStart(2,'0');
+  const monthMatches=matches.filter(m=>parseMatchMonth(m.date)===curMonth);
+  const gain={};
+  monthMatches.forEach(m=>{
+    (m.eloChanges||[]).forEach(({name,delta})=>{ gain[name]=(gain[name]||0)+delta; });
+  });
+  const list=Object.entries(gain).map(([name,delta])=>({name,delta,player:(players||[]).find(p=>p.name===name)})).filter(x=>x.player);
+  const gainers=[...list].filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,4);
+  const losers=[...list].filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,4);
+  return {gainers, losers, monthLabel: now.toLocaleDateString('vi-VN',{month:'long'})};
+}
+
+// 2) Bản đồ hoạt động — số trận theo từng ngày trong ~14 tuần gần nhất
+function computeActivityHeatmap(matches, weeks=14){
+  const today=new Date();
+  const days=[];
+  for(let i=weeks*7-1;i>=0;i--){
+    const d=new Date(today); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
+    days.push(d);
+  }
+  const countByKey={};
+  matches.forEach(m=>{
+    const parts=(m.date||'').split(/[\/\-]/);
+    if(parts.length<2) return;
+    const dd=parseInt(parts[0]), mm=parseInt(parts[1]);
+    if(!dd||!mm) return;
+    days.forEach(d=>{
+      if(d.getDate()===dd && d.getMonth()+1===mm){
+        const key=d.toDateString();
+        countByKey[key]=(countByKey[key]||0)+1;
+      }
+    });
+  });
+  return days.map(d=>({date:d, count:countByKey[d.toDateString()]||0}));
+}
+
+// 3) Trận đấu đáng chú ý gần đây — ưu tiên trận có mức ELO thay đổi mạnh nhất (kèo lệch bị lật)
+function computeHighlightMatch(matches){
+  if(!matches || !matches.length) return null;
+  const recent=matches.slice(0,20);
+  let best=null,bestScore=-1;
+  recent.forEach(m=>{
+    const winDelta=(m.eloChanges||[]).filter(e=>e.delta>0).reduce((a,e)=>Math.max(a,e.delta),0);
+    if(winDelta>bestScore){bestScore=winDelta;best={match:m,delta:winDelta};}
+  });
+  return best;
+}
+
+// 4) Cặp đôi ăn ý nhất (toàn thời gian, tối thiểu 2 trận chung)
+function computePairStats(matches){
+  const pairStats={};
+  (matches||[]).filter(m=>m.type==='Đôi').forEach(m=>{
+    [m.team1Players, m.team2Players].forEach((team,idx)=>{
+      if((team||[]).length===2){
+        const key=[...team].sort().join(' & ');
+        const won = idx===0 ? m.result==='W' : m.result==='L';
+        if(!pairStats[key]) pairStats[key]={w:0,total:0,names:team};
+        pairStats[key].total++;
+        if(won) pairStats[key].w++;
+      }
+    });
+  });
+  return Object.entries(pairStats)
+    .filter(([,s])=>s.total>=2)
+    .map(([key,s])=>({key,names:s.names,w:s.w,total:s.total,wr:Math.round(s.w/s.total*100)}))
+    .sort((a,b)=>b.wr-a.wr||b.total-a.total);
+}
+
+// 5) Mục tiêu lên hạng — người chơi nào đang gần ngưỡng tier tiếp theo nhất
+function computeMilestones(players){
+  const sortedTiers=[...TIERS].filter(t=>t.min>0).sort((a,b)=>a.min-b.min);
+  const list=(players||[]).map(p=>{
+    const next=sortedTiers.find(t=>t.min>p.elo);
+    if(!next) return null;
+    const prevMin=[...sortedTiers].reverse().find(t=>t.min<=p.elo)?.min || 0;
+    const progress=Math.round(Math.max(0,Math.min(1,(p.elo-prevMin)/(next.min-prevMin)))*100);
+    return {player:p, next, needed: next.min-p.elo, progress};
+  }).filter(Boolean).sort((a,b)=>a.needed-b.needed);
+  return list.slice(0,4);
+}
 
 // Quỹ CLB — import từ Google Sheet (cập nhật 04/04/2026)
 const FUND_MEMBERS = [
@@ -1005,147 +1097,213 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
       </div>
     )}
 
-    <FeaturedBadges players={players} matches={matches} onGoBadges={onGoBadges} onOpenPlayer={onOpenPlayer}/>
+    <RankMovers players={players} matches={matches}/>
 
-    <MonthlyEloChart players={players} matches={matches}/>
+    <MilestoneCountdown players={players}/>
   </>;
 }
 
-/* ─── HUY HIỆU NỔI BẬT (Dashboard) ───────────────────────── */
-function FeaturedBadges({players, matches, onGoBadges, onOpenPlayer}){
-  const [selectedBadge,setSelectedBadge]=React.useState(null);
-  const badges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
-  const featured=['king','fire','cold'];
-  const shown=featured.map(id=>badges.find(b=>b.id===id)).filter(b=>b && b.holder);
+/* ─── EDIT MATCH MODAL ───────────────────────────────────── */
+/* ─── 1) BIẾN ĐỘNG ELO THÁNG NÀY ──────────────────────────── */
+function RankMovers({players, matches}){
+  const {gainers, losers, monthLabel} = useMemo(()=>computeMonthMovers(players, matches), [players, matches]);
+  const hasData = gainers.length>0 || losers.length>0;
+
+  const Row=({item, positive})=>(
+    <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'8px 10px',borderRadius:'10px',background:positive?'var(--green-bg)':'var(--red-bg)'}}>
+      <PlayerAvatar player={item.player} size={28}/>
+      <div style={{flex:1,minWidth:0,fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name.split(' ').slice(-2).join(' ')}</div>
+      <div style={{fontFamily:'Quicksand',fontWeight:800,fontSize:'14px',color:positive?'var(--green)':'var(--red)',whiteSpace:'nowrap'}}>
+        {positive?'▲ +':'▼ '}{item.delta}
+      </div>
+    </div>
+  );
 
   return (
     <div style={{marginBottom:'20px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-        <div className="fun-section-title" style={{margin:0}}>🏅 Huy Hiệu Nổi Bật</div>
-        {onGoBadges && <button onClick={onGoBadges} style={{background:'none',border:'none',color:'var(--muted)',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xem tất cả ›</button>}
-      </div>
-      {shown.length===0 ? (
+      <div className="fun-section-title" style={{marginTop:0}}>📊 Biến Động ELO {monthLabel?`· ${monthLabel}`:''}</div>
+      {!hasData ? (
         <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
-          🏅 Chưa có huy hiệu nào — ghi trận để xét huy hiệu nhé!
+          📊 Chưa có trận nào tháng này để xét biến động.
         </div>
       ) : (
-        <div className="badge-grid" style={{marginBottom:0}}>
-          {shown.map(b=>(
-            <div key={b.id} onClick={()=>setSelectedBadge(b)} style={{cursor:'pointer'}}>
-              <BadgeCard badge={b}/>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+          <div>
+            <div style={{fontSize:'11px',fontWeight:700,color:'var(--green)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🔺 Đang lên</div>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+              {gainers.length===0 && <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa có ai tăng</div>}
+              {gainers.map(g=><Row key={g.name} item={g} positive/>)}
             </div>
-          ))}
+          </div>
+          <div>
+            <div style={{fontSize:'11px',fontWeight:700,color:'var(--red)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🔻 Đang xuống</div>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+              {losers.length===0 && <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa có ai giảm</div>}
+              {losers.map(l=><Row key={l.name} item={l}/>)}
+            </div>
+          </div>
         </div>
       )}
-      {selectedBadge && <BadgePopup badge={selectedBadge} onClose={()=>setSelectedBadge(null)}/>}
     </div>
   );
 }
 
-/* ─── BIỂU ĐỒ TIẾN BỘ ELO THEO THÁNG (Dashboard) ─────────── */
-function MonthlyEloChart({players, matches}){
-  const [selectedNames,setSelectedNames]=React.useState(null); // null = auto chọn top 5
+/* ─── 2) BẢN ĐỒ HOẠT ĐỘNG (kiểu GitHub) ──────────────────── */
+function ActivityHeatmap({matches}){
+  const weeks=14;
+  const days=useMemo(()=>computeActivityHeatmap(matches, weeks), [matches]);
+  const maxCount=Math.max(1, ...days.map(d=>d.count));
 
-  // Danh sách các tháng (MM) xuất hiện trong dữ liệu trận, theo thứ tự thời gian
-  const months=useMemo(()=>{
-    const set=new Set();
-    matches.forEach(m=>{ const mm=parseMatchMonth(m.date); if(mm) set.add(mm); });
-    return [...set].sort((a,b)=>parseInt(a)-parseInt(b));
-  },[matches]);
+  // Nhóm theo cột tuần (7 ngày/cột)
+  const cols=[];
+  for(let i=0;i<days.length;i+=7) cols.push(days.slice(i,i+7));
 
-  // ELO cuối mỗi tháng, cho từng người chơi
-  const seriesByPlayer=useMemo(()=>{
-    const result={};
-    (players||[]).forEach(p=>{
-      let elo=1500;
-      const byMonth={};
-      const sorted=[...matches].reverse(); // cũ → mới
-      sorted.forEach(m=>{
-        const mm=parseMatchMonth(m.date);
-        const change=(m.eloChanges||[]).find(e=>e.name===p.name);
-        if(change) elo+=change.delta;
-        if(mm) byMonth[mm]=elo;
-      });
-      result[p.name]=months.map(mm=>byMonth[mm]!==undefined?byMonth[mm]:null);
-    });
-    return result;
-  },[players,matches,months]);
-
-  const defaultTop=useMemo(()=>[...(players||[])].sort((a,b)=>b.elo-a.elo).slice(0,5).map(p=>p.name),[players]);
-  const activeNames=selectedNames||defaultTop;
-
-  const togglePlayer=name=>{
-    setSelectedNames(cur=>{
-      const base=cur||defaultTop;
-      return base.includes(name)?base.filter(n=>n!==name):[...base,name];
-    });
+  const colorFor=count=>{
+    if(count===0) return 'var(--surface2)';
+    const ratio=count/maxCount;
+    if(ratio<=0.34) return 'var(--green)22';
+    if(ratio<=0.67) return 'var(--green)77';
+    return 'var(--green)';
   };
 
-  // fill forward các tháng null (giữ nguyên ELO nếu tháng đó không đấu)
-  const filledSeries={};
-  activeNames.forEach(name=>{
-    const raw=seriesByPlayer[name]||[];
-    let last=1500;
-    filledSeries[name]=raw.map(v=>{ if(v!==null){last=v;} return last; });
-  });
-
-  const allVals=Object.values(filledSeries).flat();
-  const minE=allVals.length?Math.min(...allVals)-30:1470;
-  const maxE=allVals.length?Math.max(...allVals)+30:1530;
-  const W=560,H=200,PAD_L=42,PAD_R=12,PAD_T=14,PAD_B=26;
-  const xScale=i=>months.length>1?PAD_L+(i/(months.length-1))*(W-PAD_L-PAD_R):W/2;
-  const yScale=e=>H-PAD_B-((e-minE)/(maxE-minE||1))*(H-PAD_T-PAD_B);
+  const totalMatches=days.reduce((a,d)=>a+d.count,0);
+  const activeDays=days.filter(d=>d.count>0).length;
 
   return (
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
-      <div className="section-title" style={{fontSize:'15px',marginBottom:'12px'}}>📈 Tiến Bộ ELO Theo Tháng</div>
-      {months.length<2 || (players||[]).length===0 ? (
-        <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',fontSize:'13px'}}>Cần dữ liệu trận đấu từ ít nhất 2 tháng để vẽ biểu đồ tiến bộ.</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',flexWrap:'wrap',gap:'6px'}}>
+        <div className="section-title" style={{fontSize:'15px'}}>🗓️ Bản Đồ Hoạt Động ({weeks} tuần gần nhất)</div>
+        <div style={{fontSize:'11px',color:'var(--muted)'}}>{totalMatches} trận · {activeDays} ngày có đấu</div>
+      </div>
+      <div style={{overflowX:'auto',paddingBottom:'4px'}}>
+        <div style={{display:'flex',gap:'3px',width:'fit-content'}}>
+          {cols.map((col,ci)=>(
+            <div key={ci} style={{display:'flex',flexDirection:'column',gap:'3px'}}>
+              {col.map((d,di)=>(
+                <div key={di} title={`${d.date.toLocaleDateString('vi-VN')}: ${d.count} trận`} style={{
+                  width:'13px',height:'13px',borderRadius:'3px',background:colorFor(d.count),
+                  border:d.count>0?'none':'1px solid var(--border)'
+                }}/>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'10px',fontSize:'10px',color:'var(--muted)'}}>
+        <span>Ít</span>
+        <div style={{width:'11px',height:'11px',borderRadius:'3px',background:'var(--surface2)',border:'1px solid var(--border)'}}/>
+        <div style={{width:'11px',height:'11px',borderRadius:'3px',background:'var(--green)22'}}/>
+        <div style={{width:'11px',height:'11px',borderRadius:'3px',background:'var(--green)77'}}/>
+        <div style={{width:'11px',height:'11px',borderRadius:'3px',background:'var(--green)'}}/>
+        <span>Nhiều</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 3) TRẬN ĐẤU ĐÁNG CHÚ Ý ──────────────────────────────── */
+function HighlightMatchCard({matches}){
+  const h=useMemo(()=>computeHighlightMatch(matches), [matches]);
+  if(!h) return (
+    <div style={{marginBottom:'20px'}}>
+      <div className="fun-section-title" style={{marginTop:0}}>🎬 Khoảnh Khắc Đáng Chú Ý</div>
+      <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
+        🎬 Ghi trận để có khoảnh khắc đáng nhớ nhé!
+      </div>
+    </div>
+  );
+  const m=h.match;
+  const winnerTeam = m.result==='W' ? m.myTeam : m.oppTeam;
+  const loserTeam = m.result==='W' ? m.oppTeam : m.myTeam;
+  const isUpset = h.delta>=14;
+
+  return (
+    <div style={{marginBottom:'20px'}}>
+      <div className="fun-section-title" style={{marginTop:0}}>🎬 Khoảnh Khắc Đáng Chú Ý</div>
+      <div style={{background:'linear-gradient(135deg,#1a1040,#2d1b69)',border:'1px solid var(--purple)',borderRadius:'16px',padding:'20px',color:'#fff'}}>
+        <div style={{fontSize:'11px',color:'#c4b5fd',textTransform:'uppercase',letterSpacing:'.7px',marginBottom:'8px'}}>{m.date} · {m.type}</div>
+        <div style={{fontSize:'16px',fontWeight:700,marginBottom:'6px'}}>
+          {isUpset ? '⚡ Lật kèo ngoạn mục!' : '🔥 Trận đấu nổi bật'}
+        </div>
+        <div style={{fontSize:'15px',lineHeight:1.6,marginBottom:'10px'}}>
+          <b style={{color:'#fbbf24'}}>{winnerTeam}</b> đánh bại <b>{loserTeam}</b> với tỷ số <b>{m.score1}–{m.score2}</b>
+          {isUpset ? `, giành đến +${h.delta} ELO — một cú lật kèo không ai ngờ tới!` : `.`}
+        </div>
+        <div style={{fontSize:'11px',color:'#c4b5fd'}}>💡 Tự động chọn dựa trên mức ELO thay đổi mạnh nhất trong các trận gần đây.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 4) CẶP ĐÔI ĂN Ý NHẤT ────────────────────────────────── */
+function PartnerNetwork({matches, players}){
+  const pairs=useMemo(()=>computePairStats(matches).slice(0,4), [matches]);
+  const findPlayer=name=>(players||[]).find(p=>p.name===name);
+
+  return (
+    <div style={{marginBottom:'20px'}}>
+      <div className="fun-section-title" style={{marginTop:0}}>🤝 Cặp Đôi Ăn Ý Nhất</div>
+      {pairs.length===0 ? (
+        <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
+          🤝 Cần thêm trận đánh đôi để xét cặp ăn ý nhất (tối thiểu 2 trận chung).
+        </div>
       ) : (
-        <>
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
-            {[0,.25,.5,.75,1].map(t=>{
-              const y=PAD_T+(1-t)*(H-PAD_T-PAD_B);
-              const v=Math.round(minE+(maxE-minE)*t);
-              return <g key={t}>
-                <line x1={PAD_L} y1={y} x2={W-PAD_R} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3"/>
-                <text x={PAD_L-4} y={y+4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
-              </g>;
-            })}
-            {months.map((mm,i)=>(
-              <text key={mm} x={xScale(i)} y={H-6} textAnchor="middle" fontSize="9" fill="var(--muted)">Th{parseInt(mm)}</text>
-            ))}
-            {activeNames.map(name=>{
-              const p=(players||[]).find(pl=>pl.name===name);
-              if(!p) return null;
-              const vals=filledSeries[name]||[];
-              const d=vals.map((v,i)=>`${i===0?'M':'L'}${xScale(i)},${yScale(v)}`).join(' ');
-              return (
-                <g key={name}>
-                  <path d={d} fill="none" stroke={p.color} strokeWidth="2" strokeLinejoin="round"/>
-                  {vals.map((v,i)=><circle key={i} cx={xScale(i)} cy={yScale(v)} r="2.5" fill={p.color} stroke="var(--bg)" strokeWidth="1"/>)}
-                </g>
-              );
-            })}
-          </svg>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginTop:'14px'}}>
-            {(players||[]).map(p=>{
-              const on=activeNames.includes(p.name);
-              return (
-                <button key={p.id} onClick={()=>togglePlayer(p.name)} style={{
-                  display:'flex',alignItems:'center',gap:'5px',padding:'4px 10px',borderRadius:'20px',border:'1px solid',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',
-                  borderColor:on?p.color:'var(--border)',
-                  background:on?p.color+'22':'transparent',
-                  color:on?p.color:'var(--muted)'
-                }}>
-                  <span style={{width:'7px',height:'7px',borderRadius:'50%',background:p.color,opacity:on?1:.4}}/>
-                  {p.name.split(' ').slice(-2).join(' ')}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'10px'}}>💡 Bấm vào tên để bật/tắt hiển thị trên biểu đồ. Mặc định hiện 5 người có ELO cao nhất.</div>
-        </>
+        <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+          {pairs.map(p=>(
+            <div key={p.key} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'10px 14px'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',fontWeight:600}}>
+                  {p.names.map((n,i)=>{
+                    const pl=findPlayer(n);
+                    return (
+                      <React.Fragment key={n}>
+                        {i>0 && <span style={{color:'var(--muted)',fontWeight:400}}>&</span>}
+                        {pl && <PlayerAvatar player={pl} size={22}/>}
+                        <span>{n.split(' ').slice(-2).join(' ')}</span>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+                <div style={{fontFamily:'Quicksand',fontWeight:800,fontSize:'15px',color:p.wr>=50?'var(--green)':'var(--red)'}}>{p.wr}%</div>
+              </div>
+              <div style={{height:'6px',background:'var(--surface2)',borderRadius:'10px',overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${p.wr}%`,background:p.wr>=50?'var(--green)':'var(--red)',borderRadius:'10px'}}/>
+              </div>
+              <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'4px'}}>Thắng {p.w}/{p.total} trận đánh đôi cùng nhau</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── 5) MỤC TIÊU LÊN HẠNG ────────────────────────────────── */
+function MilestoneCountdown({players}){
+  const milestones=useMemo(()=>computeMilestones(players), [players]);
+
+  return (
+    <div style={{marginBottom:'20px'}}>
+      <div className="fun-section-title" style={{marginTop:0}}>🎯 Sắp Lên Hạng</div>
+      {milestones.length===0 ? (
+        <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
+          🎯 Mọi người đã đạt hạng cao nhất, hoặc chưa có người chơi nào.
+        </div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+          {milestones.map(ms=>(
+            <div key={ms.player.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'10px 14px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+                <PlayerAvatar player={ms.player} size={26}/>
+                <div style={{flex:1,minWidth:0,fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ms.player.name.split(' ').slice(-2).join(' ')}</div>
+                <div style={{fontSize:'11px',fontWeight:700,color:ms.next.color}}>còn {ms.needed} đ → {ms.next.icon} {ms.next.label}</div>
+              </div>
+              <div style={{height:'6px',background:'var(--surface2)',borderRadius:'10px',overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${ms.progress}%`,background:ms.next.color,borderRadius:'10px'}}/>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -2093,7 +2251,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onUp
             </div>
           </div>
           <div style={{fontSize:'11px',color:'var(--muted)',margin:'6px 0 10px'}}>
-            Chuyên ≥1700 · Nâng cao ≥1580 · Trung bình ≥1450 · Mới bắt đầu &lt;1450
+            🐉 ≥1800 · 👑 ≥1700 · ⚡ ≥1650 · 🔥 ≥1580 · 🎯 ≥1530 · 🌱 ≥1450 · 🥄 ≥1350 · 🐣 &lt;1350
           </div>
           {addPlayerError && <div style={{fontSize:'12px',color:'var(--red)',marginBottom:'10px'}}>⚠️ {addPlayerError}</div>}
           <div style={{display:'flex',gap:'8px'}}>
