@@ -270,8 +270,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 
 @media(max-width:768px){
   /* BXH mobile: #, tên+huy hiệu, ELO, W/L - bỏ cột xóa */
-  .bxh-header-row,.bxh-row{grid-template-columns:26px 1fr 44px 50px 40px;min-width:0;padding:10px 10px;gap:5px}
-  .bxh-header-row>*:last-child,.bxh-row>*:last-child{display:none}
+  .bxh-header-row,.bxh-row{grid-template-columns:24px 1fr 42px 46px 40px;min-width:0;padding:10px 8px;gap:4px}
   .bxh-card{overflow-x:visible}
   .fs-header,.fs-row{grid-template-columns:60px 1fr 70px 70px 28px}
   .topbar{display:none}
@@ -1110,11 +1109,11 @@ function RankMovers({players, matches}){
   const hasData = gainers.length>0 || losers.length>0;
 
   const Row=({item, positive})=>(
-    <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'8px 10px',borderRadius:'10px',background:positive?'var(--green-bg)':'var(--red-bg)'}}>
-      <PlayerAvatar player={item.player} size={28}/>
-      <div style={{flex:1,minWidth:0,fontSize:'13px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name.split(' ').slice(-2).join(' ')}</div>
-      <div style={{fontFamily:'Quicksand',fontWeight:800,fontSize:'14px',color:positive?'var(--green)':'var(--red)',whiteSpace:'nowrap'}}>
-        {positive?'▲ +':'▼ '}{item.delta}
+    <div style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 8px',borderRadius:'10px',background:positive?'var(--green-bg)':'var(--red-bg)',minWidth:0}}>
+      <PlayerAvatar player={item.player} size={26}/>
+      <div style={{flex:1,minWidth:0,fontSize:'12px',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.name.split(' ').slice(-2).join(' ')}</div>
+      <div style={{fontFamily:'Quicksand',fontWeight:800,fontSize:'13px',color:positive?'var(--green)':'var(--red)',whiteSpace:'nowrap',flexShrink:0}}>
+        {positive?'▲+':'▼'}{item.delta}
       </div>
     </div>
   );
@@ -1128,16 +1127,16 @@ function RankMovers({players, matches}){
         </div>
       ) : (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-          <div>
+          <div style={{minWidth:0}}>
             <div style={{fontSize:'11px',fontWeight:700,color:'var(--green)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🔺 Đang lên</div>
-            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px',minWidth:0}}>
               {gainers.length===0 && <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa có ai tăng</div>}
               {gainers.map(g=><Row key={g.name} item={g} positive/>)}
             </div>
           </div>
-          <div>
+          <div style={{minWidth:0}}>
             <div style={{fontSize:'11px',fontWeight:700,color:'var(--red)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🔻 Đang xuống</div>
-            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px',minWidth:0}}>
               {losers.length===0 && <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa có ai giảm</div>}
               {losers.map(l=><Row key={l.name} item={l}/>)}
             </div>
@@ -2204,7 +2203,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onUp
     if(!nn){ setRenameError('Vui lòng nhập tên'); return; }
     if(nn===p.name){ setRenamingId(null); return; }
     if(isNameTaken(nn, players, members, p.name)){ setRenameError('Tên này đã tồn tại, hãy chọn tên khác'); return; }
-    onRenamePlayer(p.name, nn);
+    onRenamePlayer(p.name, nn, p.id);
     setRenamingId(null);
     setRenameError('');
   };
@@ -2370,7 +2369,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onUp
                 <span style={{color:'var(--muted)',fontWeight:500}}> / </span>
                 <span style={{color:'var(--red)'}}>{rangeStats.losses}</span>
               </div>
-              <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+              <div style={{display:'flex',gap:'4px',alignItems:'center',justifyContent:'flex-end'}}>
                 {!isRenaming && <button onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);setRenameError('');}} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',opacity:.5,padding:'0'}} title="Sửa tên">✏️</button>}
                 <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>
               </div>
@@ -3796,8 +3795,18 @@ function App(){
   };
 
   // Đổi tên đồng bộ giữa BXH (players), Quỹ (members), lịch sử buổi chơi (sessions) và lịch sử trận đấu (matches)
-  const renameEverywhere=(oldName,newName)=>{
-    setPlayers(p=>p.map(pl=>pl.name===oldName?{...pl,name:newName}:pl));
+  // id (tùy chọn): nếu có, chỉ đổi tên đúng người chơi có id này trong danh sách players.
+  // Nếu sau khi đổi vẫn còn người khác dùng tên cũ (trường hợp trùng tên), KHÔNG tự động
+  // sửa lịch sử trận đấu/buổi chơi cũ (vì không thể biết trận nào là của ai) — người dùng
+  // cần tự vào "Sửa trận đấu" để gán lại đúng người cho từng trận cũ.
+  const renameEverywhere=(oldName,newName,id=null)=>{
+    const stillDuplicate = id!=null && players.some(pl=>pl.id!==id && pl.name===oldName);
+    if(id!=null){
+      setPlayers(p=>p.map(pl=>pl.id===id?{...pl,name:newName}:pl));
+    } else {
+      setPlayers(p=>p.map(pl=>pl.name===oldName?{...pl,name:newName}:pl));
+    }
+    if(stillDuplicate) return;
     setMembers(p=>p.map(m=>m.name===oldName?{...m,name:newName}:m));
     setSessions(p=>p.map(s=>{
       if(!s.attendees || !(oldName in s.attendees)) return s;
@@ -3823,12 +3832,15 @@ function App(){
     }));
   };
 
-  const doRenameEverywhere=(oldName,newName)=>{
+  const doRenameEverywhere=(oldName,newName,id=null)=>{
     const nn=(newName||'').trim();
     if(!nn||nn===oldName) return;
     if(isNameTaken(nn, players, members, oldName)){ showToast('⚠️ Tên đã tồn tại, chọn tên khác nhé'); return; }
-    renameEverywhere(oldName, nn);
-    showToast(`Đã đổi tên "${oldName}" → "${nn}"`);
+    const stillDuplicate = id!=null && players.some(pl=>pl.id!==id && pl.name===oldName);
+    renameEverywhere(oldName, nn, id);
+    showToast(stillDuplicate
+      ? `✅ Đã đổi tên hiển thị thành "${nn}". Vì vẫn còn người khác tên "${oldName}", lịch sử trận đấu CHƯA tự cập nhật — vào từng trận cũ (✏️ Sửa trận đấu) để gán lại đúng người nhé.`
+      : `Đã đổi tên "${oldName}" → "${nn}"`);
   };
 
   /* ─── THÙNG RÁC: khôi phục dữ liệu khi lỡ xóa ─────────────
