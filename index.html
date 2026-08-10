@@ -1773,7 +1773,9 @@ function TrashSection({title, icon, items, renderLabel, onRestore, onPurge}){
   );
 }
 function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestoreSession, onRestoreMatch, onPurge}){
-  const total=trash.players.length+trash.members.length+trash.sessions.length+trash.matches.length;
+  trash=trash||{};
+  const tPlayers=trash.players||[], tMembers=trash.members||[], tSessions=trash.sessions||[], tMatches=trash.matches||[];
+  const total=tPlayers.length+tMembers.length+tSessions.length+tMatches.length;
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:'520px'}} onClick={e=>e.stopPropagation()}>
@@ -1791,16 +1793,16 @@ function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestore
           </div>
         ) : (
           <>
-            <TrashSection title="Người chơi (BXH)" icon="🏆" items={trash.players}
+            <TrashSection title="Người chơi (BXH)" icon="🏆" items={tPlayers}
               renderLabel={p=>`${p.name} · ELO ${p.elo}`}
               onRestore={onRestorePlayer} onPurge={idx=>onPurge('players',idx)}/>
-            <TrashSection title="Thành viên quỹ" icon="💰" items={trash.members}
+            <TrashSection title="Thành viên quỹ" icon="💰" items={tMembers}
               renderLabel={m=>`${m.name} · Đã đóng ${fmt(m.paid)}`}
               onRestore={onRestoreMember} onPurge={idx=>onPurge('members',idx)}/>
-            <TrashSection title="Buổi chơi" icon="📅" items={trash.sessions}
+            <TrashSection title="Buổi chơi" icon="📅" items={tSessions}
               renderLabel={s=>`${s.date} · Tổng ${fmt(s.total)}`}
               onRestore={onRestoreSession} onPurge={idx=>onPurge('sessions',idx)}/>
-            <TrashSection title="Trận đấu" icon="🏓" items={trash.matches}
+            <TrashSection title="Trận đấu" icon="🏓" items={tMatches}
               renderLabel={m=>`${m.date} · ${m.myTeam} vs ${m.oppTeam} (${m.score1}-${m.score2})`}
               onRestore={onRestoreMatch} onPurge={idx=>onPurge('matches',idx)}/>
           </>
@@ -3702,6 +3704,20 @@ function App(){
   const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
   const TRASH_RETENTION_DAYS=30;
 
+  // Chuẩn hoá dữ liệu trash: Firebase tự xoá các mảng rỗng [] khi lưu,
+  // nên khi đọc lại có thể THIẾU hẳn key members/sessions/matches/players.
+  // Luôn điền mảng rỗng cho key thiếu để không bao giờ bị undefined.length ở nơi khác.
+  const normalizeTrash=React.useCallback(t=>{
+    const cutoff=Date.now()-TRASH_RETENTION_DAYS*24*60*60*1000;
+    const safeArr=v=>Array.isArray(v)?v:[];
+    return {
+      members:safeArr(t&&t.members).filter(x=>x&&x.deletedAt>cutoff),
+      sessions:safeArr(t&&t.sessions).filter(x=>x&&x.deletedAt>cutoff),
+      matches:safeArr(t&&t.matches).filter(x=>x&&x.deletedAt>cutoff),
+      players:safeArr(t&&t.players).filter(x=>x&&x.deletedAt>cutoff),
+    };
+  },[]);
+
   // Load tất cả data từ Firebase khi khởi động
   useEffect(()=>{
     (async()=>{
@@ -3717,14 +3733,7 @@ function App(){
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
       }
       if(tr&&typeof tr==='object'){
-        const cutoff=Date.now()-TRASH_RETENTION_DAYS*24*60*60*1000;
-        const clean=t=>({
-          members:(t.members||[]).filter(x=>x.deletedAt>cutoff),
-          sessions:(t.sessions||[]).filter(x=>x.deletedAt>cutoff),
-          matches:(t.matches||[]).filter(x=>x.deletedAt>cutoff),
-          players:(t.players||[]).filter(x=>x.deletedAt>cutoff),
-        });
-        setTrash(clean(tr));
+        setTrash(normalizeTrash(tr));
       }
       setDbReady(true);
       setSyncing(false);
@@ -3741,7 +3750,7 @@ function App(){
         if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
       }
-      if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(tr);
+      if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr));
     },30000);
     return ()=>clearInterval(id);
   },[]);
@@ -3939,7 +3948,7 @@ function App(){
   const trashPurgeForever=(type,idx)=>{
     setTrash(t=>({...t,[type]:t[type].filter((_,i)=>i!==idx)}));
   };
-  const trashCount=trash.members.length+trash.sessions.length+trash.matches.length+trash.players.length;
+  const trashCount=(trash.members||[]).length+(trash.sessions||[]).length+(trash.matches||[]).length+(trash.players||[]).length;
 
   const updatePlayerAvatar=(id, dataUrl)=>{
     setPlayers(p=>p.map(x=>x.id===id?{...x, avatar:dataUrl}:x));
@@ -4165,7 +4174,26 @@ function App(){
   </>;
 }
 
-ReactDOM.render(<App/>, document.getElementById('root'));
+class ErrorBoundary extends React.Component{
+  constructor(props){super(props);this.state={hasError:false,msg:''};}
+  static getDerivedStateFromError(err){return {hasError:true,msg:(err&&err.message)||'Đã có lỗi xảy ra.'};}
+  componentDidCatch(err,info){ try{console.error('App crash:',err,info);}catch(e){} }
+  render(){
+    if(this.state.hasError){
+      return (
+        <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'12px',padding:'24px',textAlign:'center',fontFamily:'Nunito,sans-serif',background:'#f4f5f7'}}>
+          <div style={{fontSize:'40px'}}>⚠️</div>
+          <div style={{fontSize:'16px',fontWeight:700,color:'#1a1d24'}}>Ứng dụng gặp lỗi khi hiển thị</div>
+          <div style={{fontSize:'13px',color:'#8a909c',maxWidth:'420px'}}>{this.state.msg}</div>
+          <button onClick={()=>window.location.reload()} style={{marginTop:'8px',background:'#22c55e',color:'#fff',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Tải lại trang</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.render(<ErrorBoundary><App/></ErrorBoundary>, document.getElementById('root'));
 </script>
 
 <script>
