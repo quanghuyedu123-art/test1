@@ -1541,6 +1541,25 @@ function DateInput({value,onChange,style}){
   );
 }
 
+/* Ô nhập tiền: tự thêm dấu phẩy ngăn cách nghìn khi gõ (VD 300000 -> 300,000).
+   Giá trị trả về qua onChange luôn là chuỗi số thuần (không dấu phẩy) để không đổi
+   cách tính toán (parseInt) ở những nơi đang dùng. */
+function MoneyInput({value,onChange,placeholder,className='fi',style}){
+  const digits = String(value??'').replace(/[^\d]/g,'');
+  const display = digits ? Number(digits).toLocaleString('en-US') : '';
+  return (
+    <input
+      className={className}
+      type="text"
+      inputMode="numeric"
+      value={display}
+      onChange={e=>onChange(e.target.value.replace(/[^\d]/g,''))}
+      placeholder={placeholder}
+      style={style}
+    />
+  );
+}
+
 /* ─── ADD MATCH MODAL (MULTI-PLAYER) ─────────────────────── */
 function AddMatchModal({players,onClose,onSave}){
   const [type,setType]=useState('Đôi');
@@ -2903,7 +2922,7 @@ function EditSessionModal({session,members,onClose,onSave}){
 
         <div className="form-grid" style={{marginBottom:'12px'}}>
           <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={date} onChange={setDate}/></div>
-          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><input className="fi" type="number" value={total} onChange={e=>setTotal(e.target.value)} placeholder="380000"/></div>
+          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><MoneyInput value={total} onChange={setTotal} placeholder="380,000"/></div>
         </div>
 
         {/* Xé Vé count */}
@@ -3114,11 +3133,37 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   // âm quỹ members
   const amQuy=members.filter(m2=>(m2.paid-(memberSpent[m2.name]||0))<0);
 
+  // Người chơi ở BXH nhưng chưa có trong Quỹ (VD: được thêm từ trước khi có tính năng tự đồng bộ)
+  const missingPlayers = players.filter(p=>!members.some(m=>m.name.toLowerCase()===p.name.toLowerCase()));
+  const syncMissingMembers = ()=>{
+    if(missingPlayers.length===0) return;
+    setMembers(p=>{
+      let updated=[...p];
+      missingPlayers.forEach(pl=>{
+        if(updated.some(m=>m.name.toLowerCase()===pl.name.toLowerCase())) return;
+        const usedColors=updated.map(m=>m.color);
+        const nextColor=COLORS.find(c=>!usedColors.includes(c))||pl.color;
+        updated=[...updated,{name:pl.name,paid:0,color:nextColor,deposits:[]}];
+      });
+      return updated;
+    });
+    showToast(`Đã thêm ${missingPlayers.length} người vào Quỹ`);
+  };
+
   return <>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
       <div className="section-title">💰 Quỹ CLB</div>
       <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
     </div>
+
+    {missingPlayers.length>0 && (
+      <div style={{background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'10px',padding:'12px 14px',marginBottom:'16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+        <div style={{fontSize:'12px',color:'var(--text)'}}>
+          ⚠️ Có <b>{missingPlayers.length}</b> người ở BXH chưa có trong Quỹ: {missingPlayers.map(p=>p.name).join(', ')}
+        </div>
+        <button onClick={syncMissingMembers} style={{background:'var(--yellow)',border:'none',borderRadius:'8px',color:'#000',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>➕ Đồng bộ ngay</button>
+      </div>
+    )}
 
     <div className="stats-grid" style={{marginBottom:'16px'}}>
       <div className="stat-card sc-green"><div className="sc-label">Tổng đã đóng</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalFund)}</div></div>
@@ -3135,7 +3180,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'14px',marginBottom:'12px'}}>
         <div className="form-grid">
           <div className="fg"><label className="fl">Tên</label><input className="fi" value={newMember.name} onChange={e=>setNewMember(p=>({...p,name:e.target.value}))} placeholder="Tên thành viên"/></div>
-          <div className="fg"><label className="fl">Đã đóng (VNĐ)</label><input className="fi" type="number" value={newMember.paid} onChange={e=>setNewMember(p=>({...p,paid:e.target.value}))} placeholder="500000"/></div>
+          <div className="fg"><label className="fl">Đã đóng (VNĐ)</label><MoneyInput value={newMember.paid} onChange={v=>setNewMember(p=>({...p,paid:v}))} placeholder="500,000"/></div>
         </div>
         {addMemberError && <div style={{fontSize:'12px',color:'var(--red)',marginTop:'8px'}}>⚠️ {addMemberError}</div>}
         <div className="form-actions"><button className="btn-cancel" onClick={()=>{setShowAddMember(false);setAddMemberError('');}}>Hủy</button><button className="btn-save" onClick={addMember}>Thêm</button></div>
@@ -3213,7 +3258,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
                   <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
                       <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
-                      <div className="fg"><label className="fl">Số tiền (đ)</label><input className="fi" style={{padding:'6px 8px',fontSize:'12px'}} type="number" value={depositAmt} onChange={e=>setDepositAmt(e.target.value)} placeholder="500000"/></div>
+                      <div className="fg"><label className="fl">Số tiền (đ)</label><MoneyInput style={{padding:'6px 8px',fontSize:'12px'}} value={depositAmt} onChange={setDepositAmt} placeholder="500,000"/></div>
                     </div>
                     <div style={{display:'flex',gap:'6px'}}>
                       <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
@@ -3287,7 +3332,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
         <div className="form-grid" style={{marginBottom:'12px'}}>
           <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={f.date} onChange={v=>setF(p=>({...p,date:v}))}/></div>
-          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><input className="fi" type="number" value={f.total} onChange={sf('total')} placeholder="380000"/></div>
+          <div className="fg"><label className="fl">Tổng tiền (VNĐ)</label><MoneyInput value={f.total} onChange={v=>setF(p=>({...p,total:v}))} placeholder="380,000"/></div>
         </div>
 
         {/* Xé vé tùy biến */}
