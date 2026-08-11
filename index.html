@@ -57,7 +57,8 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .btn-ghi:hover{filter:brightness(1.1)}
 
 /* BANNER */
-.banner{width:100%;aspect-ratio:820/312;max-height:340px;background:linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.banner{width:100%;aspect-ratio:820/312;background:linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+@media(min-width:1200px){.banner{max-height:520px}}
 .banner-text{text-align:center;position:relative;z-index:2}
 .banner-title{font-family:'Quicksand',sans-serif;font-size:28px;font-weight:700;letter-spacing:-1px}
 .banner-title span{color:var(--green)}
@@ -908,15 +909,22 @@ function CropModal({src, aspect, onDone, onClose, round=false}){
 }
 
 /* ─── BANNER (có thể chỉnh sửa) ────────────────────────── */
-function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
-  const [editing, setEditing] = React.useState(false);
+function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightness, onUpdate, editable}){
+  // mode: 'view' | 'text' | 'adjust'
+  const [mode, setMode] = React.useState('view');
   const [cropSrc, setCropSrc] = React.useState(null);
   const [localTitle, setLocalTitle] = React.useState(bannerTitle||'Pích Cờ Bôn Phông Bạt');
   const [localSub, setLocalSub] = React.useState(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓');
+  // Độ đậm lớp phủ đen (0 = trong suốt, thấy rõ ảnh · 100 = đậm/tối hẳn)
+  const [localOverlay, setLocalOverlay] = React.useState(bannerOverlay ?? 45);
+  // Độ sáng của chính ảnh (100 = giữ nguyên, <100 tối hơn, >100 sáng hơn)
+  const [localBrightness, setLocalBrightness] = React.useState(bannerBrightness ?? 100);
   const fileRef = React.useRef(null);
 
   useEffect(()=>{ setLocalTitle(bannerTitle||'Pích Cờ Bôn Phông Bạt'); },[bannerTitle]);
   useEffect(()=>{ setLocalSub(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓'); },[bannerSub]);
+  useEffect(()=>{ setLocalOverlay(bannerOverlay ?? 45); },[bannerOverlay]);
+  useEffect(()=>{ setLocalBrightness(bannerBrightness ?? 100); },[bannerBrightness]);
 
   const handleFile = e => {
     const f = e.target.files?.[0]; if(!f) return;
@@ -927,19 +935,30 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
   };
 
   const saveText = () => {
-    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub});
-    setEditing(false);
+    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: localOverlay, bannerBrightness: localBrightness});
+    setMode('view');
+  };
+
+  const saveAdjust = () => {
+    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: localOverlay, bannerBrightness: localBrightness});
+    setMode('view');
+  };
+
+  const cancelAdjust = () => {
+    setLocalOverlay(bannerOverlay ?? 45);
+    setLocalBrightness(bannerBrightness ?? 100);
+    setMode('view');
   };
 
   const bgStyle = bannerImg
-    ? {backgroundImage:`url(${bannerImg})`, backgroundSize:'cover', backgroundPosition:'center'}
+    ? {backgroundImage:`url(${bannerImg})`, backgroundSize:'cover', backgroundPosition:'center', filter:`brightness(${localBrightness}%)`}
     : {background:'linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%)'};
 
   return (
     <>
       <div className="banner" style={{position:'relative',overflow:'hidden',...bgStyle}}>
-        {/* Overlay khi có ảnh */}
-        {bannerImg && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.45)'}}/>}
+        {/* Overlay khi có ảnh — độ đậm/trong chỉnh được */}
+        {bannerImg && <div style={{position:'absolute',inset:0,background:`rgba(0,0,0,${localOverlay/100})`,transition:'background .1s'}}/>}
 
         {/* Balls deco khi không có ảnh */}
         {!bannerImg && (
@@ -955,7 +974,7 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
         )}
 
         {/* Text */}
-        {!editing ? (
+        {mode !== 'text' ? (
           <div style={{position:'relative',zIndex:2,textAlign:'center'}}>
             <div style={{fontFamily:"'Quicksand',sans-serif",fontSize:'26px',fontWeight:700,letterSpacing:'-1px',color:'#fff',textShadow:'0 2px 8px rgba(0,0,0,.5)'}}>
               {localTitle}
@@ -976,14 +995,40 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
               placeholder="Mô tả ngắn..."/>
             <div style={{display:'flex',gap:'8px'}}>
               <button onClick={saveText} style={{background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 16px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✅ Lưu</button>
-              <button onClick={()=>setEditing(false)} style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+              <button onClick={()=>setMode('view')} style={{background:'rgba(0,0,0,.5)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+            </div>
+          </div>
+        )}
+
+        {/* Panel chỉnh độ đậm/trong + độ sáng ảnh */}
+        {mode === 'adjust' && (
+          <div style={{position:'absolute',left:'50%',bottom:'12px',transform:'translateX(-50%)',zIndex:5,
+            background:'rgba(0,0,0,.65)',backdropFilter:'blur(4px)',border:'1px solid rgba(255,255,255,.2)',
+            borderRadius:'12px',padding:'12px 16px',width:'92%',maxWidth:'360px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}}>
+              <label style={{fontSize:'11px',color:'rgba(255,255,255,.8)',flexShrink:0,width:'86px'}}>🌑 Độ đậm</label>
+              <input type="range" min="0" max="90" step="1" value={localOverlay}
+                onChange={e=>setLocalOverlay(parseInt(e.target.value,10))}
+                style={{flex:1,accentColor:'var(--green)'}}/>
+              <span style={{fontSize:'11px',color:'#fff',width:'32px',textAlign:'right',flexShrink:0}}>{localOverlay}%</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+              <label style={{fontSize:'11px',color:'rgba(255,255,255,.8)',flexShrink:0,width:'86px'}}>☀️ Độ sáng ảnh</label>
+              <input type="range" min="40" max="160" step="1" value={localBrightness}
+                onChange={e=>setLocalBrightness(parseInt(e.target.value,10))}
+                style={{flex:1,accentColor:'var(--green)'}}/>
+              <span style={{fontSize:'11px',color:'#fff',width:'32px',textAlign:'right',flexShrink:0}}>{localBrightness}%</span>
+            </div>
+            <div style={{display:'flex',gap:'8px',marginTop:'12px',justifyContent:'center'}}>
+              <button onClick={saveAdjust} style={{background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 16px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✅ Lưu</button>
+              <button onClick={cancelAdjust} style={{background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
             </div>
           </div>
         )}
 
         {/* Edit controls — góc phải */}
-        {editable && !editing && (
-          <div style={{position:'absolute',top:'10px',right:'12px',zIndex:10,display:'flex',gap:'6px'}}>
+        {editable && mode==='view' && (
+          <div style={{position:'absolute',top:'10px',right:'12px',zIndex:10,display:'flex',gap:'6px',flexWrap:'wrap',justifyContent:'flex-end'}}>
             <button
               onClick={()=>fileRef.current?.click()}
               style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
@@ -992,13 +1037,21 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
             >📷 Đổi ảnh</button>
             {bannerImg && (
               <button
-                onClick={()=>onUpdate({bannerImg:null,bannerTitle:localTitle,bannerSub:localSub})}
+                onClick={()=>setMode('adjust')}
+                style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
+                  color:'#fff',padding:'6px 12px',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',
+                  fontFamily:'Nunito,sans-serif',backdropFilter:'blur(4px)'}}
+              >🎨 Chỉnh ảnh</button>
+            )}
+            {bannerImg && (
+              <button
+                onClick={()=>onUpdate({bannerImg:null,bannerTitle:localTitle,bannerSub:localSub,bannerOverlay:localOverlay,bannerBrightness:localBrightness})}
                 style={{background:'rgba(239,68,68,.7)',border:'none',borderRadius:'8px',
                   color:'#fff',padding:'6px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}
               >✕</button>
             )}
             <button
-              onClick={()=>setEditing(true)}
+              onClick={()=>setMode('text')}
               style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
                 color:'#fff',padding:'6px 12px',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'5px',
                 fontFamily:'Nunito,sans-serif',backdropFilter:'blur(4px)'}}
@@ -1014,7 +1067,7 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
           aspect={820/312}
           round={false}
           onDone={dataUrl=>{
-            onUpdate({bannerImg:dataUrl, bannerTitle:localTitle, bannerSub:localSub});
+            onUpdate({bannerImg:dataUrl, bannerTitle:localTitle, bannerSub:localSub, bannerOverlay:localOverlay, bannerBrightness:localBrightness});
             setCropSrc(null);
           }}
           onClose={()=>setCropSrc(null)}
@@ -4151,6 +4204,8 @@ function App(){
   const [bannerImg,setBannerImg]=useState(null);
   const [bannerTitle,setBannerTitle]=useState('Pích Cờ Bôn Phông Bạt');
   const [bannerSub,setBannerSub]=useState('Stats & Hòm Công Đức · Phông Bạt 🏓');
+  const [bannerOverlay,setBannerOverlay]=useState(45);
+  const [bannerBrightness,setBannerBrightness]=useState(100);
   // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
   const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
   const TRASH_RETENTION_DAYS=30;
@@ -4182,6 +4237,8 @@ function App(){
         if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
         if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
+        if(bn.bannerOverlay!==undefined) setBannerOverlay(bn.bannerOverlay);
+        if(bn.bannerBrightness!==undefined) setBannerBrightness(bn.bannerBrightness);
       }
       if(tr&&typeof tr==='object'){
         setTrash(normalizeTrash(tr));
@@ -4200,6 +4257,8 @@ function App(){
         if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
         if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
         if(bn.bannerSub) setBannerSub(bn.bannerSub);
+        if(bn.bannerOverlay!==undefined) setBannerOverlay(bn.bannerOverlay);
+        if(bn.bannerBrightness!==undefined) setBannerBrightness(bn.bannerBrightness);
       }
       if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr));
     },30000);
@@ -4232,8 +4291,8 @@ function App(){
   },[members]);
   useEffect(()=>{
     if(_skipBanner.current>0){_skipBanner.current--;return;}
-    if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub});
-  },[bannerImg,bannerTitle,bannerSub]);
+    if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness});
+  },[bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness]);
   useEffect(()=>{
     if(_skipTrash.current>0){_skipTrash.current--;return;}
     if(dbReady)fbSet('trash',trash);
@@ -4488,10 +4547,12 @@ function App(){
   const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
   const guardedResyncStats=requireAdmin(resyncPlayerStats);
   const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
-  const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s})=>{
+  const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s, bannerOverlay:ov, bannerBrightness:br})=>{
     setBannerImg(img);
     setBannerTitle(t);
     setBannerSub(s);
+    if(ov!==undefined) setBannerOverlay(ov);
+    if(br!==undefined) setBannerBrightness(br);
   });
   const guardedTrashRestorePlayer=requireAdmin(trashRestorePlayer);
   const guardedTrashRestoreMember=requireAdmin(trashRestoreMember);
@@ -4568,6 +4629,8 @@ function App(){
       bannerImg={bannerImg}
       bannerTitle={bannerTitle}
       bannerSub={bannerSub}
+      bannerOverlay={bannerOverlay}
+      bannerBrightness={bannerBrightness}
       editable={isAdmin}
       onUpdate={guardedBannerUpdate}
     />
