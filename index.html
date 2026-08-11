@@ -99,6 +99,15 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .bxh-row{display:grid;grid-template-columns:40px 1fr 72px 64px 46px;gap:6px;padding:13px 14px;border-bottom:1px solid var(--border);align-items:center;transition:.1s;min-width:320px}
 .bxh-row:hover{background:var(--surface2)}
 .bxh-row:last-child{border-bottom:none}
+.fund-search-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.fund-search-row .fi{flex:1;min-width:140px}
+.fund-search-row .fund-debt-toggle{flex-shrink:0}
+@media(max-width:420px){.fund-search-row .fund-debt-toggle{flex:1 1 100%}}
+.btn-expand{width:100%;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.btn-expand:hover{background:var(--border);color:var(--text)}
+.expand-region{overflow:hidden;transition:max-height .3s ease,opacity .3s ease}
+.expand-region.collapsed{max-height:0;opacity:0}
+.expand-region.expanded{max-height:2000px;opacity:1}
 .rank-num{font-family:'Quicksand',sans-serif;font-size:16px;font-weight:700;color:var(--muted)}
 .rank-num.r1{color:#fbbf24}
 .rank-num.r2{color:#94a3b8}
@@ -2626,20 +2635,42 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
       </div>
 
       {/* Tier legend */}
-      <div style={{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap',alignItems:'center'}}>
-        {(showAllTiers?TIERS:TIERS.slice(0,4)).map(t=>(
-          <span key={t.label} style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:t.bg,color:t.color,fontWeight:600}}>
-            {t.icon} {t.label} {t.min>0?`≥${t.min}`:''}
-          </span>
-        ))}
+      <div style={{marginBottom:'12px'}}>
+        <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
+          {TIERS.slice(0,4).map(t=>(
+            <span key={t.label} style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:t.bg,color:t.color,fontWeight:600}}>
+              {t.icon} {t.label} {t.min>0?`≥${t.min}`:''}
+            </span>
+          ))}
+        </div>
+        <div className={`expand-region ${showAllTiers?'expanded':'collapsed'}`}>
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center',paddingTop:'6px'}}>
+            {TIERS.slice(4).map(t=>(
+              <span key={t.label} style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:t.bg,color:t.color,fontWeight:600}}>
+                {t.icon} {t.label} {t.min>0?`≥${t.min}`:''}
+              </span>
+            ))}
+          </div>
+        </div>
         {TIERS.length>4 && (
-          <span
-            onClick={()=>setShowAllTiers(v=>!v)}
-            style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:'var(--surface)',border:'1px solid var(--border)',color:'var(--muted)',fontWeight:600,cursor:'pointer'}}
-          >
-            {showAllTiers?'Thu gọn ▲':`+${TIERS.length-4} ▼`}
-          </span>
+          <button className="btn-expand" onClick={()=>setShowAllTiers(v=>!v)}>
+            {showAllTiers?'▲ Thu gọn':`👥 Xem thêm ${TIERS.length-4} hạng`}
+          </button>
         )}
+        {(() => {
+          if(showAllTiers || !search.trim() || sorted.length!==1) return null;
+          const found = sorted[0];
+          const foundTier = getTier(found.elo);
+          const inTop4 = TIERS.slice(0,4).some(t=>t.label===foundTier.label);
+          if(inTop4) return null;
+          return (
+            <div style={{marginTop:'8px',fontSize:'11px',color:'var(--muted)'}}>
+              Hạng của {found.name}: <span style={{padding:'3px 10px',borderRadius:'20px',background:foundTier.bg,color:foundTier.color,fontWeight:600}}>
+                {foundTier.icon} {foundTier.label} {foundTier.min>0?`≥${foundTier.min}`:''}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {sorted.length===0 && (
@@ -3344,6 +3375,11 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const totalFund=members.reduce((a,m)=>a+m.paid,0);
   const totalSpent=sessions.reduce((a,s)=>a+s.total,0);
   const remaining=totalFund-totalSpent;
+  const totalDebt=members.reduce((a,m)=>{
+    const rem=m.paid-(memberSpent[m.name]||0);
+    return rem<0 ? a+Math.abs(rem) : a;
+  },0);
+  const debtorsCount=members.filter(m=>(m.paid-(memberSpent[m.name]||0))<0).length;
 
   const toggleAttendee=(name)=>{
     setF(p=>({...p,attendees:{...p.attendees,[name]:!p.attendees[name]}}));
@@ -3464,6 +3500,87 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     showToast(`Đã thêm ${missingPlayers.length} người vào Hòm Công Đức`);
   };
 
+  const renderMemberRow=({m,i})=>{
+    const spent = memberSpent[m.name]||0;
+    const rem = m.paid-spent;
+    const isDepTarget=depositTarget?.idx===i;
+    const isRenaming=renamingMember===i;
+    const isExpanded=expandedMember===i;
+    const matchedPlayer=(players||[]).find(p=>p.name===m.name);
+    return (
+      <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:'10px',overflow:'hidden'}}>
+        {/* Dòng gọn — bấm để mở/thu chi tiết */}
+        <div onClick={()=>setExpandedMember(isExpanded?null:i)} style={{display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer'}}>
+          <div style={{width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
+            {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:'13px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px'}}>
+              {m.name}{rem<0&&<span style={{fontSize:'9px'}}>🔴</span>}
+            </div>
+            <div style={{fontSize:'10.5px',color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Đóng {fmt(m.paid)} · Chi {fmt(spent)}</div>
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}>
+            <div className={rem>=0?'pos':'neg'} style={{fontWeight:800,fontSize:'13.5px'}}>{rem<0?'-':''}{fmt(Math.abs(rem))}</div>
+          </div>
+          <div style={{color:'var(--muted2)',fontSize:'10px',flexShrink:0,transform:isExpanded?'rotate(180deg)':'none',transition:'transform .15s'}}>▾</div>
+        </div>
+
+        {isExpanded && (
+          <div style={{padding:'0 12px 12px'}}>
+            {isRenaming?(
+              <div style={{marginBottom:'10px'}}>
+                <input className="fi" style={{padding:'7px 10px',fontSize:'13px',width:'100%',marginBottom:'8px'}} value={renameVal} onChange={e=>{setRenameVal(e.target.value);setRenameError('');}} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');setRenameError('');}}} autoFocus/>
+                {renameError && <div style={{fontSize:'11px',color:'var(--red)',marginBottom:'8px'}}>⚠️ {renameError}</div>}
+                <div style={{display:'flex',gap:'6px'}}>
+                  <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
+                  <button onClick={()=>{setRenamingMember(null);setRenameVal('');setRenameError('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
+                </div>
+              </div>
+            ):(
+              <div style={{display:'flex',gap:'6px',marginBottom:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
+                {isAdmin && <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
+                  background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
+                  borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
+                }}>+ Nạp tiền</button>}
+                {isAdmin && <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>}
+                {isAdmin && <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>}
+              </div>
+            )}
+
+            {isDepTarget&&(
+              <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
+                  <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
+                  <div className="fg"><label className="fl">Số tiền (đ)</label><MoneyInput style={{padding:'6px 8px',fontSize:'12px'}} value={depositAmt} onChange={setDepositAmt} placeholder="500,000"/></div>
+                </div>
+                <div style={{display:'flex',gap:'6px'}}>
+                  <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
+                  <button onClick={()=>{setDepositTarget(null);setDepositAmt('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+                </div>
+              </div>
+            )}
+
+            <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
+            <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
+
+            {(m.deposits||[]).length>1&&(
+              <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
+                <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
+                {(m.deposits||[]).map((d,di)=>(
+                  <div key={di} style={{display:'flex',justifyContent:'space-between',fontSize:'11px',padding:'2px 0',color:'var(--muted)'}}>
+                    <span>{d.date}</span>
+                    <span style={{color:m.color,fontWeight:600}}>+{fmt(d.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return <>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px',marginBottom:'14px'}}>
       <div className="section-title">🙏 Hòm Công Đức</div>
@@ -3482,7 +3599,12 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     <div className="stats-grid" style={{marginBottom:'16px'}}>
       <div className="stat-card sc-green"><div className="sc-label">Tổng đã đóng</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalFund)}</div></div>
       <div className="stat-card sc-red"><div className="sc-label">Đã chi</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalSpent)}</div></div>
-      <div className="stat-card sc-purple" style={{gridColumn:'span 2'}}><div className="sc-label">Còn lại trong Hòm Công Đức</div><div className="sc-val" style={{fontSize:'22px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
+      <div className="stat-card sc-purple"><div className="sc-label">Còn lại trong Hòm Công Đức</div><div className="sc-val" style={{fontSize:'20px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
+      <div className="stat-card sc-red" style={{borderColor:debtorsCount>0?'var(--red)':undefined}}>
+        <div className="sc-label">Tổng còn nợ toàn CLB</div>
+        <div className="sc-val" style={{fontSize:'20px',color:debtorsCount>0?'var(--red)':'var(--muted)'}}>{fmt(totalDebt)}</div>
+        {debtorsCount>0 && <div style={{fontSize:'10.5px',color:'var(--red)',marginTop:'2px'}}>🔴 {debtorsCount} người đang nợ</div>}
+      </div>
     </div>
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
@@ -3502,123 +3624,44 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     )}
 
     {/* Tìm nhanh + lọc người còn nợ quỹ — hữu ích khi CLB đông thành viên */}
-    <div style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
-      <input className="fi" style={{flex:1,padding:'8px 12px',fontSize:'13px'}} value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="🔍 Tìm theo tên..."/>
-      <button onClick={()=>setOnlyDebt(v=>!v)} style={{
-        flexShrink:0,padding:'0 12px',borderRadius:'9px',border:'1px solid',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap',
+    <div className="fund-search-row">
+      <input className="fi" style={{padding:'8px 12px',fontSize:'13px'}} value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="🔍 Tìm theo tên..."/>
+      <button className="fund-debt-toggle" onClick={()=>setOnlyDebt(v=>!v)} style={{
+        padding:'0 12px',minHeight:'38px',borderRadius:'9px',border:'1px solid',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap',
         borderColor:onlyDebt?'var(--red)':'var(--border)',
         background:onlyDebt?'var(--red-bg)':'var(--surface)',
         color:onlyDebt?'var(--red)':'var(--muted)'
       }}>{onlyDebt?'🔴 Đang lọc: còn nợ':'Chỉ hiện người còn nợ'}</button>
     </div>
 
-    <div className="fund-members" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-      {(()=>{
-        const filteredMembers=members.map((m,i)=>({m,i})).filter(({m})=>{
-          if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
-          if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
-          return true;
-        });
-        return (showAllMembers?filteredMembers:filteredMembers.slice(0,MEMBER_PAGE_SIZE));
-      })().map(({m,i})=>{
-        const spent = memberSpent[m.name]||0;
-        const rem = m.paid-spent;
-        const isDepTarget=depositTarget?.idx===i;
-        const isRenaming=renamingMember===i;
-        const isExpanded=expandedMember===i;
-        const matchedPlayer=(players||[]).find(p=>p.name===m.name);
-        return (
-          <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:'10px',overflow:'hidden'}}>
-            {/* Dòng gọn — bấm để mở/thu chi tiết */}
-            <div onClick={()=>setExpandedMember(isExpanded?null:i)} style={{display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer'}}>
-              <div style={{width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
-                {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
-              </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,fontSize:'13px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px'}}>
-                  {m.name}{rem<0&&<span style={{fontSize:'9px'}}>🔴</span>}
-                </div>
-                <div style={{fontSize:'10.5px',color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Đóng {fmt(m.paid)} · Chi {fmt(spent)}</div>
-              </div>
-              <div style={{textAlign:'right',flexShrink:0}}>
-                <div className={rem>=0?'pos':'neg'} style={{fontWeight:800,fontSize:'13.5px'}}>{rem<0?'-':''}{fmt(Math.abs(rem))}</div>
-              </div>
-              <div style={{color:'var(--muted2)',fontSize:'10px',flexShrink:0,transform:isExpanded?'rotate(180deg)':'none',transition:'transform .15s'}}>▾</div>
-            </div>
-
-            {isExpanded && (
-              <div style={{padding:'0 12px 12px'}}>
-                {isRenaming?(
-                  <div style={{marginBottom:'10px'}}>
-                    <input className="fi" style={{padding:'7px 10px',fontSize:'13px',width:'100%',marginBottom:'8px'}} value={renameVal} onChange={e=>{setRenameVal(e.target.value);setRenameError('');}} onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim())renameMember(i,renameVal.trim());if(e.key==='Escape'){setRenamingMember(null);setRenameVal('');setRenameError('');}}} autoFocus/>
-                    {renameError && <div style={{fontSize:'11px',color:'var(--red)',marginBottom:'8px'}}>⚠️ {renameError}</div>}
-                    <div style={{display:'flex',gap:'6px'}}>
-                      <button onClick={()=>{if(renameVal.trim())renameMember(i,renameVal.trim());}} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓ Lưu</button>
-                      <button onClick={()=>{setRenamingMember(null);setRenameVal('');setRenameError('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
-                    </div>
-                  </div>
-                ):(
-                  <div style={{display:'flex',gap:'6px',marginBottom:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
-                    {isAdmin && <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
-                      background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
-                      borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
-                    }}>+ Nạp tiền</button>}
-                    {isAdmin && <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>}
-                    {isAdmin && <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>}
-                  </div>
-                )}
-
-                {isDepTarget&&(
-                  <div style={{background:'var(--bg3)',borderRadius:'9px',padding:'10px',marginBottom:'10px',border:`1px solid ${m.color}44`}}>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
-                      <div className="fg"><label className="fl">📅 Ngày</label><DateInput value={depositDate} onChange={setDepositDate} style={{padding:'6px 8px',fontSize:'12px'}}/></div>
-                      <div className="fg"><label className="fl">Số tiền (đ)</label><MoneyInput style={{padding:'6px 8px',fontSize:'12px'}} value={depositAmt} onChange={setDepositAmt} placeholder="500,000"/></div>
-                    </div>
-                    <div style={{display:'flex',gap:'6px'}}>
-                      <button onClick={addDeposit} style={{flex:1,background:m.color,border:'none',borderRadius:'7px',color:'#fff',padding:'7px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xác nhận nạp</button>
-                      <button onClick={()=>{setDepositTarget(null);setDepositAmt('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
-                <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
-
-                {(m.deposits||[]).length>1&&(
-                  <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
-                    <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
-                    {(m.deposits||[]).map((d,di)=>(
-                      <div key={di} style={{display:'flex',justifyContent:'space-between',fontSize:'11px',padding:'2px 0',color:'var(--muted)'}}>
-                        <span>{d.date}</span>
-                        <span style={{color:m.color,fontWeight:600}}>+{fmt(d.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {members.length>0 && members.filter(m=>{
-        if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
-        if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
-        return true;
-      }).length===0 && (
-        <div style={{textAlign:'center',padding:'20px',color:'var(--muted)',fontSize:'13px'}}>Không tìm thấy thành viên nào phù hợp</div>
-      )}
-    </div>
     {(()=>{
-      const filteredCount=members.filter(m=>{
+      const filteredMembers=members.map((m,i)=>({m,i})).filter(({m})=>{
         if(memberSearch.trim()&&!m.name.toLowerCase().includes(memberSearch.trim().toLowerCase()))return false;
         if(onlyDebt&&(m.paid-(memberSpent[m.name]||0))>=0)return false;
         return true;
-      }).length;
-      return filteredCount>MEMBER_PAGE_SIZE && (
-        <button onClick={()=>setShowAllMembers(v=>!v)} style={{width:'100%',marginTop:'0',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>
-          {showAllMembers ? '▲ Thu gọn' : `👥 Xem thêm ${filteredCount-MEMBER_PAGE_SIZE} thành viên`}
-        </button>
-      );
+      });
+      const firstPage=filteredMembers.slice(0,MEMBER_PAGE_SIZE);
+      const extra=filteredMembers.slice(MEMBER_PAGE_SIZE);
+      return <>
+        <div className="fund-members" style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+          {firstPage.map(renderMemberRow)}
+          {filteredMembers.length===0 && (
+            <div style={{textAlign:'center',padding:'20px',color:'var(--muted)',fontSize:'13px'}}>Không tìm thấy thành viên nào phù hợp</div>
+          )}
+        </div>
+        {extra.length>0 && (
+          <div className={`expand-region ${showAllMembers?'expanded':'collapsed'}`}>
+            <div className="fund-members" style={{display:'flex',flexDirection:'column',gap:'8px',paddingTop:'8px'}}>
+              {extra.map(renderMemberRow)}
+            </div>
+          </div>
+        )}
+        {extra.length>0 && (
+          <button className="btn-expand" onClick={()=>setShowAllMembers(v=>!v)}>
+            {showAllMembers ? '▲ Thu gọn' : `👥 Xem thêm ${extra.length} thành viên`}
+          </button>
+        )}
+      </>;
     })()}
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',marginTop:'4px'}}>
