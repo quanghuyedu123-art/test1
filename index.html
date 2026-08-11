@@ -468,9 +468,9 @@ function computeBadges(players, matches){
   badges.push({id:'king', emoji:'🪷', title:'Đại Thí Chủ', desc:'Người có phước đức cao nhất hiện tại', color:'#f59e0b',
     holder: topElo?.elo>0 ? topElo : null});
 
-  // 🔥 Máy Chém — chuỗi thắng dài nhất hiện tại (>=2)
+  // 🔥 Thần Tài Gõ Cửa — chuỗi thắng dài nhất hiện tại (>=2)
   const onFire = [...withStats].filter(p=>p.streak.kind==='W'&&p.streak.count>=2).sort((a,b)=>b.streak.count-a.streak.count)[0];
-  badges.push({id:'fire', emoji:'🔥', title:'Máy Chém', desc:'Đang thắng chuỗi dài nhất hiện tại', color:'#ef4444',
+  badges.push({id:'fire', emoji:'🔥', title:'Thần Tài Gõ Cửa', desc:'Đang thắng chuỗi dài nhất hiện tại — lộc đang vào ào ạt!', color:'#ef4444',
     holder: onFire||null, extra: onFire?`${onFire.streak.count} trận liên tiếp`:null});
 
   // 💀 Vong Hồn Chưa Siêu Thoát — chuỗi thua dài nhất hiện tại (>=2)
@@ -478,14 +478,14 @@ function computeBadges(players, matches){
   badges.push({id:'cold', emoji:'💀', title:'Vong Hồn Chưa Siêu Thoát', desc:'Đang thua chuỗi dài nhất hiện tại — mau đi tích đức!', color:'#6b7280',
     holder: coldStreak||null, extra: coldStreak?`${coldStreak.streak.count} trận liên tiếp`:null});
 
-  // 🧱 Tường Thành — tỷ lệ thắng cao nhất, tối thiểu 3 trận
+  // 🧱 Tâm Bất Động — tỷ lệ thắng cao nhất, tối thiểu 3 trận
   const wall = [...withStats].filter(p=>p.total>=3).sort((a,b)=>b.wr-a.wr)[0];
-  badges.push({id:'wall', emoji:'🧱', title:'Tường Thành', desc:'Tỷ lệ thắng cao nhất (tối thiểu 3 trận)', color:'#3b82f6',
+  badges.push({id:'wall', emoji:'🧱', title:'Tâm Bất Động', desc:'Tỷ lệ thắng cao nhất (tối thiểu 3 trận) — vững như bàn thạch, chẳng gì lay chuyển', color:'#3b82f6',
     holder: wall||null, extra: wall?`${Math.round(wall.wr*100)}% thắng`:null});
 
   // 🎲 Định Mệnh — đánh nhiều trận nhất
   const grinder = [...withStats].filter(p=>p.total>0).sort((a,b)=>b.total-a.total)[0];
-  badges.push({id:'grind', emoji:'🎲', title:'Cày Cuốc Nhất CLB', desc:'Người ra sân đánh nhiều trận nhất', color:'#a855f7',
+  badges.push({id:'grind', emoji:'🙏', title:'Tinh Tấn Nhất CLB', desc:'Người ra sân đánh nhiều trận nhất — chăm tu chăm luyện', color:'#a855f7',
     holder: grinder||null, extra: grinder?`${grinder.total} trận`:null});
 
   // ⚔️ Khắc Tinh — người có tỷ số đối đầu áp đảo nhất với 1 đối thủ cụ thể (tối thiểu 2 trận chung)
@@ -511,7 +511,7 @@ function computeBadges(players, matches){
       }
     });
   });
-  badges.push({id:'nemesis', emoji:'⚔️', title:'Khắc Tinh', desc:'Áp đảo một đối thủ cụ thể nhiều nhất', color:'#22c55e',
+  badges.push({id:'nemesis', emoji:'⚔️', title:'Khắc Tinh Ngũ Hành', desc:'Áp đảo một đối thủ cụ thể nhiều nhất — chắc kỵ tuổi nhau thật', color:'#22c55e',
     holder: nemesis, extra: nemesis?`Khắc ${nemesisOpp.split(' ').slice(-1)[0]}`:null});
 
   // 🎯 Sát Thủ Kèo Lệch — thắng nhiều nhất khi là kẻ yếu hơn ELO (dùng eloChanges, delta dương nhưng đối thủ ELO cao hơn)
@@ -527,7 +527,7 @@ function computeBadges(players, matches){
   });
   const upsetName = Object.entries(upsetCount).sort((a,b)=>b[1]-a[1])[0];
   const upsetPlayer = upsetName ? players.find(p=>p.name===upsetName[0]) : null;
-  badges.push({id:'upset', emoji:'🎯', title:'Sát Thủ Kèo Lệch', desc:'Hay tạo bất ngờ khi thắng đối thủ mạnh hơn', color:'#06b6d4',
+  badges.push({id:'upset', emoji:'🎯', title:'Lật Số Trời', desc:'Hay tạo bất ngờ khi thắng đối thủ mạnh hơn — coi thường cả định mệnh', color:'#06b6d4',
     holder: upsetPlayer, extra: upsetPlayer?`${upsetName[1]} lần lật kèo`:null});
 
   // 🐣 Tân Binh Bứt Phá — phước đức tăng nhiều nhất so với mốc khởi điểm 1500
@@ -901,11 +901,11 @@ function Banner({bannerImg, bannerTitle, bannerSub, onUpdate, editable}){
   const [editing, setEditing] = React.useState(false);
   const [cropSrc, setCropSrc] = React.useState(null);
   const [localTitle, setLocalTitle] = React.useState(bannerTitle||'Pích Cờ Bôn Phông Bạt');
-  const [localSub, setLocalSub] = React.useState(bannerSub||'Stats & Quỹ CLB · Phông Bạt 🏓');
+  const [localSub, setLocalSub] = React.useState(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓');
   const fileRef = React.useRef(null);
 
   useEffect(()=>{ setLocalTitle(bannerTitle||'Pích Cờ Bôn Phông Bạt'); },[bannerTitle]);
-  useEffect(()=>{ setLocalSub(bannerSub||'Stats & Quỹ CLB · Phông Bạt 🏓'); },[bannerSub]);
+  useEffect(()=>{ setLocalSub(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓'); },[bannerSub]);
 
   const handleFile = e => {
     const f = e.target.files?.[0]; if(!f) return;
@@ -1829,7 +1829,7 @@ function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestore
             <TrashSection title="Người chơi (BXH)" icon="🏆" items={tPlayers}
               renderLabel={p=>`${p.name} · Công Đức ${p.elo}`}
               onRestore={onRestorePlayer} onPurge={idx=>onPurge('players',idx)}/>
-            <TrashSection title="Thành viên quỹ" icon="💰" items={tMembers}
+            <TrashSection title="Thành viên Hòm Công Đức" icon="🙏" items={tMembers}
               renderLabel={m=>`${m.name} · Đã đóng ${fmt(m.paid)}`}
               onRestore={onRestoreMember} onPurge={idx=>onPurge('members',idx)}/>
             <TrashSection title="Buổi chơi" icon="📅" items={tSessions}
@@ -3452,19 +3452,19 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       });
       return updated;
     });
-    showToast(`Đã thêm ${missingPlayers.length} người vào Quỹ`);
+    showToast(`Đã thêm ${missingPlayers.length} người vào Hòm Công Đức`);
   };
 
   return <>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
-      <div className="section-title">💰 Quỹ CLB</div>
+      <div className="section-title">🙏 Hòm Công Đức</div>
       <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
     </div>
 
     {missingPlayers.length>0 && (
       <div style={{background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'10px',padding:'12px 14px',marginBottom:'16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
         <div style={{fontSize:'12px',color:'var(--text)'}}>
-          ⚠️ Có <b>{missingPlayers.length}</b> người ở BXH chưa có trong Quỹ: {missingPlayers.map(p=>p.name).join(', ')}
+          ⚠️ Có <b>{missingPlayers.length}</b> người ở BXH chưa có trong Hòm Công Đức: {missingPlayers.map(p=>p.name).join(', ')}
         </div>
         <button onClick={syncMissingMembers} style={{background:'var(--yellow)',border:'none',borderRadius:'8px',color:'#000',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>➕ Đồng bộ ngay</button>
       </div>
@@ -3473,7 +3473,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     <div className="stats-grid" style={{marginBottom:'16px'}}>
       <div className="stat-card sc-green"><div className="sc-label">Tổng đã đóng</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalFund)}</div></div>
       <div className="stat-card sc-red"><div className="sc-label">Đã chi</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalSpent)}</div></div>
-      <div className="stat-card sc-purple" style={{gridColumn:'span 2'}}><div className="sc-label">Còn lại trong quỹ</div><div className="sc-val" style={{fontSize:'22px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
+      <div className="stat-card sc-purple" style={{gridColumn:'span 2'}}><div className="sc-label">Còn lại trong Hòm Công Đức</div><div className="sc-val" style={{fontSize:'22px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
     </div>
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
@@ -3839,13 +3839,13 @@ async function fbPoll(path){
 }
 
 /* ─── FUN TAB (HUY HIỆU + BẢNG PHONG THẦN) ──────────────── */
-/* Mô tả điều kiện đạt huy hiệu */
+/* Mô tả điều kiện đạt huy hiệu (hiện trong popup chi tiết) */
 const BADGE_CONDITIONS = {
   streak:   'Thắng <b>3 trận liên tiếp</b> (không thua xen giữa) trong toàn bộ lịch sử.',
   consistent:'Tỷ lệ thắng <b>cao nhất CLB</b> với tối thiểu 3 trận đã đánh.',
   comeback: 'Có trận thua rồi sau đó <b>thắng liền 2 trận</b> — gỡ kèo ngoạn mục nhất.',
-  nemesis:  'Bị một đối thủ cụ thể <b>thắng nhiều lần nhất</b> — kẻ thù không đội trời chung!',
-  upset:    'Thắng đối thủ mạnh hơn nhiều nhất — nhận Công Đức <b>≥14 điểm/trận</b> do kèo lệch.',
+  nemesis:  'Áp đảo tỷ số đối đầu với <b>một đối thủ cụ thể</b> nhiều nhất (tối thiểu 2 trận chung) — chắc là khắc mệnh thật, cứ gặp là thắng!',
+  upset:    'Thắng đối thủ mạnh hơn nhiều nhất — nhận Công Đức <b>≥14 điểm/trận</b> do kèo lệch, coi như lật ngược cả số trời đã định.',
   breakout: 'Tăng Công Đức <b>nhiều nhất so với mốc 1500</b> ban đầu.',
 };
 
@@ -4005,7 +4005,7 @@ function App(){
   const [syncing,setSyncing]=useState(false);
   const [bannerImg,setBannerImg]=useState(null);
   const [bannerTitle,setBannerTitle]=useState('Pích Cờ Bôn Phông Bạt');
-  const [bannerSub,setBannerSub]=useState('Stats & Quỹ CLB · Phông Bạt 🏓');
+  const [bannerSub,setBannerSub]=useState('Stats & Hòm Công Đức · Phông Bạt 🏓');
   // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
   const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
   const TRASH_RETENTION_DAYS=30;
@@ -4144,7 +4144,7 @@ function App(){
       const nextColor=COLORS.find(c=>!usedColors.includes(c))||color;
       return [...p,{name:nm,paid:0,color:nextColor,deposits:[]}];
     });
-    showToast(`Đã thêm ${nm} (Công Đức ${eloVal}) & tạo thành viên quỹ tương ứng`);
+    showToast(`Đã thêm ${nm} (Công Đức ${eloVal}) & tạo thành viên Hòm Công Đức tương ứng`);
   };
 
   const deletePlayer=(id)=>{
@@ -4397,7 +4397,7 @@ function App(){
       <div className="nav-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
         {syncing&&<span style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 10px',border:'1px solid var(--border)'}}>⏳ Đang đồng bộ...</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️ Chưa có DB</span>}
-        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>💰 Quỹ CLB</button>
+        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
         {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác — khôi phục dữ liệu đã xóa" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
           🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
         </button>}
@@ -4420,7 +4420,7 @@ function App(){
         {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
           🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
         </button>}
-        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>💰 Quỹ CLB</button>
+        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
       </div>
     </div>
 
