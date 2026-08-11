@@ -195,7 +195,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .btn-save:hover{background:var(--green2)}
 
 /* FUND TAB */
-.fund-members{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;max-width:100%}
+.fund-members{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:6px;max-width:100%}
 .fund-members>*{min-width:0;overflow:hidden}
 @media(min-width:600px){.fund-members{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:380px){.fund-members{grid-template-columns:1fr}}
@@ -2468,6 +2468,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
   const [newElo,setNewElo]=useState('1500');
   const [addPlayerError,setAddPlayerError]=useState('');
   const [search,setSearch]=useState('');
+  const [showAllTiers,setShowAllTiers]=useState(false);
   const [monthFilter,setMonthFilter]=useState('all');
   const [confirmDeletePlayer,setConfirmDeletePlayer]=useState(null);
   const [renamingId,setRenamingId]=useState(null);
@@ -2625,12 +2626,20 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
       </div>
 
       {/* Tier legend */}
-      <div style={{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap'}}>
-        {TIERS.map(t=>(
+      <div style={{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap',alignItems:'center'}}>
+        {(showAllTiers?TIERS:TIERS.slice(0,4)).map(t=>(
           <span key={t.label} style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:t.bg,color:t.color,fontWeight:600}}>
             {t.icon} {t.label} {t.min>0?`≥${t.min}`:''}
           </span>
         ))}
+        {TIERS.length>4 && (
+          <span
+            onClick={()=>setShowAllTiers(v=>!v)}
+            style={{fontSize:'11px',padding:'3px 10px',borderRadius:'20px',background:'var(--surface)',border:'1px solid var(--border)',color:'var(--muted)',fontWeight:600,cursor:'pointer'}}
+          >
+            {showAllTiers?'Thu gọn ▲':`+${TIERS.length-4} ▼`}
+          </span>
+        )}
       </div>
 
       {sorted.length===0 && (
@@ -3456,7 +3465,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   };
 
   return <>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px',marginBottom:'14px'}}>
       <div className="section-title">🙏 Hòm Công Đức</div>
       <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
     </div>
@@ -3606,7 +3615,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         return true;
       }).length;
       return filteredCount>MEMBER_PAGE_SIZE && (
-        <button onClick={()=>setShowAllMembers(v=>!v)} style={{width:'100%',marginTop:'8px',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>
+        <button onClick={()=>setShowAllMembers(v=>!v)} style={{width:'100%',marginTop:'0',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>
           {showAllMembers ? '▲ Thu gọn' : `👥 Xem thêm ${filteredCount-MEMBER_PAGE_SIZE} thành viên`}
         </button>
       );
@@ -3992,25 +4001,36 @@ function FunTab({players, matches}){
 /* ─── ADMIN MENU (Thùng rác + Khoá quản trị) ── */
 function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, dark}){
   const [open,setOpen]=useState(false);
-  const ref=React.useRef(null);
+  const [pos,setPos]=useState({top:0,right:0});
+  const btnRef=React.useRef(null);
+  const menuRef=React.useRef(null);
   useEffect(()=>{
-    const onDocClick=e=>{ if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onDocClick=e=>{
+      if(btnRef.current && btnRef.current.contains(e.target)) return;
+      if(menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDocClick);
-    return ()=>document.removeEventListener('mousedown', onDocClick);
+    window.addEventListener('resize', ()=>setOpen(false));
+    return ()=>{ document.removeEventListener('mousedown', onDocClick); };
   },[]);
   const itemStyle={display:'flex',alignItems:'center',gap:'9px',width:'100%',padding:'10px 14px',background:'none',border:'none',color:'#e5e7ec',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',textAlign:'left',whiteSpace:'nowrap'};
   const handleTrigger=()=>{
     if(!isAdmin){ onToggleLock(); return; } // chưa mở khoá -> hỏi PIN luôn, khỏi cần mở menu
+    if(!open && btnRef.current){
+      const r=btnRef.current.getBoundingClientRect();
+      setPos({top:r.bottom+6, right:window.innerWidth-r.right});
+    }
     setOpen(o=>!o);
   };
   return (
-    <div ref={ref} style={{position:'relative'}}>
-      <button onClick={handleTrigger} title={isAdmin?'Khu vực quản trị':'Mở khoá quản trị'} style={{background: open?'rgba(255,255,255,.14)':(isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)'),border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding: dark? '7px 10px':'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative',lineHeight:1}}>
+    <>
+      <button ref={btnRef} onClick={handleTrigger} title={isAdmin?'Khu vực quản trị':'Mở khoá quản trị'} style={{background: open?'rgba(255,255,255,.14)':(isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)'),border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding: dark? '7px 10px':'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative',lineHeight:1}}>
         {isAdmin?'🔓':'🔒'}
         {(isAdmin && trashCount>0) && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
       </button>
       {open && isAdmin && (
-        <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,background:'#161b28',border:'1px solid #2a3040',borderRadius:'10px',minWidth:'190px',boxShadow:'0 8px 24px rgba(0,0,0,.35)',overflow:'hidden',zIndex:300}}>
+        <div ref={menuRef} style={{position:'fixed',top:pos.top,right:pos.right,background:'#161b28',border:'1px solid #2a3040',borderRadius:'10px',minWidth:'190px',boxShadow:'0 8px 24px rgba(0,0,0,.35)',overflow:'hidden',zIndex:9999}}>
           <button style={itemStyle} onClick={()=>{setOpen(false);onOpenTrash();}}>
             🗑 Thùng rác{trashCount>0?` (${trashCount})`:''}
           </button>
@@ -4020,7 +4040,7 @@ function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, dark}){
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
