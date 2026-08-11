@@ -3794,6 +3794,9 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
 ──────────────────────────────────────────────────────── */
 const ADMIN_PIN = '142536';
 const FB_URL = 'https://test-7df23-default-rtdb.firebaseio.com';
+// Khoá bí mật phải khớp với rule ".write" đã publish trên Firebase Console
+// (Realtime Database → Rules). Đổi cả 2 nơi cùng lúc nếu muốn thay khoá.
+const FB_WRITE_KEY = 'jUS6-lVMLm1sNB3FdseBc5GOjK-EzHlM';
 
 async function fbGet(path){
   try{const r=await fetch(FB_URL+'/'+path+'.json');if(!r.ok)return null;const d=await r.json();
@@ -3814,7 +3817,7 @@ async function fbSet(path,val){
   try{
     await fetch(FB_URL+'/'+path+'.json',{method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({_data:val,_ts:ts})
+      body:JSON.stringify({_data:val,_ts:ts,_key:FB_WRITE_KEY})
     });
   }catch{}finally{
     setTimeout(()=>{ _fbSaving[path]=false; },2000);
@@ -4124,7 +4127,8 @@ function App(){
   const [matchSeg,setMatchSeg]=useState('Đôi');
 
   const showToast=msg=>setToast(msg);
-  const openAdd=requireAdmin(()=>setShowAdd(true));
+  const openAdd=()=>setShowAdd(true);
+  const openFund=requireAdmin(()=>setTab('fund'));
 
   // Derive "myElo" as the first player's ELO, or 1500
   const myElo=players.length?players[0].elo:1500;
@@ -4397,7 +4401,7 @@ function App(){
       <div className="nav-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
         {syncing&&<span style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 10px',border:'1px solid var(--border)'}}>⏳ Đang đồng bộ...</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️ Chưa có DB</span>}
-        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
+        <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
         {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác — khôi phục dữ liệu đã xóa" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
           🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
         </button>}
@@ -4420,7 +4424,7 @@ function App(){
         {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
           🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
         </button>}
-        <button onClick={()=>setTab('fund')} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
+        <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
       </div>
     </div>
 
