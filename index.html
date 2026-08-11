@@ -414,19 +414,20 @@ function PlayerAvatar({player, onUpdateAvatar, size=34}){
   );
 }
 
-/* ─── RANK TIERS ──────────────────────────────────────────── */
+/* ─── BẢNG PHƯỚC ĐỨC (thay cho rank tier ELO) ───────────────
+   Trên 1500 = tích phước (dương), dưới 1500 = tạo nghiệp (âm). */
 const TIERS = [
-  {label:'Tối Cao',       min:1810, color:'#2dd4bf', icon:'🐯', bg:'rgba(45,212,191,.15)'},
-  {label:'Thách Đấu',     min:1750, color:'#f59e0b', icon:'🦅', bg:'rgba(245,158,11,.15)'},
-  {label:'Đại Cao Thủ',   min:1690, color:'#ef4444', icon:'🐉', bg:'rgba(239,68,68,.15)'},
-  {label:'Cao Thủ',       min:1630, color:'#a855f7', icon:'🦉', bg:'rgba(168,85,247,.15)'},
-  {label:'Kim Cương',     min:1570, color:'#38bdf8', icon:'🦌', bg:'rgba(56,189,248,.15)'},
-  {label:'Lục Bảo',       min:1510, color:'#10b981', icon:'🐍', bg:'rgba(16,185,129,.15)'},
-  {label:'Bạch Kim',      min:1450, color:'#22d3ee', icon:'🐺', bg:'rgba(34,211,238,.15)'},
-  {label:'Vàng',          min:1380, color:'#eab308', icon:'🐻', bg:'rgba(234,179,8,.15)'},
-  {label:'Bạc',           min:1300, color:'#94a3b8', icon:'🐲', bg:'rgba(148,163,184,.15)'},
-  {label:'Đồng',          min:1200, color:'#b45309', icon:'🐗', bg:'rgba(180,83,9,.15)'},
-  {label:'Sắt',           min:0,    color:'#78716c', icon:'🐂', bg:'rgba(120,113,108,.15)'},
+  {label:'Phước Đức Vô Lượng',     min:1810, color:'#2dd4bf', icon:'🪷', bg:'rgba(45,212,191,.15)'},
+  {label:'Đại Phước Điền',         min:1750, color:'#f59e0b', icon:'🙏', bg:'rgba(245,158,11,.15)'},
+  {label:'Tích Đức Tam Sinh',      min:1690, color:'#ef4444', icon:'🧧', bg:'rgba(239,68,68,.15)'},
+  {label:'Có Phước Có Phần',       min:1630, color:'#a855f7', icon:'🍀', bg:'rgba(168,85,247,.15)'},
+  {label:'Ăn Ở Hiền Lành',         min:1570, color:'#38bdf8', icon:'🕯️', bg:'rgba(56,189,248,.15)'},
+  {label:'Tu Tại Tâm',             min:1510, color:'#10b981', icon:'☯️', bg:'rgba(16,185,129,.15)'},
+  {label:'Phước Mỏng Duyên Dày',   min:1450, color:'#22d3ee', icon:'🍂', bg:'rgba(34,211,238,.15)'},
+  {label:'Nghiệp Nhẹ Kiếp Này',    min:1380, color:'#eab308', icon:'⛅', bg:'rgba(234,179,8,.15)'},
+  {label:'Vía Dữ Khó Đỡ',          min:1300, color:'#94a3b8', icon:'🌩️', bg:'rgba(148,163,184,.15)'},
+  {label:'Nghiệp Nặng Quả Sâu',    min:1200, color:'#b45309', icon:'🔥', bg:'rgba(180,83,9,.15)'},
+  {label:'Âm Phước',               min:0,    color:'#78716c', icon:'💀', bg:'rgba(120,113,108,.15)'},
 ];
 function getTier(elo){ return TIERS.find(t=>elo>=t.min)||TIERS[TIERS.length-1]; }
 
@@ -462,9 +463,9 @@ function computeBadges(players, matches){
 
   const badges = [];
 
-  // 👑 Vua ELO
+  // 🪷 Đại Thí Chủ — phước đức cao nhất
   const topElo = [...withStats].sort((a,b)=>b.elo-a.elo)[0];
-  badges.push({id:'king', emoji:'👑', title:'Vua ELO', desc:'Người có điểm ELO cao nhất hiện tại', color:'#f59e0b',
+  badges.push({id:'king', emoji:'🪷', title:'Đại Thí Chủ', desc:'Người có phước đức cao nhất hiện tại', color:'#f59e0b',
     holder: topElo?.elo>0 ? topElo : null});
 
   // 🔥 Máy Chém — chuỗi thắng dài nhất hiện tại (>=2)
@@ -472,9 +473,9 @@ function computeBadges(players, matches){
   badges.push({id:'fire', emoji:'🔥', title:'Máy Chém', desc:'Đang thắng chuỗi dài nhất hiện tại', color:'#ef4444',
     holder: onFire||null, extra: onFire?`${onFire.streak.count} trận liên tiếp`:null});
 
-  // 💀 Số Nhọ — chuỗi thua dài nhất hiện tại (>=2)
+  // 💀 Vong Hồn Chưa Siêu Thoát — chuỗi thua dài nhất hiện tại (>=2)
   const coldStreak = [...withStats].filter(p=>p.streak.kind==='L'&&p.streak.count>=2).sort((a,b)=>b.streak.count-a.streak.count)[0];
-  badges.push({id:'cold', emoji:'💀', title:'Số Nhọ Tháng Này', desc:'Đang thua chuỗi dài nhất hiện tại — đừng bỏ cuộc!', color:'#6b7280',
+  badges.push({id:'cold', emoji:'💀', title:'Vong Hồn Chưa Siêu Thoát', desc:'Đang thua chuỗi dài nhất hiện tại — mau đi tích đức!', color:'#6b7280',
     holder: coldStreak||null, extra: coldStreak?`${coldStreak.streak.count} trận liên tiếp`:null});
 
   // 🧱 Tường Thành — tỷ lệ thắng cao nhất, tối thiểu 3 trận
@@ -529,10 +530,10 @@ function computeBadges(players, matches){
   badges.push({id:'upset', emoji:'🎯', title:'Sát Thủ Kèo Lệch', desc:'Hay tạo bất ngờ khi thắng đối thủ mạnh hơn', color:'#06b6d4',
     holder: upsetPlayer, extra: upsetPlayer?`${upsetName[1]} lần lật kèo`:null});
 
-  // 🐣 Tân Binh Bứt Phá — ELO tăng nhiều nhất so với mốc khởi điểm 1500
+  // 🐣 Tân Binh Bứt Phá — phước đức tăng nhiều nhất so với mốc khởi điểm 1500
   const breakout = [...withStats].filter(p=>p.elo>1500).sort((a,b)=>(b.elo-1500)-(a.elo-1500))[0];
-  badges.push({id:'breakout', emoji:'🐣', title:'Bứt Phá Nhất', desc:'Tăng ELO nhiều nhất so với mốc khởi điểm 1500', color:'#ec4899',
-    holder: breakout||null, extra: breakout?`+${breakout.elo-1500} ELO`:null});
+  badges.push({id:'breakout', emoji:'🐣', title:'Bứt Phá Nhất', desc:'Tích phước nhiều nhất so với mốc khởi điểm 1500', color:'#ec4899',
+    holder: breakout||null, extra: breakout?`+${breakout.elo-1500} phước`:null});
 
   return badges;
 }
@@ -681,7 +682,7 @@ function computePairStats(matches){
     .sort((a,b)=>b.wr-a.wr||b.total-a.total);
 }
 
-// 5) Mục tiêu lên hạng — người chơi nào đang gần ngưỡng tier tiếp theo nhất
+// 5) Mục tiêu tích phước — người chơi nào đang gần ngưỡng danh hiệu tiếp theo nhất
 function computeMilestones(players){
   const sortedTiers=[...TIERS].filter(t=>t.min>0).sort((a,b)=>a.min-b.min);
   const list=(players||[]).map(p=>{
@@ -993,7 +994,7 @@ function EloCard({myElo}){
   const cases = quickEloTable(myElo);
   return (
     <div className="elo-info">
-      <div className="elo-title">⚡ Công thức tính ELO (so với đối thủ cùng hạng)</div>
+      <div className="elo-title">🪷 Công thức tích/trừ phước đức (so với đối thủ cùng hạng)</div>
       <div className="elo-grid">
         {cases.map(c=>(
           <div className="elo-case" key={c.label}>
@@ -1004,7 +1005,7 @@ function EloCard({myElo}){
         ))}
       </div>
       <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'10px',lineHeight:'1.6'}}>
-        💡 ELO thay đổi theo chênh lệch rating: thắng mạnh hơn → ít điểm · thua yếu hơn → mất nhiều hơn
+        💡 Phước đức tăng giảm theo chênh lệch: thắng người "tu cao hơn" → ít công đức · thua người "tu thấp hơn" → mất nhiều phước hơn
       </div>
     </div>
   );
@@ -1283,10 +1284,10 @@ function MilestoneCountdown({players}){
 
   return (
     <div style={{marginBottom:'20px'}}>
-      <div className="fun-section-title" style={{marginTop:0}}>🎯 Sắp Lên Hạng</div>
+      <div className="fun-section-title" style={{marginTop:0}}>🪷 Sắp Tích Đủ Phước</div>
       {milestones.length===0 ? (
         <div style={{textAlign:'center',padding:'28px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',fontSize:'13px'}}>
-          🎯 Mọi người đã đạt hạng cao nhất, hoặc chưa có người chơi nào.
+          🪷 Mọi người đã đạt phước phần cao nhất, hoặc chưa có người chơi nào.
         </div>
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
@@ -1948,7 +1949,7 @@ function EloChart({players,matches}){
 }
 
 /* ─── TRANG RIÊNG: LỊCH SỬ ĐÁNH CHI TIẾT CỦA NGƯỜI CHƠI ──── */
-function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar}){
+function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
   const [monthFilter,setMonthFilter]=useState('Tất cả');
   const [editMatch,setEditMatch]=useState(null);
@@ -1964,11 +1965,6 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
   };
 
   const tier=getTier(player.elo);
-  const total=player.wins+player.losses;
-  const wr=total?Math.round(player.wins/total*100):0;
-
-  const allBadges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
-  const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===player.id);
 
   // Toàn bộ trận có sự tham gia của người này (cũ→mới để build timeline ELO)
   const myMatchesAsc=useMemo(()=>{
@@ -1977,6 +1973,23 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
       return all.includes(player.name);
     });
   },[matches,player.name]);
+
+  // Thắng/thua ĐẾM TRỰC TIẾP từ danh sách trận đấu thật (nguồn dữ liệu gốc) —
+  // KHÔNG dùng bộ đếm lũy kế player.wins/player.losses vì bộ đếm này có thể bị
+  // lệch dần theo thời gian do đồng bộ đa thiết bị (ghi đè không nguyên tử qua Firebase).
+  // Cách tính này đảm bảo luôn khớp 100% với số trận hiển thị bên dưới.
+  const realWins=myMatchesAsc.filter(m=>{
+    const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);
+    return inT1?m.result==='W':m.result==='L';
+  }).length;
+  const realLosses=myMatchesAsc.length-realWins;
+  const total=realWins+realLosses;
+  const wr=total?Math.round(realWins/total*100):0;
+  // Phát hiện lệch số liệu so với bộ đếm đang lưu trên hồ sơ
+  const statsMismatch = player.wins!==realWins || player.losses!==realLosses;
+
+  const allBadges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
+  const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===player.id);
 
   const history=useMemo(()=>{
     let elo=1500;
@@ -2111,20 +2124,31 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
         />
       )}
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'18px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:statsMismatch?'8px':'18px'}}>
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px',textAlign:'center'}}>
           <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Thắng</div>
-          <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px',color:'var(--green)'}}>{player.wins}</div>
+          <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px',color:'var(--green)'}}>{realWins}</div>
         </div>
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px',textAlign:'center'}}>
           <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Thua</div>
-          <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px',color:'var(--red)'}}>{player.losses}</div>
+          <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px',color:'var(--red)'}}>{realLosses}</div>
         </div>
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px',textAlign:'center'}}>
           <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Tỷ lệ thắng</div>
           <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px'}}>{wr}%</div>
         </div>
       </div>
+
+      {statsMismatch && (
+        <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'10px 12px',marginBottom:'18px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',flexWrap:'wrap'}}>
+          <div style={{fontSize:'11px',color:'var(--red)',flex:'1 1 200px'}}>
+            ⚠️ Số liệu thắng/thua đã lưu ({player.wins}T/{player.losses}B) đang lệch so với lịch sử trận thật ({realWins}T/{realLosses}B). Bấm để đồng bộ lại cho đúng.
+          </div>
+          {onResyncStats && (
+            <button onClick={()=>onResyncStats(player.id,realWins,realLosses)} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>🔧 Đồng bộ lại số liệu</button>
+          )}
+        </div>
+      )}
 
       {myBadges.length>0 && (
         <>
@@ -2143,13 +2167,17 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
           <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'6px 14px',marginBottom:'20px'}}>
             {opponentStats.map((o,i)=>{
               const oppPlayer=players.find(pp=>pp.name===o.name);
+              const clickable=!!(oppPlayer&&onViewHistory);
               return (
-                <div key={o.name} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:i>0?'1px solid var(--border)':'none'}}>
+                <div key={o.name}
+                  onClick={()=>clickable&&onViewHistory(oppPlayer)}
+                  title={clickable?`Xem lịch sử của ${o.name}`:''}
+                  style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderTop:i>0?'1px solid var(--border)':'none',cursor:clickable?'pointer':'default'}}>
                   {oppPlayer
                     ? <PlayerAvatar player={oppPlayer} size={32}/>
                     : <div style={{width:32,height:32,borderRadius:'50%',background:'var(--surface2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,color:'var(--muted)',flexShrink:0}}>{initials(o.name)}</div>}
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:'13px',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{o.name}</div>
+                    <div style={{fontSize:'13px',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:clickable?'var(--text)':'inherit'}}>{o.name}</div>
                     <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'3px'}}>
                       <div style={{flex:1,height:'4px',background:'var(--bg3)',borderRadius:'2px',overflow:'hidden',maxWidth:'120px'}}>
                         <div style={{width:o.winRate+'%',height:'100%',background:o.winRate>=50?'var(--green)':'var(--red)'}}/>
@@ -4157,6 +4185,13 @@ function App(){
     showToast('Đã cập nhật ảnh đại diện');
   };
 
+  // Sửa lỗi lệch số liệu thắng/thua: ghi đè bộ đếm player.wins/losses bằng
+  // đúng số đếm được từ danh sách trận đấu thật (nguồn dữ liệu gốc, luôn đáng tin).
+  const resyncPlayerStats=(id, wins, losses)=>{
+    setPlayers(p=>p.map(x=>x.id===id?{...x, wins, losses}:x));
+    showToast('✅ Đã đồng bộ lại số liệu thắng/thua');
+  };
+
   const addMatch=m=>{
     // Apply ELO changes to all involved players
     setPlayers(prev=>{
@@ -4229,6 +4264,7 @@ function App(){
   const guardedAddPlayer=requireAdmin(addPlayer);
   const guardedDeletePlayer=requireAdmin(deletePlayer);
   const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
+  const guardedResyncStats=requireAdmin(resyncPlayerStats);
   const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
   const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s})=>{
     setBannerImg(img);
@@ -4335,7 +4371,7 @@ function App(){
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
-          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar}/>
+          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
