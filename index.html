@@ -545,6 +545,20 @@ function parseMatchMonth(dateStr){
   return parts.length>=2 ? parts[1] : null;
 }
 
+/* ─── LỜI SẤM PHƯỚC ĐỨC (random flavor text cho Bảng Phong Thần) ─── */
+const PHUOC_DUC_PROPHECIES = [
+  '☯️ Tháng này thắng nhiều, tháng sau chưa chắc — nghiệp quả xoay vòng, đừng chủ quan mà bỏ khởi động.',
+  '🪷 Phước đức không tự nhiên mà có, phải chăm ra sân mới tích được — ngồi nhà không ai phong thần cả.',
+  '🔥 Đang thắng liên tục thì mừng, nhưng "phước đến rồi cũng đi" — giữ tâm bình thản mà đánh, đừng lên mặt.',
+  '🌧️ Thua vài trận không sao, coi như trả bớt nghiệp — tháng sau lại đầy phước, tiếp tục ra sân.',
+  '🧧 Đánh đôi hợp cạ là duyên, đánh đơn hợp gu là số — cả hai đều là phước phần trời cho.',
+  '💀 Âm phước không đáng sợ, đáng sợ nhất là... bỏ cuộc, không thèm ra sân gỡ lại.',
+  '🕯️ Ăn ở hiền lành với đối thủ, biết đâu tháng sau chính họ nhường mình vài quả.',
+  '🎲 Số phận hôm nay do tay bạn, ngày mai do vía — nhưng cả tuần vẫn phải chăm tập.',
+  '🍀 Có phước có phần, nhưng phần đó phải tự đi lượm, Thiên Đình không giao tận nhà.',
+  '⚖️ Trời không phụ người chăm chỉ ra sân — dù thắng dù thua, có mặt là đã có công.',
+];
+
 function computeHallOfFame(players, matches){
   const now = new Date();
   const curMonth = String(now.getMonth()+1).padStart(2,'0');
@@ -564,6 +578,10 @@ function computeHallOfFame(players, matches){
   });
   const topWinner = Object.entries(winCount).sort((a,b)=>b[1]-a[1])[0];
   const topLoser = Object.entries(loseCount).sort((a,b)=>b[1]-a[1])[0];
+  const findTier = name => {
+    const p = (players||[]).find(pp=>pp.name===name);
+    return p ? getTier(p.elo) : null;
+  };
 
   // Cặp đôi ăn ý nhất (đánh đôi cùng team, tỷ lệ thắng cao, tối thiểu 2 trận chung)
   const pairStats = {};
@@ -589,14 +607,19 @@ function computeHallOfFame(players, matches){
   });
   const topGainer = Object.entries(eloGain).sort((a,b)=>b[1]-a[1])[0];
 
+  // Lời sấm phước đức tháng này — chọn ổn định theo dữ liệu tháng (không đổi lung tung mỗi lần render)
+  const propheseed = monthMatches.length + (topWinner?topWinner[1]:0) + (topLoser?topLoser[1]:0);
+  const prophecy = PHUOC_DUC_PROPHECIES[propheseed % PHUOC_DUC_PROPHECIES.length];
+
   return {
     hasData:true,
     monthMatches,
     monthLabel: now.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}),
-    topWinner: topWinner ? {name:topWinner[0], wins:topWinner[1]} : null,
-    topLoser: topLoser ? {name:topLoser[0], losses:topLoser[1]} : null,
+    topWinner: topWinner ? {name:topWinner[0], wins:topWinner[1], tier:findTier(topWinner[0])} : null,
+    topLoser: topLoser ? {name:topLoser[0], losses:topLoser[1], tier:findTier(topLoser[0])} : null,
     bestPair: bestPair ? {names:bestPair[0], w:bestPair[1].w, total:bestPair[1].total} : null,
     topGainer: topGainer ? {name:topGainer[0], gain:topGainer[1]} : null,
+    prophecy,
   };
 }
 
@@ -1068,34 +1091,40 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
       <div style={{textAlign:'center',padding:'40px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)',marginBottom:'20px'}}>
         <div style={{fontSize:'32px',marginBottom:'8px'}}>📜</div>
         <div>Chưa có trận nào trong tháng này.</div>
-        <div style={{fontSize:'12px',marginTop:'4px'}}>Ghi trận để bảng phong thần tháng này có dữ liệu nhé!</div>
+        <div style={{fontSize:'12px',marginTop:'4px'}}>Ghi trận để Thiên Đình có cái mà chấm công tháng này nhé!</div>
       </div>
     ) : (
       <div className="hof-card" style={{marginBottom:'20px'}}>
-        <div className="hof-month">📅 {hof.monthLabel} · {hof.monthMatches.length} trận đã đấu</div>
+        <div className="hof-month">📅 {hof.monthLabel} · {hof.monthMatches.length} trận đã đấu · Sổ Trời đã ghi chép đầy đủ</div>
         {hof.topWinner && (
           <div className="hof-caption">
-            🔥 <b>{last(hof.topWinner.name)}</b> đang thống trị tháng này với <b>{hof.topWinner.wins} trận thắng</b> — không ai cản được!
+            🪷 <b>{last(hof.topWinner.name)}</b>{hof.topWinner.tier?<> ({hof.topWinner.tier.icon} {hof.topWinner.tier.label})</>:null} tích đức nhiều nhất tháng này với <b>{hof.topWinner.wins} trận thắng</b> — Thiên Đình đã ghi sổ vàng!
           </div>
         )}
         {hof.topGainer && hof.topGainer.gain>0 && (
           <div className="hof-caption">
-            📈 <b>{last(hof.topGainer.name)}</b> leo hạng nhanh nhất, Công Đức tăng <b>+{hof.topGainer.gain}</b> chỉ trong tháng này.
+            📈 <b>{last(hof.topGainer.name)}</b> công đức tăng nhanh nhất, <b>+{hof.topGainer.gain}</b> chỉ trong tháng này — chắc kiếp trước tu khá!
           </div>
         )}
         {hof.bestPair && (
           <div className="hof-caption">
-            🤝 Cặp đôi ăn ý nhất: <b>{hof.bestPair.names.split(' & ').map(n=>last(n)).join(' & ')}</b> thắng {hof.bestPair.w}/{hof.bestPair.total} trận đánh đôi cùng nhau.
+            🧧 Cặp đôi "hợp mệnh" nhất: <b>{hof.bestPair.names.split(' & ').map(n=>last(n)).join(' & ')}</b> thắng {hof.bestPair.w}/{hof.bestPair.total} trận đánh đôi cùng nhau — chắc có duyên từ kiếp trước.
           </div>
         )}
         {hof.topLoser && (
           <div className="hof-caption" style={{opacity:.85}}>
-            💀 <b>{last(hof.topLoser.name)}</b> đang có tháng hơi "đen", thua {hof.topLoser.losses} trận — cố lên, gỡ kèo tháng sau!
+            💀 <b>{last(hof.topLoser.name)}</b>{hof.topLoser.tier?<> ({hof.topLoser.tier.icon} {hof.topLoser.tier.label})</>:null} đang trả nghiệp nặng tháng này, thua {hof.topLoser.losses} trận — chắc kiếp trước quên tích đức, ráng tu tiếp tháng sau!
           </div>
         )}
-        <div className="hof-sub">💡 Bảng này tự cập nhật theo trận đấu thật trong tháng — không cần nhập tay.</div>
+        {hof.prophecy && (
+          <div className="hof-caption" style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px dashed rgba(167,139,250,.25)',fontStyle:'italic',opacity:.9}}>
+            🔮 Lời sấm tháng này: {hof.prophecy}
+          </div>
+        )}
+        <div className="hof-sub">💡 Bảng này tự cập nhật theo trận đấu thật trong tháng — không cần nhập tay, Táo Quân đã ghi hộ.</div>
       </div>
     )}
+
 
     <RankMovers players={players} matches={matches}/>
 
