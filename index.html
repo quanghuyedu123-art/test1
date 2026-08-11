@@ -217,6 +217,8 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .fm-val.pos{color:var(--green)}
 .fm-val.neg{color:var(--red)}
 .fund-sessions{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.btn-expand-flat{width:100%;padding:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;color:var(--muted);background:var(--surface);border:none;border-bottom:1px solid var(--border);transition:background .15s ease,color .15s ease}
+.btn-expand-flat:hover{background:var(--bg3);color:var(--text)}
 .fs-header{display:grid;grid-template-columns:90px 50px 1fr 90px;gap:8px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
 .fs-row{display:grid;grid-template-columns:90px 50px 1fr 90px;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center}
 .fs-row:last-child{border:none}
@@ -1603,7 +1605,7 @@ function MoneyInput({value,onChange,placeholder,className='fi',style}){
 }
 
 /* ─── ADD MATCH MODAL (MULTI-PLAYER) ─────────────────────── */
-function AddMatchModal({players,onClose,onSave}){
+function AddMatchModal({players,sessions,onClose,onSave}){
   const [type,setType]=useState('Đôi');
   const today=new Date();
   const [date,setDate]=useState(`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`);
@@ -1617,6 +1619,12 @@ function AddMatchModal({players,onClose,onSave}){
   const [t1b,setT1b]=useState('');
   const [t2a,setT2a]=useState('');
   const [t2b,setT2b]=useState('');
+
+  // Buổi chơi đã đặt sân — dùng để lọc danh sách người chơi khi ghi trận
+  const recentSessions=useMemo(()=>[...(sessions||[])].sort((a,b)=>b.id-a.id).slice(0,10),[sessions]);
+  const [sessionId,setSessionId]=useState(recentSessions.length?recentSessions[0].id:'');
+  const activeSession=recentSessions.find(s=>s.id===sessionId);
+  const sessionAttendees=activeSession?.attendees ? Object.entries(activeSession.attendees).filter(([,v])=>v).map(([k])=>k) : null;
 
   const s1=parseInt(score1)||0, s2=parseInt(score2)||0;
   const hasScore=score1!==''&&score2!=='';
@@ -1646,7 +1654,9 @@ function AddMatchModal({players,onClose,onSave}){
     }
   },[hasScore,win,type,p1,p2,t1a,t1b,t2a,t2b,players]);
 
-  const pOpts=players.map(p=>p.name);
+  const pOpts=(sessionAttendees && sessionAttendees.length>0)
+    ? players.filter(p=>sessionAttendees.includes(p.name)).map(p=>p.name)
+    : players.map(p=>p.name);
   const sel=(val,fn,others=[])=>{
     const taken=(others||[]).filter(Boolean);
     return (
@@ -1678,6 +1688,25 @@ function AddMatchModal({players,onClose,onSave}){
           <div className="modal-title">🏓 Ghi trận đấu</div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
+
+        {/* Buổi chơi — lọc người chơi theo ai đã đặt sân/tham gia */}
+        {recentSessions.length>0 && (
+          <div className="fg" style={{marginBottom:'12px'}}>
+            <label className="fl">Buổi chơi</label>
+            <select className="fi" value={sessionId} onChange={e=>setSessionId(e.target.value?Number(e.target.value):'')}>
+              {recentSessions.map(s=>{
+                const cnt=s.attendees?Object.values(s.attendees).filter(Boolean).length:0;
+                return <option key={s.id} value={s.id}>📅 {s.date} · {cnt} người{s.note?` · ${s.note}`:''}</option>;
+              })}
+              <option value="">👥 Tất cả người chơi (không lọc)</option>
+            </select>
+            {sessionAttendees && sessionAttendees.length>0 && (
+              <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'4px'}}>
+                Đang chỉ hiện {sessionAttendees.length} người đã đặt sân buổi này. Chọn "Tất cả người chơi" nếu cần thêm người khác.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Loại */}
         <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
@@ -2654,7 +2683,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
         </div>
         {TIERS.length>4 && (
           <button className="btn-expand" onClick={()=>setShowAllTiers(v=>!v)}>
-            {showAllTiers?'▲ Thu gọn':`👥 Xem thêm ${TIERS.length-4} hạng`}
+            {showAllTiers?'▲ Thu gọn':`🏅 Xem thêm ${TIERS.length-4} hạng`}
           </button>
         )}
         {(() => {
@@ -3745,64 +3774,77 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       <div className="fs-header" style={{gridTemplateColumns:'62px 1fr 70px 70px 32px'}}>
         <div>Ngày</div><div>Số người</div><div>Mỗi người</div><div>Tổng</div><div></div>
       </div>
-      {(showAllSessions?[...filteredSessions].reverse():[...filteredSessions].reverse().slice(0,SESSION_PAGE_SIZE)).map(s=>{
-        const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
-        const perPerson = attending.length>0 ? shareAmount(s) : (s.players>0 ? Math.round(s.total/s.players) : 0);
-        const xeVeCnt = attending.includes('Xé Vé') ? Math.max(1,parseInt(s.xeVeCount)||1) : 0;
-        const isExpanded = expandedSession===s.id;
-        return (
-          <div key={s.id}>
-            <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',borderBottom:'1px solid var(--border)',fontSize:'13px',alignItems:'center',cursor:'pointer',transition:'.1s'}}
-              onClick={()=>setExpandedSession(isExpanded?null:s.id)}>
-              <div style={{fontWeight:500}}>{s.date}</div>
-              <div style={{color:'var(--muted)',fontSize:'13px',display:'flex',alignItems:'center',gap:'4px'}}>
-                <span style={{fontWeight:600,color:'var(--text)'}}>{attending.length>0?attending.length:s.players}</span>
-                <span>người</span>
-                <span style={{fontSize:'10px',opacity:.6}}>{isExpanded?'▲':'▼'}</span>
-              </div>
-              <div style={{color:'var(--yellow)',fontWeight:600,fontFamily:'Quicksand,sans-serif',textAlign:'center'}}>
-                {perPerson?fmt(perPerson):'—'}
-              </div>
-              <div style={{fontWeight:600,fontFamily:'Quicksand,sans-serif'}}>{fmt(s.total)}</div>
-              {/* Nút sửa + xóa — e.stopPropagation() để không toggle expand */}
-              {isAdmin && (
-                <div style={{display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
-                  <button title="Chỉnh sửa" onClick={()=>setEditingSession(s)} style={{background:'var(--blue-bg)',border:'none',borderRadius:'6px',color:'var(--blue)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>✏️</button>
-                  <button title="Xóa" onClick={()=>setConfirmDeleteSession(s.id)} style={{background:'var(--red-bg)',border:'none',borderRadius:'6px',color:'var(--red)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>🗑</button>
+      {(()=>{
+        const renderSessionRow=s=>{
+          const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
+          const perPerson = attending.length>0 ? shareAmount(s) : (s.players>0 ? Math.round(s.total/s.players) : 0);
+          const xeVeCnt = attending.includes('Xé Vé') ? Math.max(1,parseInt(s.xeVeCount)||1) : 0;
+          const isExpanded = expandedSession===s.id;
+          return (
+            <div key={s.id}>
+              <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',borderBottom:'1px solid var(--border)',fontSize:'13px',alignItems:'center',cursor:'pointer',transition:'.1s'}}
+                onClick={()=>setExpandedSession(isExpanded?null:s.id)}>
+                <div style={{fontWeight:500}}>{s.date}</div>
+                <div style={{color:'var(--muted)',fontSize:'13px',display:'flex',alignItems:'center',gap:'4px'}}>
+                  <span style={{fontWeight:600,color:'var(--text)'}}>{attending.length>0?attending.length:s.players}</span>
+                  <span>người</span>
+                  <span style={{fontSize:'10px',opacity:.6}}>{isExpanded?'▲':'▼'}</span>
                 </div>
-              )}
-            </div>
-            {isExpanded && (
-              <div style={{background:'var(--bg3)',padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
-                {attending.length>0&&(
-                  <>
-                    <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.5px'}}>Chi tiết người tham dự</div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:s.note?'8px':'0'}}>
-                      {attending.map(name=>{
-                        const mem=members.find(m=>m.name===name);
-                        const isXeVe=name==='Xé Vé';
-                        const label=isXeVe&&xeVeCnt>1?`${name} (${xeVeCnt} người)`:name;
-                        const amt=isXeVe&&xeVeCnt>1?`${fmt(perPerson)}/người · ${fmt(perPerson*xeVeCnt)} tổng`:fmt(perPerson);
-                        return <span key={name} style={{fontSize:'12px',padding:'3px 10px',borderRadius:'20px',background:(mem?.color||'#888')+'22',color:mem?.color||'#888',fontWeight:500}}>{label} · {amt}</span>;
-                      })}
-                    </div>
-                  </>
-                )}
-                {s.note&&(
-                  <div style={{marginTop:'6px',padding:'7px 10px',background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'8px',fontSize:'12px',color:'var(--text)'}}>
-                    <span style={{fontSize:'10px',fontWeight:700,color:'var(--yellow)',textTransform:'uppercase',letterSpacing:'.5px',marginRight:'6px'}}>📝 Ghi chú:</span>{s.note}
+                <div style={{color:'var(--yellow)',fontWeight:600,fontFamily:'Quicksand,sans-serif',textAlign:'center'}}>
+                  {perPerson?fmt(perPerson):'—'}
+                </div>
+                <div style={{fontWeight:600,fontFamily:'Quicksand,sans-serif'}}>{fmt(s.total)}</div>
+                {/* Nút sửa + xóa — e.stopPropagation() để không toggle expand */}
+                {isAdmin && (
+                  <div style={{display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+                    <button title="Chỉnh sửa" onClick={()=>setEditingSession(s)} style={{background:'var(--blue-bg)',border:'none',borderRadius:'6px',color:'var(--blue)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>✏️</button>
+                    <button title="Xóa" onClick={()=>setConfirmDeleteSession(s.id)} style={{background:'var(--red-bg)',border:'none',borderRadius:'6px',color:'var(--red)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>🗑</button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
-      {filteredSessions.length>SESSION_PAGE_SIZE && (
-        <button onClick={()=>setShowAllSessions(v=>!v)} style={{width:'100%',padding:'10px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)',background:'var(--surface)',border:'none',borderBottom:'1px solid var(--border)'}}>
-          {showAllSessions ? '▲ Thu gọn' : `📋 Xem thêm ${filteredSessions.length-SESSION_PAGE_SIZE} buổi chơi`}
-        </button>
-      )}
+              {isExpanded && (
+                <div style={{background:'var(--bg3)',padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
+                  {attending.length>0&&(
+                    <>
+                      <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.5px'}}>Chi tiết người tham dự</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:s.note?'8px':'0'}}>
+                        {attending.map(name=>{
+                          const mem=members.find(m=>m.name===name);
+                          const isXeVe=name==='Xé Vé';
+                          const label=isXeVe&&xeVeCnt>1?`${name} (${xeVeCnt} người)`:name;
+                          const amt=isXeVe&&xeVeCnt>1?`${fmt(perPerson)}/người · ${fmt(perPerson*xeVeCnt)} tổng`:fmt(perPerson);
+                          return <span key={name} style={{fontSize:'12px',padding:'3px 10px',borderRadius:'20px',background:(mem?.color||'#888')+'22',color:mem?.color||'#888',fontWeight:500}}>{label} · {amt}</span>;
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {s.note&&(
+                    <div style={{marginTop:'6px',padding:'7px 10px',background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'8px',fontSize:'12px',color:'var(--text)'}}>
+                      <span style={{fontSize:'10px',fontWeight:700,color:'var(--yellow)',textTransform:'uppercase',letterSpacing:'.5px',marginRight:'6px'}}>📝 Ghi chú:</span>{s.note}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        };
+        const reversedSessions=[...filteredSessions].reverse();
+        const firstPage=reversedSessions.slice(0,SESSION_PAGE_SIZE);
+        const extra=reversedSessions.slice(SESSION_PAGE_SIZE);
+        return <>
+          {firstPage.map(renderSessionRow)}
+          {extra.length>0 && (
+            <div className={`expand-region ${showAllSessions?'expanded':'collapsed'}`}>
+              {extra.map(renderSessionRow)}
+            </div>
+          )}
+          {extra.length>0 && (
+            <button className="btn-expand-flat" onClick={()=>setShowAllSessions(v=>!v)}>
+              {showAllSessions ? '▲ Thu gọn' : `📋 Xem thêm ${extra.length} buổi chơi`}
+            </button>
+          )}
+        </>;
+      })()}
       {/* Footer tổng cộng */}
       <div style={{display:'grid',gridTemplateColumns:'62px 1fr 70px 70px 32px',gap:'6px',padding:'11px 14px',background:'var(--bg3)',borderTop:'2px solid var(--border)',fontSize:'13px',fontWeight:700}}>
         <div style={{color:'var(--muted)',fontSize:'11px'}}>TỔNG</div>
@@ -4552,7 +4594,7 @@ function App(){
       {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin}/>}
     </div>
 
-    {showAdd && <AddMatchModal players={players} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
+    {showAdd && <AddMatchModal players={players} sessions={sessions} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
     {confirmId && <ConfirmModal
       msg="Bạn có chắc muốn xóa trận này không? Công Đức sẽ được hoàn lại."
       onConfirm={()=>deleteMatch(confirmId)}
