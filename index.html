@@ -2459,7 +2459,7 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
 }
 
 /* ─── LEADERBOARD ───────────────────────────────────────── */
-function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRenamePlayer,onViewHistory}){
+function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRenamePlayer,onViewHistory,isAdmin}){
   const [bxhSeg,setBxhSeg]=useState('bxh');
   const [h2hA,setH2hA]=useState('');
   const [h2hB,setH2hB]=useState('');
@@ -2562,7 +2562,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
     {bxhSeg==='bxh' && <>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px',flexWrap:'wrap',gap:'8px'}}>
         <div className="section-title">🏆 Bảng Công Đức (Rating)</div>
-        <button onClick={()=>setShowAddPlayer(!showAddPlayer)} style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'8px',color:'var(--green)',padding:'6px 14px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm người chơi</button>
+        {isAdmin && <button onClick={()=>setShowAddPlayer(!showAddPlayer)} style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'8px',color:'var(--green)',padding:'6px 14px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm người chơi</button>}
       </div>
 
       {showAddPlayer && (
@@ -2695,8 +2695,8 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
                 <span style={{color:'var(--red)'}}>{rangeStats.losses}</span>
               </div>
               <div style={{display:'flex',gap:'4px',alignItems:'center',justifyContent:'flex-end'}}>
-                {!isRenaming && <button onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);setRenameError('');}} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',opacity:.5,padding:'0'}} title="Sửa tên">✏️</button>}
-                <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>
+                {isAdmin && !isRenaming && <button onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);setRenameError('');}} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'12px',opacity:.5,padding:'0'}} title="Sửa tên">✏️</button>}
+                {isAdmin && <button onClick={()=>setConfirmDeletePlayer(p.id)} style={{background:'none',border:'none',color:'var(--muted2)',cursor:'pointer',fontSize:'13px',opacity:.5,padding:'0'}} title="Xóa">✕</button>}
               </div>
             </div>
           );
@@ -3279,7 +3279,7 @@ function EditSessionModal({session,members,onClose,onSave}){
 }
 
 /* ─── FUND TAB ───────────────────────────────────────────── */
-function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd}){
+function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd,isAdmin}){
   const memberNames = FUND_MEMBERS.map(m=>m.name);
   // Data được load/save bởi App cha — FundTab chỉ dùng trực tiếp
   const [showAdd,setShowAdd]=useState(false);
@@ -3478,7 +3478,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Tình trạng từng thành viên</div>
-      <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>
+      {isAdmin && <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>}
     </div>
 
     {showAddMember && (
@@ -3550,12 +3550,12 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
                   </div>
                 ):(
                   <div style={{display:'flex',gap:'6px',marginBottom:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
-                    <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
+                    {isAdmin && <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
                       background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
                       borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
-                    }}>+ Nạp tiền</button>
-                    <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>
-                    <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>
+                    }}>+ Nạp tiền</button>}
+                    {isAdmin && <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>}
+                    {isAdmin && <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>}
                   </div>
                 )}
 
@@ -3631,7 +3631,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         <span style={{fontFamily:'Quicksand',fontSize:'16px',fontWeight:700,color:'var(--blue)'}}>Tổng: {fmt(monthTotal)}</span>
       </div>
     )}
-    <button className="add-session-btn" onClick={()=>setShowAdd(!showAdd)}>+ Thêm buổi chơi</button>
+    {isAdmin && <button className="add-session-btn" onClick={()=>setShowAdd(!showAdd)}>+ Thêm buổi chơi</button>}
 
     {showAdd && (
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
@@ -3713,10 +3713,12 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
               </div>
               <div style={{fontWeight:600,fontFamily:'Quicksand,sans-serif'}}>{fmt(s.total)}</div>
               {/* Nút sửa + xóa — e.stopPropagation() để không toggle expand */}
-              <div style={{display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
-                <button title="Chỉnh sửa" onClick={()=>setEditingSession(s)} style={{background:'var(--blue-bg)',border:'none',borderRadius:'6px',color:'var(--blue)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>✏️</button>
-                <button title="Xóa" onClick={()=>setConfirmDeleteSession(s.id)} style={{background:'var(--red-bg)',border:'none',borderRadius:'6px',color:'var(--red)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>🗑</button>
-              </div>
+              {isAdmin && (
+                <div style={{display:'flex',flexDirection:'column',gap:'3px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
+                  <button title="Chỉnh sửa" onClick={()=>setEditingSession(s)} style={{background:'var(--blue-bg)',border:'none',borderRadius:'6px',color:'var(--blue)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>✏️</button>
+                  <button title="Xóa" onClick={()=>setConfirmDeleteSession(s.id)} style={{background:'var(--red-bg)',border:'none',borderRadius:'6px',color:'var(--red)',width:'28px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',flexShrink:0}}>🗑</button>
+                </div>
+              )}
             </div>
             {isExpanded && (
               <div style={{background:'var(--bg3)',padding:'10px 14px',borderBottom:'1px solid var(--border)'}}>
@@ -3987,6 +3989,41 @@ function FunTab({players, matches}){
   </>;
 }
 
+/* ─── ADMIN MENU (Thùng rác + Khoá quản trị) ── */
+function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, dark}){
+  const [open,setOpen]=useState(false);
+  const ref=React.useRef(null);
+  useEffect(()=>{
+    const onDocClick=e=>{ if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    return ()=>document.removeEventListener('mousedown', onDocClick);
+  },[]);
+  const itemStyle={display:'flex',alignItems:'center',gap:'9px',width:'100%',padding:'10px 14px',background:'none',border:'none',color:'#e5e7ec',fontSize:'13px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',textAlign:'left',whiteSpace:'nowrap'};
+  const handleTrigger=()=>{
+    if(!isAdmin){ onToggleLock(); return; } // chưa mở khoá -> hỏi PIN luôn, khỏi cần mở menu
+    setOpen(o=>!o);
+  };
+  return (
+    <div ref={ref} style={{position:'relative'}}>
+      <button onClick={handleTrigger} title={isAdmin?'Khu vực quản trị':'Mở khoá quản trị'} style={{background: open?'rgba(255,255,255,.14)':(isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)'),border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding: dark? '7px 10px':'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative',lineHeight:1}}>
+        {isAdmin?'🔓':'🔒'}
+        {(isAdmin && trashCount>0) && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
+      </button>
+      {open && isAdmin && (
+        <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,background:'#161b28',border:'1px solid #2a3040',borderRadius:'10px',minWidth:'190px',boxShadow:'0 8px 24px rgba(0,0,0,.35)',overflow:'hidden',zIndex:300}}>
+          <button style={itemStyle} onClick={()=>{setOpen(false);onOpenTrash();}}>
+            🗑 Thùng rác{trashCount>0?` (${trashCount})`:''}
+          </button>
+          <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
+          <button style={{...itemStyle,color:'var(--green)'}} onClick={()=>{setOpen(false);onToggleLock();}}>
+            🔓 Khoá lại quyền chỉnh sửa
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── APP ────────────────────────────────────────────────── */
 function App(){
   const [tab,setTab]=useState('dashboard');
@@ -4128,7 +4165,7 @@ function App(){
 
   const showToast=msg=>setToast(msg);
   const openAdd=()=>setShowAdd(true);
-  const openFund=requireAdmin(()=>setTab('fund'));
+  const openFund=()=>setTab('fund');
 
   // Derive "myElo" as the first player's ELO, or 1500
   const myElo=players.length?players[0].elo:1500;
@@ -4399,13 +4436,10 @@ function App(){
         ))}
       </div>
       <div className="nav-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
-        {syncing&&<span style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 10px',border:'1px solid var(--border)'}}>⏳ Đang đồng bộ...</span>}
-        {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️ Chưa có DB</span>}
+        {syncing&&<span title="Đang đồng bộ..." style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 8px',border:'1px solid var(--border)'}}>⏳</span>}
+        {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️</span>}
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
-        {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác — khôi phục dữ liệu đã xóa" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
-          🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
-        </button>}
-        <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'7px 10px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark/>
         <button className="btn-ghi" onClick={openAdd}>+ Ghi Trận</button>
       </div>
     </div>
@@ -4420,11 +4454,8 @@ function App(){
         </div>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-        <button onClick={toggleLock} title={isAdmin?'Đã mở khoá - bấm để khoá lại':'Đang khoá - bấm để mở khoá quản trị'} style={{background:isAdmin?'var(--green-bg)':'rgba(255,255,255,.08)',border:`1px solid ${isAdmin?'var(--green)':'rgba(255,255,255,.2)'}`,borderRadius:'8px',color:isAdmin?'var(--green)':'#9aa1b3',padding:'6px 10px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>{isAdmin?'🔓':'🔒'}</button>
-        {isAdmin && <button onClick={()=>setShowTrash(true)} title="Thùng rác" style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'8px',color:'#9aa1b3',padding:'6px 9px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',position:'relative'}}>
-          🗑{trashCount>0 && <span style={{position:'absolute',top:'-5px',right:'-5px',background:'var(--red)',color:'#fff',fontSize:'9px',borderRadius:'20px',padding:'1px 5px',fontWeight:700}}>{trashCount}</span>}
-        </button>}
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock}/>
       </div>
     </div>
 
@@ -4448,14 +4479,14 @@ function App(){
     <div className="main">
       {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')}/>}
       {tab==='matches'   && <MatchesTab matches={matches} players={players} myElo={myElo} onAdd={openAdd} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
-      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory}/>}
+      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
           ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
-      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={doRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd}/>}
+      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin}/>}
     </div>
 
     {showAdd && <AddMatchModal players={players} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
