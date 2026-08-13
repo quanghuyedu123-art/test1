@@ -3704,6 +3704,20 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   },[sessions,monthFund,playerFund]);
 
   const monthTotal=filteredSessions.reduce((a,s2)=>a+s2.total,0);
+  // Khi đang lọc theo 1 người cụ thể, "Tổng" trên banner nên là tổng PHẦN CỦA NGƯỜI ĐÓ
+  // (mỗi người x số buổi tham gia), không phải tổng chi phí toàn bộ các buổi chơi.
+  const playerShareTotal=useMemo(()=>{
+    if(playerFund==='Tất cả') return null;
+    return filteredSessions.reduce((a,s2)=>{
+      if(!s2.attendees || !s2.attendees[playerFund]) return a;
+      const share=shareAmount(s2);
+      if(playerFund==='Xé Vé'){
+        const cnt=Math.max(1, parseInt(s2.xeVeCount)||1);
+        return a+share*cnt;
+      }
+      return a+share;
+    },0);
+  },[filteredSessions,playerFund]);
 
   // Export fund CSV
   const exportFundCSV=()=>{
@@ -3984,7 +3998,9 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         <span style={{fontSize:'13px',color:'var(--blue)',fontWeight:600}}>
           {monthFund!=='Tất cả'?monthFund:'Tất cả tháng'}{playerFund!=='Tất cả'?` · ${playerFund}`:''}: {filteredSessions.length} buổi
         </span>
-        <span style={{fontFamily:'Quicksand',fontSize:'16px',fontWeight:700,color:'var(--blue)'}}>Tổng: {fmt(monthTotal)}</span>
+        <span style={{fontFamily:'Quicksand',fontSize:'16px',fontWeight:700,color:'var(--blue)'}}>
+          {playerFund!=='Tất cả' ? `Phần của ${playerFund}: ${fmt(playerShareTotal)}` : `Tổng: ${fmt(monthTotal)}`}
+        </span>
       </div>
     )}
     {isAdmin && <button className="add-session-btn" onClick={()=>setShowAdd(!showAdd)}>+ Thêm buổi chơi</button>}
@@ -4104,11 +4120,11 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
           );
         };
         // Sắp xếp theo ngày tháng thực tế (không phải theo thứ tự nhập liệu) —
-        // buổi cũ nhất lên trên, buổi gần đây nhất ở dưới (giữ đúng thứ tự đang hiển thị).
-        // Nếu 2 buổi cùng ngày, buổi nhập trước hiển thị trước.
+        // buổi chơi gần đây nhất hiển thị lên đầu, buổi cũ hơn xuống dưới.
+        // Nếu 2 buổi cùng ngày, buổi nhập sau hiển thị trước.
         const sortedSessions=[...filteredSessions].sort((a,b)=>{
-          const diff=sessionDateKey(a.date)-sessionDateKey(b.date);
-          return diff!==0 ? diff : filteredSessions.indexOf(a)-filteredSessions.indexOf(b);
+          const diff=sessionDateKey(b.date)-sessionDateKey(a.date);
+          return diff!==0 ? diff : filteredSessions.indexOf(b)-filteredSessions.indexOf(a);
         });
         const firstPage=sortedSessions.slice(0,SESSION_PAGE_SIZE);
         const extra=sortedSessions.slice(SESSION_PAGE_SIZE);
