@@ -1995,6 +1995,69 @@ function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestore
    Xuất toàn bộ dữ liệu (players, matches, sessions, members, trash, banner, bankInfo)
    ra 1 file JSON để tải về máy — lớp bảo vệ độc lập với Firebase, phòng khi server
    bị lỗi, bị ghi đè nhầm, hoặc mất kết nối. Có thể nhập lại (khôi phục) từ file này. */
+function MergePersonModal({players,members,onMerge,onClose}){
+  // Chỉ liệt kê những người CHƯA khớp tên giữa BXH và Quỹ (mới cần ghép)
+  const unmatchedPlayers=players.filter(p=>!members.some(m=>m.name.toLowerCase()===p.name.toLowerCase()));
+  const unmatchedMembers=members.filter(m=>!players.some(p=>p.name.toLowerCase()===m.name.toLowerCase()));
+  const [playerName,setPlayerName]=useState(unmatchedPlayers[0]?.name||'');
+  const [memberName,setMemberName]=useState(unmatchedMembers[0]?.name||'');
+  const [keep,setKeep]=useState('player'); // 'player' | 'member'
+  const canMerge=playerName && memberName && playerName!==memberName;
+  const keepName=keep==='player'?playerName:memberName;
+  const dropName=keep==='player'?memberName:playerName;
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:'440px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">🔗 Ghép người trùng (BXH ↔ Quỹ)</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px 14px',marginBottom:'14px',fontSize:'12.5px',color:'var(--muted)',lineHeight:1.5}}>
+          Dùng khi một người xuất hiện với 2 tên khác nhau — một ở Bảng xếp hạng, một ở Hòm Công Đức (VD: "Thương Xinh" và "Chị Thương Xinh"). Ghép lại sẽ giữ nguyên toàn bộ Công Đức, thắng/thua, lịch sử trận đấu và quỹ — chỉ đổi để 2 bên dùng chung 1 tên.
+        </div>
+
+        {(unmatchedPlayers.length===0 || unmatchedMembers.length===0) ? (
+          <div style={{fontSize:'13px',color:'var(--muted)',textAlign:'center',padding:'10px 0'}}>
+            Hiện không có cặp tên nào đang lệch giữa BXH và Quỹ — mọi người đã đồng bộ tên rồi 🎉
+          </div>
+        ) : (
+          <>
+            <div className="fg" style={{marginBottom:'12px'}}>
+              <div className="fl">Tên ở Bảng xếp hạng (BXH)</div>
+              <select className="fi" value={playerName} onChange={e=>setPlayerName(e.target.value)}>
+                {unmatchedPlayers.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="fg" style={{marginBottom:'12px'}}>
+              <div className="fl">Tên ở Hòm Công Đức (Quỹ)</div>
+              <select className="fi" value={memberName} onChange={e=>setMemberName(e.target.value)}>
+                {unmatchedMembers.map((m,i)=><option key={i} value={m.name}>{m.name}</option>)}
+              </select>
+            </div>
+            <div className="fg" style={{marginBottom:'16px'}}>
+              <div className="fl">Giữ tên nào làm tên chính thức?</div>
+              <div style={{display:'flex',gap:'8px'}}>
+                <label style={{flex:1,display:'flex',alignItems:'center',gap:'6px',background:'var(--bg3)',border:`2px solid ${keep==='player'?'var(--green)':'var(--border)'}`,borderRadius:'9px',padding:'9px 10px',fontSize:'12.5px',cursor:'pointer'}}>
+                  <input type="radio" checked={keep==='player'} onChange={()=>setKeep('player')}/> {playerName||'—'} <span style={{color:'var(--muted)'}}>(BXH)</span>
+                </label>
+                <label style={{flex:1,display:'flex',alignItems:'center',gap:'6px',background:'var(--bg3)',border:`2px solid ${keep==='member'?'var(--green)':'var(--border)'}`,borderRadius:'9px',padding:'9px 10px',fontSize:'12.5px',cursor:'pointer'}}>
+                  <input type="radio" checked={keep==='member'} onChange={()=>setKeep('member')}/> {memberName||'—'} <span style={{color:'var(--muted)'}}>(Quỹ)</span>
+                </label>
+              </div>
+            </div>
+            {canMerge && <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}}>
+              Sẽ đổi "<b>{dropName}</b>" → "<b>{keepName}</b>" và cập nhật lại toàn bộ trận đấu/buổi chơi liên quan.
+            </div>}
+            <button disabled={!canMerge} onClick={()=>{ onMerge(playerName, memberName, keepName); onClose(); }} style={{width:'100%',background: canMerge?'var(--green)':'var(--border2)',border:'none',borderRadius:'10px',color:'#fff',padding:'12px',fontSize:'14px',fontWeight:700,cursor: canMerge?'pointer':'not-allowed',fontFamily:'Nunito,sans-serif'}}>
+              🔗 Ghép làm 1 người
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BackupModal({data,onClose,onRestore}){
   const [confirmRestore,setConfirmRestore]=useState(null); // parsed object chờ xác nhận
   const [error,setError]=useState('');
@@ -4561,7 +4624,7 @@ function FunTab({players, matches}){
 }
 
 /* ─── ADMIN MENU (Thùng rác + Khoá quản trị + Sao lưu) ── */
-function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, onResetElo, dark}){
+function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, onResetElo, onMergePerson, dark}){
   const [open,setOpen]=useState(false);
   const [pos,setPos]=useState({top:0,right:0});
   const btnRef=React.useRef(null);
@@ -4599,6 +4662,10 @@ function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, on
           <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
           <button style={itemStyle} onClick={()=>{setOpen(false);onBackup&&onBackup();}}>
             💾 Sao lưu / Khôi phục dữ liệu
+          </button>
+          <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
+          <button style={itemStyle} onClick={()=>{setOpen(false);onMergePerson&&onMergePerson();}}>
+            🔗 Ghép người trùng (BXH ↔ Quỹ)
           </button>
           <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
           <button style={{...itemStyle,color:'var(--red)'}} onClick={()=>{setOpen(false);onResetElo&&onResetElo();}}>
@@ -4756,6 +4823,7 @@ function App(){
   const [showAdd,setShowAdd]=useState(false);
   const [showTrash,setShowTrash]=useState(false);
   const [showBackup,setShowBackup]=useState(false);
+  const [showMerge,setShowMerge]=useState(false);
   const [confirmId,setConfirmId]=useState(null);
   const [toast,setToast]=useState(null);
   const [isAdmin,setIsAdmin]=useState(()=>{ try{ return localStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
@@ -4932,6 +5000,16 @@ function App(){
     showToast('🔄 Đã reset Công Đức về 1500 & xoá sạch lịch sử trận đấu');
   };
 
+  // Ghép 2 bản ghi (1 ở BXH, 1 ở Quỹ) vốn là CÙNG MỘT NGƯỜI nhưng lỡ mang 2 tên khác nhau.
+  // Khác với đổi tên thường (bị chặn nếu tên đã tồn tại), hàm này CHỦ ĐỘNG cho phép
+  // trùng tên vì đó chính là mục đích — gộp về chung 1 tên để Elo/quỹ liên kết lại với nhau.
+  const mergeDuplicatePerson=(playerName, memberName, keepName)=>{
+    if(!playerName||!memberName||playerName===memberName) return;
+    const dropName = keepName===playerName ? memberName : playerName;
+    renameEverywhere(dropName, keepName);
+    showToast(`🔗 Đã ghép "${dropName}" vào "${keepName}" — Công Đức, thắng/thua & lịch sử trận đấu được giữ nguyên`);
+  };
+
   const updatePlayerAvatar=(id, dataUrl)=>{
     setPlayers(p=>p.map(x=>x.id===id?{...x, avatar:dataUrl}:x));
     showToast('Đã cập nhật ảnh đại diện');
@@ -5018,6 +5096,7 @@ function App(){
   const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
   const guardedResyncStats=requireAdmin(resyncPlayerStats);
   const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
+  const guardedMergeDuplicatePerson=requireAdmin(mergeDuplicatePerson);
   const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s, bannerOverlay:ov, bannerBrightness:br})=>{
     setBannerImg(img);
     setBannerTitle(t);
@@ -5082,7 +5161,7 @@ function App(){
         {syncing&&<span title="Đang đồng bộ..." style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 8px',border:'1px solid var(--border)'}}>⏳</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️</span>}
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo}/>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo} onMergePerson={()=>setShowMerge(true)}/>
         <button className="btn-ghi" onClick={openAdd} disabled={!dbReady} style={!dbReady?{opacity:.5,cursor:'not-allowed'}:undefined}>+ Ghi Trận</button>
       </div>
     </div>
@@ -5098,7 +5177,7 @@ function App(){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo}/>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo} onMergePerson={()=>setShowMerge(true)}/>
       </div>
     </div>
 
@@ -5150,6 +5229,12 @@ function App(){
       onRestoreSession={guardedTrashRestoreSession}
       onRestoreMatch={guardedTrashRestoreMatch}
       onPurge={guardedTrashPurgeForever}
+    />}
+    {showMerge && <MergePersonModal
+      players={players}
+      members={members}
+      onClose={()=>setShowMerge(false)}
+      onMerge={guardedMergeDuplicatePerson}
     />}
     {showBackup && <BackupModal
       data={{players,matches,sessions,members,trash,bankInfo,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness}}}
