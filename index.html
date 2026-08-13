@@ -830,6 +830,15 @@ function shareAmount(s){
   const shares = effectiveShares(s);
   return shares>0 ? Math.round(s.total/shares) : 0;
 }
+/* Chuyển ngày buổi chơi (định dạng "DD/MM", có thể có "DD/MM/YYYY") thành số
+   để sắp xếp đúng theo thời gian thực tế — không phụ thuộc thứ tự nhập liệu.
+   Nếu có năm thì năm được ưu tiên so sánh trước; nếu không có năm thì so theo tháng/ngày. */
+function sessionDateKey(dateStr){
+  if(!dateStr) return 0;
+  const p=dateStr.split(/[\/\-]/).map(x=>parseInt(x,10));
+  const d=p[0]||0, m=p[1]||0, y=p[2]||0;
+  return y*10000 + m*100 + d;
+}
 
 /* ─── COMPONENTS ──────────────────────────────────────────── */
 function Toast({msg,onClose}){
@@ -1977,6 +1986,93 @@ function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestore
           </>
         )}
         <button onClick={onClose} style={{width:'100%',marginTop:'8px',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'11px',fontSize:'14px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',color:'var(--muted)'}}>Đóng</button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── MODAL: SAO LƯU / KHÔI PHỤC DỮ LIỆU ───
+   Xuất toàn bộ dữ liệu (players, matches, sessions, members, trash, banner, bankInfo)
+   ra 1 file JSON để tải về máy — lớp bảo vệ độc lập với Firebase, phòng khi server
+   bị lỗi, bị ghi đè nhầm, hoặc mất kết nối. Có thể nhập lại (khôi phục) từ file này. */
+function BackupModal({data,onClose,onRestore}){
+  const [confirmRestore,setConfirmRestore]=useState(null); // parsed object chờ xác nhận
+  const [error,setError]=useState('');
+  const fileRef=React.useRef(null);
+
+  const downloadBackup=()=>{
+    const payload={...data,_backupAt:new Date().toISOString(),_app:'PickCoBonPhongBat'};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const stamp=new Date().toISOString().slice(0,10);
+    a.href=url;a.download=`pcb-saoluu-${stamp}.json`;a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const pickFile=()=>fileRef.current && fileRef.current.click();
+  const onFileChange=e=>{
+    const file=e.target.files && e.target.files[0];
+    e.target.value='';
+    if(!file) return;
+    setError('');
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const parsed=JSON.parse(reader.result);
+        if(!parsed||typeof parsed!=='object'||!Array.isArray(parsed.players)){
+          setError('File không đúng định dạng bản sao lưu của app này.');
+          return;
+        }
+        setConfirmRestore(parsed);
+      }catch(e){ setError('Không đọc được file JSON. Hãy chọn đúng file sao lưu đã tải trước đó.'); }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:'440px'}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">💾 Sao lưu / Khôi phục dữ liệu</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {!confirmRestore ? (
+          <>
+            <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px 14px',marginBottom:'14px',fontSize:'12.5px',color:'var(--muted)',lineHeight:1.5}}>
+              Dữ liệu CLB được lưu trên máy chủ, nhưng nên thỉnh thoảng tải về 1 bản sao lưu JSON để phòng trường hợp mất mạng, lỗi server hoặc thao tác nhầm. File này chứa toàn bộ: người chơi, trận đấu, buổi chơi, thành viên quỹ, thùng rác.
+            </div>
+            <button onClick={downloadBackup} style={{width:'100%',background:'var(--green)',border:'none',borderRadius:'10px',color:'#fff',padding:'12px',fontSize:'14px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',marginBottom:'10px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
+              ⬇️ Tải bản sao lưu (JSON)
+            </button>
+            <div style={{height:'1px',background:'var(--border)',margin:'14px 0'}}/>
+            <div className="fl" style={{marginBottom:'8px'}}>Khôi phục từ file sao lưu</div>
+            <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',fontSize:'12px',color:'var(--red)'}}>
+              ⚠️ Khôi phục sẽ GHI ĐÈ toàn bộ dữ liệu hiện tại bằng dữ liệu trong file. Chỉ dùng khi chắc chắn dữ liệu hiện tại bị sai/mất.
+            </div>
+            <input ref={fileRef} type="file" accept="application/json" style={{display:'none'}} onChange={onFileChange}/>
+            <button onClick={pickFile} style={{width:'100%',background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'10px',color:'var(--text)',padding:'12px',fontSize:'14px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
+              📂 Chọn file sao lưu để khôi phục
+            </button>
+            {error && <div style={{fontSize:'12px',color:'var(--red)',marginTop:'8px'}}>⚠️ {error}</div>}
+          </>
+        ) : (
+          <>
+            <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'14px',marginBottom:'16px',textAlign:'center'}}>
+              <div style={{fontSize:'28px',marginBottom:'6px'}}>🚨</div>
+              <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'16px',color:'var(--red)',marginBottom:'4px'}}>Xác nhận khôi phục</div>
+              <div style={{fontSize:'13px',color:'var(--muted)'}}>
+                File sao lưu này có {Array.isArray(confirmRestore.players)?confirmRestore.players.length:0} người chơi, {Array.isArray(confirmRestore.matches)?confirmRestore.matches.length:0} trận đấu, {Array.isArray(confirmRestore.sessions)?confirmRestore.sessions.length:0} buổi chơi{confirmRestore._backupAt?`, sao lưu lúc ${new Date(confirmRestore._backupAt).toLocaleString('vi-VN')}`:''}.
+                Dữ liệu hiện tại sẽ bị thay thế hoàn toàn. Tiếp tục?
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn-cancel" onClick={()=>setConfirmRestore(null)}>Thôi, không khôi phục</button>
+              <button className="btn-danger" onClick={()=>{ onRestore(confirmRestore); setConfirmRestore(null); onClose(); }}>Khôi phục ngay</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -4007,10 +4103,16 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
             </div>
           );
         };
-        const reversedSessions=[...filteredSessions].reverse();
-        const firstPage=reversedSessions.slice(0,SESSION_PAGE_SIZE);
-        const extra=reversedSessions.slice(SESSION_PAGE_SIZE);
-        if(reversedSessions.length===0){
+        // Sắp xếp theo ngày tháng thực tế (không phải theo thứ tự nhập liệu) —
+        // buổi cũ nhất lên trên, buổi gần đây nhất ở dưới (giữ đúng thứ tự đang hiển thị).
+        // Nếu 2 buổi cùng ngày, buổi nhập trước hiển thị trước.
+        const sortedSessions=[...filteredSessions].sort((a,b)=>{
+          const diff=sessionDateKey(a.date)-sessionDateKey(b.date);
+          return diff!==0 ? diff : filteredSessions.indexOf(a)-filteredSessions.indexOf(b);
+        });
+        const firstPage=sortedSessions.slice(0,SESSION_PAGE_SIZE);
+        const extra=sortedSessions.slice(SESSION_PAGE_SIZE);
+        if(sortedSessions.length===0){
           return <div style={{textAlign:'center',padding:'24px',color:'var(--muted)',fontSize:'13px'}}>
             {playerFund!=='Tất cả' ? `${playerFund} chưa tham gia buổi chơi nào${monthFund!=='Tất cả'?` trong ${monthFund}`:''}.` : 'Không có buổi chơi nào phù hợp.'}
           </div>;
@@ -4247,10 +4349,17 @@ const FB_URL = 'https://test-7df23-default-rtdb.firebaseio.com';
 const FB_WRITE_KEY = 'jUS6-lVMLm1sNB3FdseBc5GOjK-EzHlM';
 
 async function fbGet(path){
-  try{const r=await fetch(FB_URL+'/'+path+'.json');if(!r.ok)return null;const d=await r.json();
-  // Nếu data được wrap với _ts thì unwrap
-  if(d&&typeof d==='object'&&'_data' in d) return d._data;
-  return d;}catch{return null;}
+  // Trả về {ok, data}: ok=false nghĩa là KHÔNG chắc chắn lấy được dữ liệu thật
+  // (lỗi mạng / server lỗi) — bên gọi phải phân biệt rõ với "server trả về rỗng thật sự"
+  // để không lỡ tay ghi đè dữ liệu thật bằng dữ liệu mặc định lúc khởi tạo app.
+  try{
+    const r=await fetch(FB_URL+'/'+path+'.json');
+    if(!r.ok) return {ok:false,data:null};
+    const d=await r.json();
+    // Nếu data được wrap với _ts thì unwrap
+    const data=(d&&typeof d==='object'&&'_data' in d) ? d._data : d;
+    return {ok:true,data};
+  }catch{ return {ok:false,data:null}; }
 }
 
 // Timestamp lần cuối mình ghi lên Firebase cho từng path
@@ -4275,18 +4384,18 @@ async function fbSet(path,val){
 // Poll an toàn: chỉ apply data nếu server _ts MỚI HƠN lần cuối mình write + 5s
 // → tránh poll kéo data cũ về ghi đè thay đổi local vừa làm
 async function fbPoll(path){
-  if(_fbSaving[path]) return null;
+  if(_fbSaving[path]) return {ok:false,data:null};
   try{
     const r=await fetch(FB_URL+'/'+path+'.json');
-    if(!r.ok) return null;
+    if(!r.ok) return {ok:false,data:null};
     const d=await r.json();
-    if(!d||typeof d!=='object') return null;
+    if(!d||typeof d!=='object') return {ok:false,data:null};
     const serverTs=d._ts||0;
     const myLastWrite=_fbLastWrite[path]||0;
     // Bỏ qua nếu server timestamp chưa vượt quá lần cuối mình ghi + 5s buffer
-    if(serverTs < myLastWrite + 5000) return null;
-    return ('_data' in d) ? d._data : d;
-  }catch{ return null; }
+    if(serverTs < myLastWrite + 5000) return {ok:false,data:null};
+    return {ok:true, data:('_data' in d) ? d._data : d};
+  }catch{ return {ok:false,data:null}; }
 }
 
 /* ─── FUN TAB (HUY HIỆU + BẢNG PHONG THẦN) ──────────────── */
@@ -4435,8 +4544,8 @@ function FunTab({players, matches}){
   </>;
 }
 
-/* ─── ADMIN MENU (Thùng rác + Khoá quản trị) ── */
-function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, dark}){
+/* ─── ADMIN MENU (Thùng rác + Khoá quản trị + Sao lưu) ── */
+function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, dark}){
   const [open,setOpen]=useState(false);
   const [pos,setPos]=useState({top:0,right:0});
   const btnRef=React.useRef(null);
@@ -4470,6 +4579,10 @@ function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, dark}){
         <div ref={menuRef} style={{position:'fixed',top:pos.top,right:pos.right,background:'#161b28',border:'1px solid #2a3040',borderRadius:'10px',minWidth:'190px',boxShadow:'0 8px 24px rgba(0,0,0,.35)',overflow:'hidden',zIndex:9999}}>
           <button style={itemStyle} onClick={()=>{setOpen(false);onOpenTrash();}}>
             🗑 Thùng rác{trashCount>0?` (${trashCount})`:''}
+          </button>
+          <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
+          <button style={itemStyle} onClick={()=>{setOpen(false);onBackup&&onBackup();}}>
+            💾 Sao lưu / Khôi phục dữ liệu
           </button>
           <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
           <button style={{...itemStyle,color:'var(--green)'}} onClick={()=>{setOpen(false);onToggleLock();}}>
@@ -4526,47 +4639,62 @@ function App(){
   },[]);
 
   // Load tất cả data từ Firebase khi khởi động
+  // dbReady chỉ bật khi TẤT CẢ các path cốt lõi (players/matches/sessions/members)
+  // đã xác nhận tải thành công — tránh trường hợp mạng lỗi lúc mở app khiến app
+  // âm thầm dùng dữ liệu mặc định, rồi lỡ tay ghi đè lên dữ liệu thật trên server
+  // ngay khi có thao tác đầu tiên (đây là nguyên nhân gây mất dữ liệu trước đây).
+  const [loadError,setLoadError]=useState(false);
+  const loadAll=React.useCallback(async()=>{
+    setSyncing(true);
+    setLoadError(false);
+    const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash'),fbGet('bankInfo')]);
+    // Mảng rỗng thật ([]) VẪN được áp dụng miễn là fetch thành công (p.ok) —
+    // chỉ khi fetch THẤT BẠI (lỗi mạng/server) mới giữ nguyên state hiện tại,
+    // để không hiểu nhầm "chưa tải được" thành "dữ liệu rỗng thật".
+    if(p.ok&&Array.isArray(p.data)) setPlayers(p.data);
+    if(m.ok&&Array.isArray(m.data)) setMatches(m.data);
+    if(s.ok&&Array.isArray(s.data)) setSessions(s.data);
+    if(mb.ok&&Array.isArray(mb.data)) setMembers(mb.data);
+    if(bn.ok&&bn.data&&typeof bn.data==='object'){
+      if(bn.data.bannerImg!==undefined) setBannerImg(bn.data.bannerImg);
+      if(bn.data.bannerTitle) setBannerTitle(bn.data.bannerTitle);
+      if(bn.data.bannerSub) setBannerSub(bn.data.bannerSub);
+      if(bn.data.bannerOverlay!==undefined) setBannerOverlay(bn.data.bannerOverlay);
+      if(bn.data.bannerBrightness!==undefined) setBannerBrightness(bn.data.bannerBrightness);
+    }
+    if(tr.ok&&tr.data&&typeof tr.data==='object'){
+      setTrash(normalizeTrash(tr.data));
+    }
+    if(bi.ok&&bi.data&&typeof bi.data==='object') setBankInfo(prev=>({...prev,...bi.data}));
+    // Chỉ mở khoá ghi (dbReady) khi 4 nguồn dữ liệu cốt lõi đều tải thành công.
+    const coreOk = p.ok && m.ok && s.ok && mb.ok;
+    if(coreOk){ setDbReady(true); setLoadError(false); }
+    else { setLoadError(true); }
+    setSyncing(false);
+    return coreOk;
+  },[normalizeTrash]);
+
   useEffect(()=>{
-    (async()=>{
-      setSyncing(true);
-      const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash'),fbGet('bankInfo')]);
-      if(Array.isArray(p)&&p.length) setPlayers(p);
-      if(Array.isArray(m)&&m.length) setMatches(m);
-      if(Array.isArray(s)&&s.length) setSessions(s);
-      if(Array.isArray(mb)&&mb.length) setMembers(mb);
-      if(bn&&typeof bn==='object'){
-        if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
-        if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
-        if(bn.bannerSub) setBannerSub(bn.bannerSub);
-        if(bn.bannerOverlay!==undefined) setBannerOverlay(bn.bannerOverlay);
-        if(bn.bannerBrightness!==undefined) setBannerBrightness(bn.bannerBrightness);
-      }
-      if(tr&&typeof tr==='object'){
-        setTrash(normalizeTrash(tr));
-      }
-      if(bi&&typeof bi==='object') setBankInfo(p=>({...p,...bi}));
-      setDbReady(true);
-      setSyncing(false);
-    })();
+    loadAll();
     // Poll mỗi 30s — dùng fbPoll để bỏ qua khi đang ghi (tăng lên 30s tránh ghi đè khi đang chỉnh)
     const id=setInterval(async()=>{
       const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash'),fbPoll('bankInfo')]);
-      if(Array.isArray(p)&&p.length) setPlayers(p);
-      if(Array.isArray(m)&&m.length) setMatches(m);
-      if(Array.isArray(s)&&s.length) setSessions(s);
-      if(Array.isArray(mb)&&mb.length) setMembers(mb);
-      if(bn&&typeof bn==='object'&&!_fbSaving['banner']){
-        if(bn.bannerImg!==undefined) setBannerImg(bn.bannerImg);
-        if(bn.bannerTitle) setBannerTitle(bn.bannerTitle);
-        if(bn.bannerSub) setBannerSub(bn.bannerSub);
-        if(bn.bannerOverlay!==undefined) setBannerOverlay(bn.bannerOverlay);
-        if(bn.bannerBrightness!==undefined) setBannerBrightness(bn.bannerBrightness);
+      if(p.ok&&Array.isArray(p.data)) setPlayers(p.data);
+      if(m.ok&&Array.isArray(m.data)) setMatches(m.data);
+      if(s.ok&&Array.isArray(s.data)) setSessions(s.data);
+      if(mb.ok&&Array.isArray(mb.data)) setMembers(mb.data);
+      if(bn.ok&&bn.data&&typeof bn.data==='object'&&!_fbSaving['banner']){
+        if(bn.data.bannerImg!==undefined) setBannerImg(bn.data.bannerImg);
+        if(bn.data.bannerTitle) setBannerTitle(bn.data.bannerTitle);
+        if(bn.data.bannerSub) setBannerSub(bn.data.bannerSub);
+        if(bn.data.bannerOverlay!==undefined) setBannerOverlay(bn.data.bannerOverlay);
+        if(bn.data.bannerBrightness!==undefined) setBannerBrightness(bn.data.bannerBrightness);
       }
-      if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr));
-      if(bi&&typeof bi==='object'&&!_fbSaving['bankInfo']) setBankInfo(p=>({...p,...bi}));
+      if(tr.ok&&tr.data&&typeof tr.data==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr.data));
+      if(bi.ok&&bi.data&&typeof bi.data==='object'&&!_fbSaving['bankInfo']) setBankInfo(prev=>({...prev,...bi.data}));
     },30000);
     return ()=>clearInterval(id);
-  },[]);
+  },[loadAll,normalizeTrash]);
 
   // Sync lên Firebase khi data thay đổi
   // Dùng useRef để skip N lần render đầu (trước khi Firebase load xong)
@@ -4607,6 +4735,7 @@ function App(){
   },[bankInfo]);
   const [showAdd,setShowAdd]=useState(false);
   const [showTrash,setShowTrash]=useState(false);
+  const [showBackup,setShowBackup]=useState(false);
   const [confirmId,setConfirmId]=useState(null);
   const [toast,setToast]=useState(null);
   const [isAdmin,setIsAdmin]=useState(()=>{ try{ return localStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
@@ -4896,6 +5025,12 @@ function App(){
   ];
 
   return <>
+    {loadError && (
+      <div style={{position:'fixed',top:0,left:0,right:0,zIndex:500,background:'var(--red)',color:'#fff',padding:'10px 16px',fontSize:'13px',fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:'12px',flexWrap:'wrap',textAlign:'center'}}>
+        <span>⚠️ Không tải được dữ liệu từ máy chủ. Để tránh mất dữ liệu, mọi thao tác thêm/sửa/xóa đang bị tạm khoá cho đến khi tải lại thành công.</span>
+        <button onClick={loadAll} style={{background:'#fff',color:'var(--red)',border:'none',borderRadius:'8px',padding:'5px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🔄 Thử tải lại</button>
+      </div>
+    )}
     <div className="topbar">
       <div className="logo">
         <div className="logo-icon" style={{padding:0,overflow:'hidden'}}><img src={LOGO_ICON_SRC} alt="logo" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'6px'}}/></div>
@@ -4913,8 +5048,8 @@ function App(){
         {syncing&&<span title="Đang đồng bộ..." style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 8px',border:'1px solid var(--border)'}}>⏳</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️</span>}
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark/>
-        <button className="btn-ghi" onClick={openAdd}>+ Ghi Trận</button>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark onBackup={()=>setShowBackup(true)}/>
+        <button className="btn-ghi" onClick={openAdd} disabled={!dbReady} style={!dbReady?{opacity:.5,cursor:'not-allowed'}:undefined}>+ Ghi Trận</button>
       </div>
     </div>
 
@@ -4929,7 +5064,7 @@ function App(){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock}/>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)}/>
       </div>
     </div>
 
@@ -4982,6 +5117,46 @@ function App(){
       onRestoreMatch={guardedTrashRestoreMatch}
       onPurge={guardedTrashPurgeForever}
     />}
+    {showBackup && <BackupModal
+      data={{players,matches,sessions,members,trash,bankInfo,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness}}}
+      onClose={()=>setShowBackup(false)}
+      onRestore={(d)=>{
+        // Khôi phục từ file là thao tác admin chủ động xác nhận rõ ràng —
+        // nên ghi thẳng lên Firebase ngay cả khi dbReady đang false (vd. do lỗi tải trước đó),
+        // đồng thời mở lại dbReady vì giờ đã có dữ liệu đáng tin cậy trong tay.
+        const nextPlayers=Array.isArray(d.players)?d.players:players;
+        const nextMatches=Array.isArray(d.matches)?d.matches:matches;
+        const nextSessions=Array.isArray(d.sessions)?d.sessions:sessions;
+        const nextMembers=Array.isArray(d.members)?d.members:members;
+        const nextTrash=(d.trash&&typeof d.trash==='object')?normalizeTrash(d.trash):trash;
+        const nextBankInfo=(d.bankInfo&&typeof d.bankInfo==='object')?{...bankInfo,...d.bankInfo}:bankInfo;
+        const nextBanner=(d.banner&&typeof d.banner==='object')?d.banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness};
+
+        setPlayers(nextPlayers);
+        setMatches(nextMatches);
+        setSessions(nextSessions);
+        setMembers(nextMembers);
+        setTrash(nextTrash);
+        setBankInfo(nextBankInfo);
+        if(nextBanner.bannerImg!==undefined) setBannerImg(nextBanner.bannerImg);
+        if(nextBanner.bannerTitle) setBannerTitle(nextBanner.bannerTitle);
+        if(nextBanner.bannerSub) setBannerSub(nextBanner.bannerSub);
+        if(nextBanner.bannerOverlay!==undefined) setBannerOverlay(nextBanner.bannerOverlay);
+        if(nextBanner.bannerBrightness!==undefined) setBannerBrightness(nextBanner.bannerBrightness);
+
+        fbSet('players',nextPlayers);
+        fbSet('matches',nextMatches);
+        fbSet('sessions',nextSessions);
+        fbSet('members',nextMembers);
+        fbSet('trash',nextTrash);
+        fbSet('bankInfo',nextBankInfo);
+        fbSet('banner',nextBanner);
+
+        setDbReady(true);
+        setLoadError(false);
+        showToast('Đã khôi phục dữ liệu từ file sao lưu và đồng bộ lên máy chủ');
+      }}
+    />}
 
     {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs */}
     <nav className="mobile-nav">
@@ -4991,7 +5166,7 @@ function App(){
           <span>{t.label}</span>
         </button>
       ))}
-      <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu">
+      <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu" disabled={!dbReady} style={!dbReady?{opacity:.5}:undefined}>
         <span>+</span>
       </button>
       {TABS.slice(2).map(t=>(
