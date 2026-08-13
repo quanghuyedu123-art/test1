@@ -4561,7 +4561,7 @@ function FunTab({players, matches}){
 }
 
 /* ─── ADMIN MENU (Thùng rác + Khoá quản trị + Sao lưu) ── */
-function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, dark}){
+function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, onResetElo, dark}){
   const [open,setOpen]=useState(false);
   const [pos,setPos]=useState({top:0,right:0});
   const btnRef=React.useRef(null);
@@ -4599,6 +4599,10 @@ function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, da
           <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
           <button style={itemStyle} onClick={()=>{setOpen(false);onBackup&&onBackup();}}>
             💾 Sao lưu / Khôi phục dữ liệu
+          </button>
+          <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
+          <button style={{...itemStyle,color:'var(--red)'}} onClick={()=>{setOpen(false);onResetElo&&onResetElo();}}>
+            🔄 Reset mùa giải (Công Đức + xoá lịch sử trận)
           </button>
           <div style={{height:'1px',background:'#2a3040',margin:'4px 0'}}/>
           <button style={{...itemStyle,color:'var(--green)'}} onClick={()=>{setOpen(false);onToggleLock();}}>
@@ -4914,6 +4918,20 @@ function App(){
   };
   const trashCount=(trash.members||[]).length+(trash.sessions||[]).length+(trash.matches||[]).length+(trash.players||[]).length;
 
+  // Đặt lại Công Đức (Elo) của TẤT CẢ người chơi về mốc khởi điểm 1500,
+  // đưa thắng/thua về 0, và XOÁ SẠCH lịch sử trận đấu (matches).
+  // Buổi chơi (sessions) và thành viên Hòm Công Đức KHÔNG bị ảnh hưởng.
+  const resetAllElo=()=>{
+    if(!players.length){ showToast('Chưa có người chơi nào'); return; }
+    const ok=window.confirm(`⚠️ RESET TOÀN BỘ MÙA GIẢI\n\n- Công Đức của TẤT CẢ ${players.length} người chơi → về 1500\n- Thắng/thua → về 0\n- XOÁ SẠCH toàn bộ ${matches.length} trận đấu trong lịch sử\n\nHành động này KHÔNG THỂ HOÀN TÁC (trừ khi bạn khôi phục từ file sao lưu). Tiếp tục?`);
+    if(!ok) return;
+    const ok2=window.confirm('Xác nhận lần cuối: xoá vĩnh viễn toàn bộ lịch sử trận đấu và đặt lại Công Đức?');
+    if(!ok2) return;
+    setPlayers(p=>p.map(x=>({...x, elo:1500, wins:0, losses:0})));
+    setMatches([]);
+    showToast('🔄 Đã reset Công Đức về 1500 & xoá sạch lịch sử trận đấu');
+  };
+
   const updatePlayerAvatar=(id, dataUrl)=>{
     setPlayers(p=>p.map(x=>x.id===id?{...x, avatar:dataUrl}:x));
     showToast('Đã cập nhật ảnh đại diện');
@@ -5064,7 +5082,7 @@ function App(){
         {syncing&&<span title="Đang đồng bộ..." style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 8px',border:'1px solid var(--border)'}}>⏳</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️</span>}
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'7px 13px',fontSize:'12px',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark onBackup={()=>setShowBackup(true)}/>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} dark onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo}/>
         <button className="btn-ghi" onClick={openAdd} disabled={!dbReady} style={!dbReady?{opacity:.5,cursor:'not-allowed'}:undefined}>+ Ghi Trận</button>
       </div>
     </div>
@@ -5080,7 +5098,7 @@ function App(){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
         <button onClick={openFund} style={{background:tab==='fund'?'var(--yellow)':'rgba(234,179,8,.15)',border:'1px solid var(--yellow)',borderRadius:'8px',color:tab==='fund'?'#000':'var(--yellow)',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'4px'}}>🙏 Hòm Công Đức</button>
-        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)}/>
+        <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo}/>
       </div>
     </div>
 
