@@ -22,6 +22,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -341,6 +342,49 @@ function quickEloTable(myElo = 1500) {
 
 /* ─── COLORS / DATA ──────────────────────────────────────── */
 const COLORS = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
+
+/* ─── DANH SÁCH NGÂN HÀNG (mã BIN chuẩn VietQR) ───────────
+   Dùng để tạo QR chuyển khoản qua img.vietqr.io — không cần thư viện QR riêng.
+──────────────────────────────────────────────────────── */
+const VIETQR_BANKS = [
+  {code:'970436', name:'Vietcombank'},
+  {code:'970407', name:'Techcombank'},
+  {code:'970418', name:'BIDV'},
+  {code:'970415', name:'VietinBank'},
+  {code:'970416', name:'ACB'},
+  {code:'970422', name:'MB Bank'},
+  {code:'970423', name:'TPBank'},
+  {code:'970432', name:'VPBank'},
+  {code:'970403', name:'Sacombank'},
+  {code:'970405', name:'Agribank'},
+  {code:'970431', name:'Eximbank'},
+  {code:'970437', name:'HDBank'},
+  {code:'970441', name:'VIB'},
+  {code:'970448', name:'OCB'},
+  {code:'970454', name:'VietCapitalBank (BVBank)'},
+  {code:'970400', name:'SHB'},
+  {code:'970429', name:'SCB'},
+  {code:'970443', name:'SHBFinance'},
+  {code:'970426', name:'MSB'},
+  {code:'970449', name:'BacABank'},
+  {code:'970425', name:'ABBank'},
+  {code:'970452', name:'KienLongBank'},
+  {code:'970414', name:'Oceanbank'},
+  {code:'970433', name:'VietBank'},
+  {code:'970457', name:'Woori Bank'},
+  {code:'970438', name:'BaoVietBank'},
+  {code:'422589', name:'MoMo (Ví điện tử)'},
+];
+// Sinh URL ảnh QR chuyển khoản (VietQR) — amount/addInfo tùy chọn, để trống nếu không truyền
+function vietQRImageUrl({bankCode, accountNo, accountName, amount, note}){
+  if(!bankCode||!accountNo) return null;
+  let url = `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.png?`;
+  const params = [];
+  if(amount) params.push(`amount=${Math.max(0,Math.round(amount))}`);
+  if(note) params.push(`addInfo=${encodeURIComponent(note)}`);
+  if(accountName) params.push(`accountName=${encodeURIComponent(accountName)}`);
+  return url + params.join('&');
+}
 function initials(n){ return n.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(); }
 // Kiểm tra tên đã tồn tại chưa (không phân biệt hoa/thường), dùng chung cho cả BXH và Quỹ vì 2 danh sách này đồng bộ tên với nhau
 function isNameTaken(name, players, members, excludeName){
@@ -3402,7 +3446,7 @@ function EditSessionModal({session,members,onClose,onSave}){
 }
 
 /* ─── FUND TAB ───────────────────────────────────────────── */
-function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd,isAdmin}){
+function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd,isAdmin,bankInfo,setBankInfo,clubName}){
   const memberNames = FUND_MEMBERS.map(m=>m.name);
   // Data được load/save bởi App cha — FundTab chỉ dùng trực tiếp
   const [showAdd,setShowAdd]=useState(false);
@@ -3426,6 +3470,21 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const [onlyDebt,setOnlyDebt]=useState(false);
   const [showAllMembers,setShowAllMembers]=useState(false);
   const [showAllSessions,setShowAllSessions]=useState(false);
+  // Chọn nhiều người để tạo mã QR nhắc nợ, xuất ảnh gửi từng người
+  const [selectMode,setSelectMode]=useState(false);
+  const [selectedMembers,setSelectedMembers]=useState([]); // mảng tên
+  const [showQRModal,setShowQRModal]=useState(false);
+  const [showBankConfig,setShowBankConfig]=useState(false);
+  const [bankDraft,setBankDraft]=useState(bankInfo||{bankCode:'',accountNo:'',accountName:''});
+  useEffect(()=>{ setBankDraft(bankInfo||{bankCode:'',accountNo:'',accountName:''}); },[bankInfo]);
+  const toggleSelectMember=(name)=>{
+    setSelectedMembers(p=>p.includes(name)?p.filter(n=>n!==name):[...p,name]);
+  };
+  const saveBankConfig=()=>{
+    setBankInfo(bankDraft);
+    setShowBankConfig(false);
+    if(showToast) showToast('Đã lưu cấu hình ngân hàng');
+  };
   const MEMBER_PAGE_SIZE=8;
   const SESSION_PAGE_SIZE=10;
 
@@ -3590,10 +3649,17 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     const isRenaming=renamingMember===i;
     const isExpanded=expandedMember===i;
     const matchedPlayer=(players||[]).find(p=>p.name===m.name);
+    const isSelected=selectedMembers.includes(m.name);
     return (
-      <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${m.color}`,borderRadius:'10px',overflow:'hidden'}}>
-        {/* Dòng gọn — bấm để mở/thu chi tiết */}
-        <div onClick={()=>setExpandedMember(isExpanded?null:i)} style={{display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer'}}>
+      <div key={i} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${isSelected?'var(--yellow)':m.color}`,borderRadius:'10px',overflow:'hidden'}}>
+        {/* Dòng gọn — bấm để mở/thu chi tiết (hoặc chọn nếu đang ở chế độ chọn nhiều) */}
+        <div onClick={()=>selectMode?toggleSelectMember(m.name):setExpandedMember(isExpanded?null:i)} style={{display:'flex',alignItems:'center',gap:'9px',padding:'10px 12px',cursor:'pointer'}}>
+          {selectMode && (
+            <div onClick={e=>{e.stopPropagation();toggleSelectMember(m.name);}} style={{
+              width:'18px',height:'18px',borderRadius:'5px',flexShrink:0,border:`2px solid ${isSelected?'var(--yellow)':'var(--border2)'}`,
+              background:isSelected?'var(--yellow)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#000',fontWeight:900
+            }}>{isSelected?'✓':''}</div>
+          )}
           <div style={{width:'28px',height:'28px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:matchedPlayer?.avatar?'transparent':m.color+'22',color:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
             {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={m.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(m.name)}
           </div>
@@ -3665,10 +3731,35 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   };
 
   return <>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px',marginBottom:'14px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px',marginBottom:'14px',flexWrap:'wrap',gap:'8px'}}>
       <div className="section-title">🙏 Hòm Công Đức</div>
-      <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
+      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+        {isAdmin && <button onClick={()=>setShowBankConfig(true)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>🏦 Cấu hình ngân hàng</button>}
+        <button onClick={exportFundCSV} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📥 Xuất Excel</button>
+      </div>
     </div>
+
+    {showBankConfig && (
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'14px',marginBottom:'16px'}}>
+        <div style={{fontSize:'13px',fontWeight:700,marginBottom:'10px',color:'var(--text)'}}>🏦 Cấu hình tài khoản nhận tiền quỹ (để tạo mã QR)</div>
+        <div className="form-grid" style={{marginBottom:'10px'}}>
+          <div className="fg">
+            <label className="fl">Ngân hàng</label>
+            <select className="fi" value={bankDraft.bankCode} onChange={e=>setBankDraft(p=>({...p,bankCode:e.target.value}))} style={{padding:'8px 10px',fontSize:'13px'}}>
+              <option value="">-- Chọn ngân hàng --</option>
+              {VIETQR_BANKS.map(b=><option key={b.code} value={b.code}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="fg"><label className="fl">Số tài khoản</label><input className="fi" value={bankDraft.accountNo} onChange={e=>setBankDraft(p=>({...p,accountNo:e.target.value.replace(/[^0-9]/g,'')}))} placeholder="0123456789"/></div>
+        </div>
+        <div className="fg" style={{marginBottom:'12px'}}>
+          <label className="fl">Tên chủ tài khoản (không dấu)</label>
+          <input className="fi" value={bankDraft.accountName} onChange={e=>setBankDraft(p=>({...p,accountName:e.target.value.toUpperCase()}))} placeholder="NGUYEN VAN A"/>
+        </div>
+        <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'12px'}}>Mã QR sẽ được tạo tự động qua VietQR, đúng chuẩn ngân hàng — chỉ cần quét là chuyển khoản, không cần cài thêm gì.</div>
+        <div className="form-actions"><button className="btn-cancel" onClick={()=>{setShowBankConfig(false);setBankDraft(bankInfo);}}>Hủy</button><button className="btn-save" onClick={saveBankConfig}>Lưu</button></div>
+      </div>
+    )}
 
     {missingPlayers.length>0 && (
       <div style={{background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'10px',padding:'12px 14px',marginBottom:'16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
@@ -3690,9 +3781,18 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       </div>
     </div>
 
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'8px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Tình trạng từng thành viên</div>
-      {isAdmin && <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>}
+      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+        <button onClick={()=>{setSelectMode(v=>!v);if(selectMode)setSelectedMembers([]);}} style={{
+          background:selectMode?'var(--yellow-bg)':'var(--surface)',border:`1px solid ${selectMode?'var(--yellow)':'var(--border)'}`,borderRadius:'8px',
+          color:selectMode?'var(--yellow)':'var(--muted)',padding:'5px 12px',fontSize:'12px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'
+        }}>{selectMode?`✓ Đang chọn (${selectedMembers.length})`:'☑️ Chọn nhiều'}</button>
+        {selectMode && selectedMembers.length>0 && (
+          <button onClick={()=>setShowQRModal(true)} style={{background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'5px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>📱 Tạo mã QR nợ</button>
+        )}
+        {isAdmin && <button onClick={()=>setShowAddMember(!showAddMember)} style={{background:'var(--surface)',border:'1px dashed var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>+ Thêm thành viên</button>}
+      </div>
     </div>
 
     {showAddMember && (
@@ -3932,7 +4032,127 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       onConfirm={()=>deleteMember(confirmDeleteMember)}
       onClose={()=>setConfirmDeleteMember(null)}
     />}
+
+    {showQRModal && (
+      <DebtQRModal
+        members={selectedMembers.map(name=>members.find(m=>m.name===name)).filter(Boolean)}
+        memberSpent={memberSpent}
+        players={players}
+        bankInfo={bankInfo}
+        clubName={clubName}
+        onClose={()=>setShowQRModal(false)}
+        onOpenBankConfig={()=>{setShowQRModal(false);setShowBankConfig(true);}}
+      />
+    )}
   </>;
+}
+
+/* ─── MODAL: TẠO MÃ QR NHẮC NỢ (chọn 1 hoặc nhiều người) ───
+   Dùng ảnh QR từ VietQR (img.vietqr.io) — quét là ra đúng số tiền + nội dung,
+   mỗi người có 1 thẻ riêng, có thể tải ảnh (html2canvas) để gửi qua Zalo/Messenger. */
+function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOpenBankConfig}){
+  const hasBank = !!(bankInfo && bankInfo.bankCode && bankInfo.accountNo);
+  const cardRefs = React.useRef({});
+  const [downloading,setDownloading]=useState(null); // tên đang tải, hoặc 'all'
+
+  const rows = members.map(m=>{
+    const spent = memberSpent[m.name]||0;
+    const rem = m.paid-spent;
+    const debt = rem<0 ? Math.abs(rem) : 0;
+    return {...m, debt};
+  });
+
+  const downloadCard = async(name)=>{
+    const node = cardRefs.current[name];
+    if(!node || !window.html2canvas) return;
+    setDownloading(name);
+    try{
+      const canvas = await window.html2canvas(node,{backgroundColor:'#ffffff',scale:2});
+      const link = document.createElement('a');
+      link.download = `no-quy-${name.replace(/\s+/g,'-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }catch(e){}
+    setDownloading(null);
+  };
+
+  const downloadAll = async()=>{
+    setDownloading('all');
+    for(const r of rows){
+      if(r.debt<=0) continue;
+      await downloadCard(r.name);
+      await new Promise(res=>setTimeout(res,350));
+    }
+    setDownloading(null);
+  };
+
+  const debtRows = rows.filter(r=>r.debt>0);
+  const noDebtRows = rows.filter(r=>r.debt<=0);
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:500,display:'flex',alignItems:'flex-start',justifyContent:'center',overflowY:'auto',padding:'24px 12px'}} onClick={onClose}>
+      <div style={{background:'var(--bg)',borderRadius:'16px',maxWidth:'480px',width:'100%',padding:'18px',position:'relative'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+          <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>📱 Mã QR nhắc nợ ({debtRows.length} người)</div>
+          <button onClick={onClose} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'50%',width:'30px',height:'30px',cursor:'pointer',fontSize:'14px',color:'var(--muted)'}}>✕</button>
+        </div>
+
+        {!hasBank && (
+          <div style={{background:'var(--yellow-bg)',border:'1px solid var(--yellow)',borderRadius:'10px',padding:'12px 14px',marginBottom:'14px',fontSize:'12.5px',color:'var(--text)'}}>
+            ⚠️ Chưa cấu hình tài khoản ngân hàng của CLB nên chưa tạo được mã QR chuyển khoản.
+            <div style={{marginTop:'8px'}}>
+              <button onClick={onOpenBankConfig} style={{background:'var(--yellow)',border:'none',borderRadius:'8px',color:'#000',padding:'6px 12px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🏦 Cấu hình ngay</button>
+            </div>
+          </div>
+        )}
+
+        {hasBank && debtRows.length>1 && (
+          <button onClick={downloadAll} disabled={downloading!==null} style={{width:'100%',marginBottom:'14px',background:'var(--purple)',border:'none',borderRadius:'10px',color:'#fff',padding:'10px',fontSize:'13px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
+            {downloading==='all'?'⏳ Đang tải ảnh...':`⬇️ Tải ảnh tất cả (${debtRows.length})`}
+          </button>
+        )}
+
+        {hasBank && debtRows.length===0 && (
+          <div style={{textAlign:'center',padding:'24px',color:'var(--muted)',fontSize:'13px'}}>🎉 Những người bạn chọn không ai còn nợ quỹ cả!</div>
+        )}
+
+        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+          {hasBank && debtRows.map(r=>{
+            const matchedPlayer=(players||[]).find(p=>p.name===r.name);
+            const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
+            const qrUrl = vietQRImageUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note});
+            const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
+            return (
+              <div key={r.name} ref={el=>cardRefs.current[r.name]=el} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',textAlign:'center'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginBottom:'8px'}}>
+                  <div style={{width:'26px',height:'26px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:r.color+'22',color:r.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
+                    {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={r.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(r.name)}
+                  </div>
+                  <div style={{fontSize:'15px',fontWeight:800,color:'#1a1d24',fontFamily:'Quicksand,sans-serif'}}>{r.name}</div>
+                </div>
+                <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Còn nợ Hòm Công Đức</div>
+                <div style={{fontSize:'24px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(r.debt)}</div>
+                {qrUrl && <img src={qrUrl} alt={`QR ${r.name}`} style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
+                <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
+                  <div><b>{bankName}</b></div>
+                  <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
+                </div>
+                <button onClick={()=>downloadCard(r.name)} disabled={downloading!==null} style={{marginTop:'12px',background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 16px',fontSize:'12px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
+                  {downloading===r.name?'⏳ Đang tải...':'⬇️ Tải ảnh này'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {noDebtRows.length>0 && (
+          <div style={{marginTop:'14px',fontSize:'11.5px',color:'var(--muted)'}}>
+            ✅ Không nợ (đã bỏ qua): {noDebtRows.map(r=>r.name).join(', ')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ─── LOCALSTORAGE HELPERS ───────────────────────────────── */
@@ -4207,6 +4427,8 @@ function App(){
   const [bannerSub,setBannerSub]=useState('Stats & Hòm Công Đức · Phông Bạt 🏓');
   const [bannerOverlay,setBannerOverlay]=useState(45);
   const [bannerBrightness,setBannerBrightness]=useState(100);
+  // Cấu hình ngân hàng nhận quỹ CLB — dùng để tạo mã QR nhắc nợ (VietQR)
+  const [bankInfo,setBankInfo]=useState({bankCode:'',accountNo:'',accountName:''});
   // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
   const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
   const TRASH_RETENTION_DAYS=30;
@@ -4229,7 +4451,7 @@ function App(){
   useEffect(()=>{
     (async()=>{
       setSyncing(true);
-      const [p,m,s,mb,bn,tr]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash')]);
+      const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash'),fbGet('bankInfo')]);
       if(Array.isArray(p)&&p.length) setPlayers(p);
       if(Array.isArray(m)&&m.length) setMatches(m);
       if(Array.isArray(s)&&s.length) setSessions(s);
@@ -4244,12 +4466,13 @@ function App(){
       if(tr&&typeof tr==='object'){
         setTrash(normalizeTrash(tr));
       }
+      if(bi&&typeof bi==='object') setBankInfo(p=>({...p,...bi}));
       setDbReady(true);
       setSyncing(false);
     })();
     // Poll mỗi 30s — dùng fbPoll để bỏ qua khi đang ghi (tăng lên 30s tránh ghi đè khi đang chỉnh)
     const id=setInterval(async()=>{
-      const [p,m,s,mb,bn,tr]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash')]);
+      const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash'),fbPoll('bankInfo')]);
       if(Array.isArray(p)&&p.length) setPlayers(p);
       if(Array.isArray(m)&&m.length) setMatches(m);
       if(Array.isArray(s)&&s.length) setSessions(s);
@@ -4262,6 +4485,7 @@ function App(){
         if(bn.bannerBrightness!==undefined) setBannerBrightness(bn.bannerBrightness);
       }
       if(tr&&typeof tr==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr));
+      if(bi&&typeof bi==='object'&&!_fbSaving['bankInfo']) setBankInfo(p=>({...p,...bi}));
     },30000);
     return ()=>clearInterval(id);
   },[]);
@@ -4274,6 +4498,7 @@ function App(){
   const _skipMembers=React.useRef(1);
   const _skipBanner=React.useRef(1);
   const _skipTrash=React.useRef(1);
+  const _skipBankInfo=React.useRef(1);
   useEffect(()=>{
     if(_skipPlayers.current>0){_skipPlayers.current--;return;}
     if(dbReady)fbSet('players',players);
@@ -4298,6 +4523,10 @@ function App(){
     if(_skipTrash.current>0){_skipTrash.current--;return;}
     if(dbReady)fbSet('trash',trash);
   },[trash]);
+  useEffect(()=>{
+    if(_skipBankInfo.current>0){_skipBankInfo.current--;return;}
+    if(dbReady)fbSet('bankInfo',bankInfo);
+  },[bankInfo]);
   const [showAdd,setShowAdd]=useState(false);
   const [showTrash,setShowTrash]=useState(false);
   const [confirmId,setConfirmId]=useState(null);
@@ -4655,7 +4884,7 @@ function App(){
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
-      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin}/>}
+      {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin} bankInfo={bankInfo} setBankInfo={setBankInfo} clubName={bannerTitle}/>}
     </div>
 
     {showAdd && <AddMatchModal players={players} sessions={sessions} onClose={()=>setShowAdd(false)} onSave={addMatch}/>}
