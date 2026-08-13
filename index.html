@@ -3592,11 +3592,20 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     return ['Tất cả',...[...s].sort((a,b)=>parseInt(a)-parseInt(b)).map(m=>`Tháng ${m}`)];
   },[sessions]);
 
+  // Lọc theo người — xem 1 người từng tham gia những buổi chơi nào
+  const [playerFund,setPlayerFund]=useState('Tất cả');
+
   const filteredSessions=useMemo(()=>{
-    if(monthFund==='Tất cả') return sessions;
-    const mon=monthFund.replace('Tháng ','');
-    return sessions.filter(s2=>{const p=s2.date.split(/[\/\-]/);return p.length>=2&&p[1]===mon;});
-  },[sessions,monthFund]);
+    let list=sessions;
+    if(monthFund!=='Tất cả'){
+      const mon=monthFund.replace('Tháng ','');
+      list=list.filter(s2=>{const p=s2.date.split(/[\/\-]/);return p.length>=2&&p[1]===mon;});
+    }
+    if(playerFund!=='Tất cả'){
+      list=list.filter(s2=>s2.attendees && s2.attendees[playerFund]);
+    }
+    return list;
+  },[sessions,monthFund,playerFund]);
 
   const monthTotal=filteredSessions.reduce((a,s2)=>a+s2.total,0);
 
@@ -3847,7 +3856,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       </>;
     })()}
 
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px',marginTop:'4px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',marginTop:'4px',flexWrap:'wrap',gap:'8px'}}>
       <div className="section-title" style={{fontSize:'14px'}}>Lịch sử buổi chơi</div>
       <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
         {fundMonths.map(m2=>(
@@ -3860,9 +3869,25 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         ))}
       </div>
     </div>
-    {monthFund!=='Tất cả'&&(
-      <div style={{background:'var(--blue-bg)',border:'1px solid var(--blue)',borderRadius:'10px',padding:'10px 14px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <span style={{fontSize:'13px',color:'var(--blue)',fontWeight:600}}>{monthFund}: {filteredSessions.length} buổi</span>
+    {/* Lọc theo người — xem người này từng tham gia buổi chơi nào */}
+    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}}>
+      <span style={{fontSize:'12px',color:'var(--muted)',whiteSpace:'nowrap'}}>👤 Lọc theo người:</span>
+      <select className="month-sel" value={playerFund} onChange={e=>setPlayerFund(e.target.value)}>
+        <option value="Tất cả">Tất cả</option>
+        {members.map(m=>(<option key={m.name} value={m.name}>{m.name}</option>))}
+      </select>
+      {playerFund!=='Tất cả' && (
+        <button onClick={()=>setPlayerFund('Tất cả')} style={{
+          background:'var(--purple-bg)',border:'1px solid var(--purple)',borderRadius:'8px',color:'var(--purple)',
+          padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'
+        }}>✕ Bỏ lọc {playerFund}</button>
+      )}
+    </div>
+    {(monthFund!=='Tất cả'||playerFund!=='Tất cả')&&(
+      <div style={{background:'var(--blue-bg)',border:'1px solid var(--blue)',borderRadius:'10px',padding:'10px 14px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'6px'}}>
+        <span style={{fontSize:'13px',color:'var(--blue)',fontWeight:600}}>
+          {monthFund!=='Tất cả'?monthFund:'Tất cả tháng'}{playerFund!=='Tất cả'?` · ${playerFund}`:''}: {filteredSessions.length} buổi
+        </span>
         <span style={{fontFamily:'Quicksand',fontSize:'16px',fontWeight:700,color:'var(--blue)'}}>Tổng: {fmt(monthTotal)}</span>
       </div>
     )}
@@ -3985,6 +4010,11 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
         const reversedSessions=[...filteredSessions].reverse();
         const firstPage=reversedSessions.slice(0,SESSION_PAGE_SIZE);
         const extra=reversedSessions.slice(SESSION_PAGE_SIZE);
+        if(reversedSessions.length===0){
+          return <div style={{textAlign:'center',padding:'24px',color:'var(--muted)',fontSize:'13px'}}>
+            {playerFund!=='Tất cả' ? `${playerFund} chưa tham gia buổi chơi nào${monthFund!=='Tất cả'?` trong ${monthFund}`:''}.` : 'Không có buổi chơi nào phù hợp.'}
+          </div>;
+        }
         return <>
           {firstPage.map(renderSessionRow)}
           {extra.length>0 && (
