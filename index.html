@@ -817,6 +817,8 @@ const INIT_SESSIONS = [
 ];
 
 const fmt = n => n.toLocaleString('vi-VN')+'đ';
+// Làm tròn LÊN số dư quỹ công đức tới hàng nghìn gần nhất (VD: 2.001 -> 3.000, 3.230 -> 4.000, 5.000 -> 5.000)
+const roundUpFund = n => Math.ceil((n||0)/1000)*1000;
 
 // Tính số "phần chia" thực tế của 1 buổi chơi: người Xé Vé tính theo số người xé vé thực tế (xeVeCount), không phải 1
 function effectiveShares(s){
@@ -3852,7 +3854,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
             <div style={{fontSize:'10.5px',color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Đóng {fmt(m.paid)} · Chi {fmt(spent)}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0}}>
-            <div className={rem>=0?'pos':'neg'} style={{fontWeight:800,fontSize:'13.5px'}}>{rem<0?'-':''}{fmt(Math.abs(rem))}</div>
+            <div className={rem>=0?'pos':'neg'} style={{fontWeight:800,fontSize:'13.5px'}}>{rem<0?'-':''}{fmt(roundUpFund(Math.abs(rem)))}</div>
           </div>
           <div style={{color:'var(--muted2)',fontSize:'10px',flexShrink:0,transform:isExpanded?'rotate(180deg)':'none',transition:'transform .15s'}}>▾</div>
         </div>
@@ -3955,10 +3957,10 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     <div className="stats-grid" style={{marginBottom:'16px'}}>
       <div className="stat-card sc-green"><div className="sc-label">Tổng đã đóng</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalFund)}</div></div>
       <div className="stat-card sc-red"><div className="sc-label">Đã chi</div><div className="sc-val" style={{fontSize:'20px'}}>{fmt(totalSpent)}</div></div>
-      <div className="stat-card sc-purple"><div className="sc-label">Còn lại trong Hòm Công Đức</div><div className="sc-val" style={{fontSize:'20px',color:'var(--purple)'}}>{fmt(remaining)}</div></div>
+      <div className="stat-card sc-purple"><div className="sc-label">Còn lại trong Hòm Công Đức</div><div className="sc-val" style={{fontSize:'20px',color:'var(--purple)'}}>{fmt(roundUpFund(remaining))}</div></div>
       <div className="stat-card sc-red" style={{borderColor:debtorsCount>0?'var(--red)':undefined}}>
         <div className="sc-label">Tổng còn nợ toàn CLB</div>
-        <div className="sc-val" style={{fontSize:'20px',color:debtorsCount>0?'var(--red)':'var(--muted)'}}>{fmt(totalDebt)}</div>
+        <div className="sc-val" style={{fontSize:'20px',color:debtorsCount>0?'var(--red)':'var(--muted)'}}>{fmt(roundUpFund(totalDebt))}</div>
         {debtorsCount>0 && <div style={{fontSize:'10.5px',color:'var(--red)',marginTop:'2px'}}>🔴 {debtorsCount} người đang nợ</div>}
       </div>
     </div>
@@ -4270,7 +4272,7 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
   const rows = members.map(m=>{
     const spent = memberSpent[m.name]||0;
     const rem = m.paid-spent;
-    const debt = rem<0 ? Math.abs(rem) : 0;
+    const debt = rem<0 ? roundUpFund(Math.abs(rem)) : 0;
     return {...m, debt};
   });
 
