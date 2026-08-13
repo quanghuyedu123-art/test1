@@ -1996,11 +1996,8 @@ function TrashModal({trash, onClose, onRestorePlayer, onRestoreMember, onRestore
    ra 1 file JSON để tải về máy — lớp bảo vệ độc lập với Firebase, phòng khi server
    bị lỗi, bị ghi đè nhầm, hoặc mất kết nối. Có thể nhập lại (khôi phục) từ file này. */
 function MergePersonModal({players,members,onMerge,onClose}){
-  // Chỉ liệt kê những người CHƯA khớp tên giữa BXH và Quỹ (mới cần ghép)
-  const unmatchedPlayers=players.filter(p=>!members.some(m=>m.name.toLowerCase()===p.name.toLowerCase()));
-  const unmatchedMembers=members.filter(m=>!players.some(p=>p.name.toLowerCase()===m.name.toLowerCase()));
-  const [playerName,setPlayerName]=useState(unmatchedPlayers[0]?.name||'');
-  const [memberName,setMemberName]=useState(unmatchedMembers[0]?.name||'');
+  const [playerName,setPlayerName]=useState(players[0]?.name||'');
+  const [memberName,setMemberName]=useState(members[0]?.name||'');
   const [keep,setKeep]=useState('player'); // 'player' | 'member'
   const canMerge=playerName && memberName && playerName!==memberName;
   const keepName=keep==='player'?playerName:memberName;
@@ -2013,25 +2010,25 @@ function MergePersonModal({players,members,onMerge,onClose}){
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px 14px',marginBottom:'14px',fontSize:'12.5px',color:'var(--muted)',lineHeight:1.5}}>
-          Dùng khi một người xuất hiện với 2 tên khác nhau — một ở Bảng xếp hạng, một ở Hòm Công Đức (VD: "Thương Xinh" và "Chị Thương Xinh"). Ghép lại sẽ giữ nguyên toàn bộ Công Đức, thắng/thua, lịch sử trận đấu và quỹ — chỉ đổi để 2 bên dùng chung 1 tên.
+          Chọn tự do 1 người ở Bảng xếp hạng và 1 người ở Hòm Công Đức mà bạn biết là CÙNG MỘT NGƯỜI (VD: "Thương Xinh" và "Chị Thương Xinh"). Ghép lại sẽ giữ nguyên toàn bộ Công Đức, thắng/thua, lịch sử trận đấu và quỹ — chỉ đổi để 2 bên dùng chung 1 tên.
         </div>
 
-        {(unmatchedPlayers.length===0 || unmatchedMembers.length===0) ? (
+        {(players.length===0 || members.length===0) ? (
           <div style={{fontSize:'13px',color:'var(--muted)',textAlign:'center',padding:'10px 0'}}>
-            Hiện không có cặp tên nào đang lệch giữa BXH và Quỹ — mọi người đã đồng bộ tên rồi 🎉
+            Cần có ít nhất 1 người ở Bảng xếp hạng và 1 người ở Hòm Công Đức để ghép.
           </div>
         ) : (
           <>
             <div className="fg" style={{marginBottom:'12px'}}>
               <div className="fl">Tên ở Bảng xếp hạng (BXH)</div>
               <select className="fi" value={playerName} onChange={e=>setPlayerName(e.target.value)}>
-                {unmatchedPlayers.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+                {players.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
             <div className="fg" style={{marginBottom:'12px'}}>
               <div className="fl">Tên ở Hòm Công Đức (Quỹ)</div>
               <select className="fi" value={memberName} onChange={e=>setMemberName(e.target.value)}>
-                {unmatchedMembers.map((m,i)=><option key={i} value={m.name}>{m.name}</option>)}
+                {members.map((m,i)=><option key={i} value={m.name}>{m.name}</option>)}
               </select>
             </div>
             <div className="fg" style={{marginBottom:'16px'}}>
@@ -2045,8 +2042,11 @@ function MergePersonModal({players,members,onMerge,onClose}){
                 </label>
               </div>
             </div>
-            {canMerge && <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}}>
-              Sẽ đổi "<b>{dropName}</b>" → "<b>{keepName}</b>" và cập nhật lại toàn bộ trận đấu/buổi chơi liên quan.
+            {!canMerge && playerName===memberName && (
+              <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}}>2 tên đang giống hệt nhau rồi, không cần ghép.</div>
+            )}
+            {canMerge && <div style={{background:'var(--orange-bg)',border:'1px solid var(--orange)',borderRadius:'10px',padding:'10px 12px',marginBottom:'14px',fontSize:'12px',color:'var(--orange)'}}>
+              ⚠️ Sẽ đổi "<b>{dropName}</b>" → "<b>{keepName}</b>" và cập nhật lại toàn bộ trận đấu/buổi chơi liên quan. Chỉ ghép khi chắc chắn đây là cùng 1 người thật ngoài đời — ghép nhầm sẽ trộn lẫn Công Đức/lịch sử của 2 người khác nhau.
             </div>}
             <button disabled={!canMerge} onClick={()=>{ onMerge(playerName, memberName, keepName); onClose(); }} style={{width:'100%',background: canMerge?'var(--green)':'var(--border2)',border:'none',borderRadius:'10px',color:'#fff',padding:'12px',fontSize:'14px',fontWeight:700,cursor: canMerge?'pointer':'not-allowed',fontFamily:'Nunito,sans-serif'}}>
               🔗 Ghép làm 1 người
