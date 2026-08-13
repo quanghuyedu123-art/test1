@@ -3750,7 +3750,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
               {VIETQR_BANKS.map(b=><option key={b.code} value={b.code}>{b.name}</option>)}
             </select>
           </div>
-          <div className="fg"><label className="fl">Số tài khoản</label><input className="fi" value={bankDraft.accountNo} onChange={e=>setBankDraft(p=>({...p,accountNo:e.target.value.replace(/[^0-9]/g,'')}))} placeholder="0123456789"/></div>
+          <div className="fg"><label className="fl">Số tài khoản</label><input className="fi" value={bankDraft.accountNo} onChange={e=>setBankDraft(p=>({...p,accountNo:e.target.value.replace(/[^0-9A-Za-z]/g,'').toUpperCase()}))} placeholder="0123456789 hoặc mã Quỹ nhóm MoMo"/></div>
         </div>
         <div className="fg" style={{marginBottom:'12px'}}>
           <label className="fl">Tên chủ tài khoản (không dấu)</label>
@@ -4054,6 +4054,7 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
   const hasBank = !!(bankInfo && bankInfo.bankCode && bankInfo.accountNo);
   const cardRefs = React.useRef({});
   const [downloading,setDownloading]=useState(null); // tên đang tải, hoặc 'all'
+  const [combineMode,setCombineMode]=useState(false); // true: gộp tất cả người đã chọn thành 1 mã QR duy nhất (dùng khi 1 người trả nợ hộ nhiều người)
 
   const rows = members.map(m=>{
     const spent = memberSpent[m.name]||0;
@@ -4067,7 +4068,7 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
     if(!node || !window.html2canvas) return;
     setDownloading(name);
     try{
-      const canvas = await window.html2canvas(node,{backgroundColor:'#ffffff',scale:2});
+      const canvas = await window.html2canvas(node,{backgroundColor:'#ffffff',scale:2,useCORS:true,allowTaint:false});
       const link = document.createElement('a');
       link.download = `no-quy-${name.replace(/\s+/g,'-')}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -4088,6 +4089,21 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
 
   const debtRows = rows.filter(r=>r.debt>0);
   const noDebtRows = rows.filter(r=>r.debt<=0);
+  const combinedTotal = debtRows.reduce((s,r)=>s+r.debt,0);
+
+  const downloadCombined = async()=>{
+    const node = cardRefs.current['__combined__'];
+    if(!node || !window.html2canvas) return;
+    setDownloading('__combined__');
+    try{
+      const canvas = await window.html2canvas(node,{backgroundColor:'#ffffff',scale:2,useCORS:true,allowTaint:false});
+      const link = document.createElement('a');
+      link.download = `no-quy-gop-${debtRows.length}-nguoi.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }catch(e){}
+    setDownloading(null);
+  };
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:500,display:'flex',alignItems:'flex-start',justifyContent:'center',overflowY:'auto',padding:'24px 12px'}} onClick={onClose}>
@@ -4107,6 +4123,13 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
         )}
 
         {hasBank && debtRows.length>1 && (
+          <div style={{display:'flex',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'3px',marginBottom:'14px',gap:'3px'}}>
+            <button onClick={()=>setCombineMode(false)} style={{flex:1,background:!combineMode?'var(--green)':'transparent',color:!combineMode?'#fff':'var(--muted)',border:'none',borderRadius:'8px',padding:'8px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>👤 Mỗi người 1 mã</button>
+            <button onClick={()=>setCombineMode(true)} style={{flex:1,background:combineMode?'var(--green)':'transparent',color:combineMode?'#fff':'var(--muted)',border:'none',borderRadius:'8px',padding:'8px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🔗 Gộp 1 mã chung</button>
+          </div>
+        )}
+
+        {hasBank && !combineMode && debtRows.length>1 && (
           <button onClick={downloadAll} disabled={downloading!==null} style={{width:'100%',marginBottom:'14px',background:'var(--purple)',border:'none',borderRadius:'10px',color:'#fff',padding:'10px',fontSize:'13px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
             {downloading==='all'?'⏳ Đang tải ảnh...':`⬇️ Tải ảnh tất cả (${debtRows.length})`}
           </button>
@@ -4116,8 +4139,33 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
           <div style={{textAlign:'center',padding:'24px',color:'var(--muted)',fontSize:'13px'}}>🎉 Những người bạn chọn không ai còn nợ quỹ cả!</div>
         )}
 
+        {hasBank && combineMode && debtRows.length>0 && (()=>{
+          const note = `${clubName||'CLB'} - tra no quy ${debtRows.length} nguoi`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
+          const qrUrl = vietQRImageUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:combinedTotal,note});
+          const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
+          return (
+            <div ref={el=>cardRefs.current['__combined__']=el} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',textAlign:'center',marginBottom:'14px'}}>
+              <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'4px'}}>Trả gộp nợ cho {debtRows.length} người</div>
+              <div style={{fontSize:'13px',color:'#1a1d24',marginBottom:'10px',lineHeight:1.7}}>
+                {debtRows.map(r=><div key={r.name}>{r.name}: <b>{fmt(r.debt)}</b></div>)}
+              </div>
+              <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Tổng cần chuyển</div>
+              <div style={{fontSize:'26px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(combinedTotal)}</div>
+              {qrUrl && <img src={qrUrl} alt="QR gộp" crossOrigin="anonymous" style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
+              <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
+                <div><b>{bankName}</b></div>
+                <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
+              </div>
+              <div style={{marginTop:'8px',fontSize:'11px',color:'var(--muted)'}}>⚠️ Sau khi người trả chuyển khoản, bạn tự tay đánh dấu đã đóng tiền cho từng người tương ứng trong danh sách thành viên nhé — hệ thống không tự tách khoản gộp này ra từng người.</div>
+              <button onClick={downloadCombined} disabled={downloading!==null} style={{marginTop:'12px',background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 16px',fontSize:'12px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
+                {downloading==='__combined__'?'⏳ Đang tải...':'⬇️ Tải ảnh mã gộp'}
+              </button>
+            </div>
+          );
+        })()}
+
         <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
-          {hasBank && debtRows.map(r=>{
+          {hasBank && !combineMode && debtRows.map(r=>{
             const matchedPlayer=(players||[]).find(p=>p.name===r.name);
             const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
             const qrUrl = vietQRImageUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note});
@@ -4132,7 +4180,7 @@ function DebtQRModal({members,memberSpent,players,bankInfo,clubName,onClose,onOp
                 </div>
                 <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Còn nợ Hòm Công Đức</div>
                 <div style={{fontSize:'24px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(r.debt)}</div>
-                {qrUrl && <img src={qrUrl} alt={`QR ${r.name}`} style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
+                {qrUrl && <img src={qrUrl} alt={`QR ${r.name}`} crossOrigin="anonymous" style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
                 <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
                   <div><b>{bankName}</b></div>
                   <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
