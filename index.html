@@ -58,33 +58,30 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .btn-ghi:hover{filter:brightness(1.1)}
 
 /* BANNER */
-/* Chiều cao banner co giãn LIÊN TỤC theo bề rộng màn hình (clamp) thay vì
-   nhảy bậc qua media query — nhờ vậy không còn lệch giữa "chế độ desktop"
-   (tỉ lệ cố định 820/104) và "chế độ mobile" (min-height cố định) như cơ chế cũ.
-   Ảnh nền luôn dùng CHUNG một cơ chế hiển thị (object-fit:cover + object-position)
-   ở mọi kích thước màn hình, nên không còn tình trạng ảnh bị crop khác nhau/lệch
-   trọng tâm giữa điện thoại và máy tính. */
-.banner{width:100%;height:clamp(132px,20vw,220px);background:linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px 12px}
+/* Thiết kế mới: banner dùng aspect-ratio thay vì chiều cao cố định nhỏ.
+   Trên điện thoại (mặc định) tỉ lệ 4:3 — ảnh hiển thị LỚN, gần vuông, giữ được
+   phần lớn nội dung ảnh gốc (ảnh nhóm người chụp ngang thường vừa khung này
+   mà không bị mất đầu/chân). Từ 680px trở lên (máy tính/tablet ngang) chuyển
+   sang dải ngang 18:5 cho đúng phong cách "cover banner". Không còn cơ chế
+   crop/zoom/kéo vị trí thủ công — ảnh luôn canh giữa (object-position:center),
+   miễn ảnh tải lên đúng tỉ lệ khuyến nghị (xem hướng dẫn cạnh nút "Đổi ảnh"). */
+.banner{width:100%;aspect-ratio:4/3;max-height:440px;background:linear-gradient(135deg,#1a2a1a 0%,#0d1f2d 50%,#1a1a2e 100%);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px 12px}
+@media(min-width:680px){
+  .banner{aspect-ratio:18/5;max-height:320px}
+}
 .banner-text{text-align:center;position:relative;z-index:2}
 .banner-title{font-family:'Quicksand',sans-serif;font-size:28px;font-weight:700;letter-spacing:-1px}
 .banner-title span{color:var(--green)}
 .banner-sub{color:var(--muted);font-size:13px;margin-top:4px}
 .banner-balls{position:absolute;inset:0;pointer-events:none}
-/* Ảnh bìa: luôn phủ kín khung bằng object-fit:cover, vị trí lấy nét (object-position)
-   và độ zoom do người dùng chọn 1 lần — responsive tự nhiên ở mọi tỉ lệ khung hình. */
-.banner-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none}
+/* Ảnh bìa: phủ kín khung, luôn canh giữa — đơn giản, không lệch giữa mobile/desktop
+   vì mỗi kích thước màn hình đã có tỉ lệ khung riêng phù hợp (xem @media ở trên). */
+.banner-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none;user-select:none}
 /* Màn quá hẹp: chỉ hiện icon trên nút chỉnh sửa banner, ẩn label chữ để khỏi vỡ dòng */
 @media(max-width:360px){
   .banner-edit-label{display:none}
 }
 .ball{position:absolute;border-radius:50%;opacity:.15}
-
-/* ─── Bộ chọn vị trí/zoom ảnh bìa (thay cho crop cứng cũ) ─────────── */
-.bpos-frame{position:relative;overflow:hidden;border-radius:10px;border:2px solid var(--border);background:#111;touch-action:none;cursor:grab}
-.bpos-frame:active{cursor:grabbing}
-.bpos-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none}
-.bpos-frame-label{font-size:11px;color:var(--muted);margin:10px 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.bpos-hint{font-size:12px;color:var(--muted);margin-bottom:10px}
 
 /* TABS SEGMENT */
 .seg-wrap{padding:16px 20px 0;max-width:960px;margin:0 auto}
@@ -1001,83 +998,21 @@ function resizeImageDataUrl(dataUrl, maxDim=2000){
   });
 }
 
-/* ─── BỘ CHỌN VỊ TRÍ/ZOOM ẢNH BÌA ──────────────────────────
-   Thay cho crop cứng theo 1 tỉ lệ cố định (nguồn gốc gây lệch mobile/desktop):
-   ảnh gốc được giữ nguyên, người dùng chỉ chọn "điểm lấy nét" (object-position)
-   + độ zoom. Modal hiển thị SONG SONG 2 khung xem trước — tỉ lệ điện thoại và
-   tỉ lệ máy tính — dùng chung 1 giá trị, nên kéo 1 lần là thấy đúng cả 2 nơi,
-   không còn tình trạng "đẹp trên máy tính nhưng lệch trên điện thoại" hay ngược lại. */
-function BannerPosFrame({src, ratio, focalX, focalY, zoom, label, onDrag}){
-  const ref = React.useRef(null);
-  const dragState = React.useRef(null);
-
-  const toPct = (dx,dy)=>{
-    const r = ref.current.getBoundingClientRect();
-    return {dxPct:(dx/r.width)*100, dyPct:(dy/r.height)*100};
-  };
-  const start = e=>{
-    e.preventDefault();
-    const p = e.touches? e.touches[0] : e;
-    dragState.current = {x:p.clientX, y:p.clientY};
-  };
-  const move = e=>{
-    if(!dragState.current) return;
-    e.preventDefault();
-    const p = e.touches? e.touches[0] : e;
-    const dx = p.clientX - dragState.current.x, dy = p.clientY - dragState.current.y;
-    dragState.current = {x:p.clientX, y:p.clientY};
-    const {dxPct,dyPct} = toPct(dx,dy);
-    // Kéo ảnh theo hướng tự nhiên (kéo sang phải => ảnh trôi sang phải)
-    onDrag(dxPct, dyPct);
-  };
-  const end = ()=>{ dragState.current = null; };
-
-  return (
-    <div>
-      <div className="bpos-frame-label">{label}</div>
-      <div ref={ref} className="bpos-frame" style={{width:'100%',aspectRatio:String(ratio)}}
-        onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-        onTouchStart={start} onTouchMove={move} onTouchEnd={end}>
-        <img src={src} draggable={false} style={{
-          objectPosition:`${focalX}% ${focalY}%`,
-          transform:`scale(${zoom})`, transformOrigin:`${focalX}% ${focalY}%`
-        }}/>
-      </div>
-    </div>
-  );
-}
-
-function BannerImageModal({src, initFocalX=50, initFocalY=50, initZoom=1, initOverlay=45, initBrightness=100, onSave, onClose, onPickAnother}){
-  const [focalX,setFocalX] = React.useState(initFocalX);
-  const [focalY,setFocalY] = React.useState(initFocalY);
-  const [zoom,setZoom] = React.useState(initZoom);
+/* ─── HIỆU ỨNG ẢNH BÌA (đơn giản hoá) ──────────────────────
+   Bỏ hẳn cơ chế crop/kéo vị trí/zoom thủ công của bản cũ — nguồn gốc gây lệch
+   giữa mobile/desktop. Banner giờ dùng aspect-ratio responsive (xem CSS .banner)
+   khớp với tỉ lệ ảnh khuyến nghị, ảnh luôn canh giữa tự động. Modal này chỉ còn
+   2 tuỳ chọn đơn giản: độ tối lớp phủ (để chữ dễ đọc) và độ sáng ảnh. */
+function BannerEffectsModal({initOverlay=45, initBrightness=100, onSave, onClose}){
   const [overlay,setOverlay] = React.useState(initOverlay);
   const [brightness,setBrightness] = React.useState(initBrightness);
 
-  const drag = (dxPct,dyPct)=>{
-    // Kéo ảnh sang phải/xuống => object-position lùi lại tương ứng để ảnh "đi theo" tay kéo
-    setFocalX(v=>Math.min(100,Math.max(0, v - dxPct*(1/Math.max(0.5,zoom)))));
-    setFocalY(v=>Math.min(100,Math.max(0, v - dyPct*(1/Math.max(0.5,zoom)))));
-  };
-
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:420}} onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
-          <div className="modal-title">🖼️ Chỉnh ảnh bìa</div>
+          <div className="modal-title">🎨 Hiệu ứng ảnh bìa</div>
           <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="bpos-hint">🖱 Kéo ảnh để chọn vị trí · dùng thanh Zoom bên dưới. Cả 2 khung xem trước luôn khớp nhau.</div>
-
-        <BannerPosFrame src={src} ratio={820/220} focalX={focalX} focalY={focalY} zoom={zoom} label="🖥️ Máy tính" onDrag={drag}/>
-        <div style={{height:'10px'}}/>
-        <BannerPosFrame src={src} ratio={300/145} focalX={focalX} focalY={focalY} zoom={zoom} label="📱 Điện thoại" onDrag={drag}/>
-
-        <div style={{display:'flex',gap:'10px',alignItems:'center',margin:'16px 0 4px'}}>
-          <label style={{fontSize:'12px',color:'var(--muted)',flexShrink:0,width:'90px'}}>🔍 Zoom</label>
-          <input type="range" min="1" max="3" step="0.01" value={zoom}
-            onChange={e=>setZoom(parseFloat(e.target.value))} style={{flex:1,accentColor:'var(--green)'}}/>
-          <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'right'}}>{Math.round(zoom*100)}%</span>
         </div>
         <div style={{display:'flex',gap:'10px',alignItems:'center',margin:'10px 0 4px'}}>
           <label style={{fontSize:'12px',color:'var(--muted)',flexShrink:0,width:'90px'}}>🌑 Độ đậm</label>
@@ -1091,13 +1026,9 @@ function BannerImageModal({src, initFocalX=50, initFocalY=50, initZoom=1, initOv
             onChange={e=>setBrightness(parseInt(e.target.value,10))} style={{flex:1,accentColor:'var(--green)'}}/>
           <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'right'}}>{brightness}%</span>
         </div>
-
-        <div className="form-actions" style={{marginTop:'14px',justifyContent:'space-between'}}>
-          <button className="btn-cancel" onClick={onPickAnother}>📷 Đổi ảnh khác</button>
-          <div style={{display:'flex',gap:'10px'}}>
-            <button className="btn-cancel" onClick={onClose}>Hủy</button>
-            <button className="btn-save" onClick={()=>onSave({focalX,focalY,zoom,overlay,brightness})}>✅ Lưu</button>
-          </div>
+        <div className="form-actions" style={{marginTop:'14px'}}>
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={()=>onSave({overlay,brightness})}>✅ Lưu</button>
         </div>
       </div>
     </div>
@@ -1105,10 +1036,9 @@ function BannerImageModal({src, initFocalX=50, initFocalY=50, initZoom=1, initOv
 }
 
 /* ─── BANNER (có thể chỉnh sửa) ────────────────────────── */
-function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightness, bannerFocalX, bannerFocalY, bannerZoom, onUpdate, editable}){
-  // mode: 'view' | 'text' | 'image'
+function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightness, onUpdate, editable}){
+  // mode: 'view' | 'text' | 'effects'
   const [mode, setMode] = React.useState('view');
-  const [pendingSrc, setPendingSrc] = React.useState(null); // ảnh mới chờ chỉnh vị trí (chưa lưu)
   const [localTitle, setLocalTitle] = React.useState(bannerTitle||'Pích Cờ Bôn Phông Bạt');
   const [localSub, setLocalSub] = React.useState(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓');
   const fileRef = React.useRef(null);
@@ -1116,29 +1046,28 @@ function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightn
   useEffect(()=>{ setLocalTitle(bannerTitle||'Pích Cờ Bôn Phông Bạt'); },[bannerTitle]);
   useEffect(()=>{ setLocalSub(bannerSub||'Stats & Hòm Công Đức · Phông Bạt 🏓'); },[bannerSub]);
 
-  const focalX = bannerFocalX ?? 50, focalY = bannerFocalY ?? 50, zoom = bannerZoom ?? 1;
   const overlay = bannerOverlay ?? 45, brightness = bannerBrightness ?? 100;
 
+  // Upload ảnh mới: resize rồi lưu thẳng, không qua bước crop/kéo vị trí nữa —
+  // banner tự canh giữa nhờ aspect-ratio responsive khớp với tỉ lệ khuyến nghị.
   const handleFile = async e => {
     const f = e.target.files?.[0]; if(!f) return;
     e.target.value='';
     const reader = new FileReader();
     reader.onload = async ev => {
       const resized = await resizeImageDataUrl(ev.target.result, 2000);
-      setPendingSrc(resized);
-      setMode('image');
+      onUpdate({bannerImg: resized, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: overlay, bannerBrightness: brightness});
     };
     reader.readAsDataURL(f);
   };
 
   const saveText = () => {
-    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: overlay, bannerBrightness: brightness, bannerFocalX: focalX, bannerFocalY: focalY, bannerZoom: zoom});
+    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: overlay, bannerBrightness: brightness});
     setMode('view');
   };
 
-  const saveImage = ({focalX:fx, focalY:fy, zoom:z, overlay:ov, brightness:br}) => {
-    onUpdate({bannerImg: pendingSrc || bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: ov, bannerBrightness: br, bannerFocalX: fx, bannerFocalY: fy, bannerZoom: z});
-    setPendingSrc(null);
+  const saveEffects = ({overlay:ov, brightness:br}) => {
+    onUpdate({bannerImg, bannerTitle: localTitle, bannerSub: localSub, bannerOverlay: ov, bannerBrightness: br});
     setMode('view');
   };
 
@@ -1147,8 +1076,6 @@ function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightn
       <div className="banner">
         {bannerImg && (
           <img className="banner-img" src={bannerImg} style={{
-            objectPosition:`${focalX}% ${focalY}%`,
-            transform:`scale(${zoom})`, transformOrigin:`${focalX}% ${focalY}%`,
             filter:`brightness(${brightness}%)`
           }}/>
         )}
@@ -1206,7 +1133,7 @@ function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightn
             >📷 <span className="banner-edit-label">Đổi ảnh</span></button>
             {bannerImg && (
               <button
-                onClick={()=>{setPendingSrc(null); setMode('image');}}
+                onClick={()=>setMode('effects')}
                 style={{background:'rgba(0,0,0,.6)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'8px',
                   color:'#fff',padding:'clamp(4px,1.2vw,6px) clamp(7px,2.4vw,12px)',fontSize:'clamp(10px,2.6vw,12px)',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px',whiteSpace:'nowrap',
                   fontFamily:'Nunito,sans-serif',backdropFilter:'blur(4px)'}}
@@ -1214,7 +1141,7 @@ function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightn
             )}
             {bannerImg && (
               <button
-                onClick={()=>onUpdate({bannerImg:null,bannerTitle:localTitle,bannerSub:localSub,bannerOverlay:overlay,bannerBrightness:brightness,bannerFocalX:50,bannerFocalY:50,bannerZoom:1})}
+                onClick={()=>onUpdate({bannerImg:null,bannerTitle:localTitle,bannerSub:localSub,bannerOverlay:overlay,bannerBrightness:brightness})}
                 style={{background:'rgba(239,68,68,.7)',border:'none',borderRadius:'8px',
                   color:'#fff',padding:'clamp(4px,1.2vw,6px) clamp(6px,2vw,10px)',fontSize:'clamp(10px,2.6vw,12px)',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}
               >✕</button>
@@ -1230,17 +1157,12 @@ function Banner({bannerImg, bannerTitle, bannerSub, bannerOverlay, bannerBrightn
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:'none'}}/>
       </div>
 
-      {mode==='image' && (pendingSrc || bannerImg) && (
-        <BannerImageModal
-          src={pendingSrc || bannerImg}
-          initFocalX={pendingSrc ? 50 : focalX}
-          initFocalY={pendingSrc ? 50 : focalY}
-          initZoom={pendingSrc ? 1 : zoom}
+      {mode==='effects' && (
+        <BannerEffectsModal
           initOverlay={overlay}
           initBrightness={brightness}
-          onPickAnother={()=>fileRef.current?.click()}
-          onSave={saveImage}
-          onClose={()=>{ setPendingSrc(null); setMode('view'); }}
+          onSave={saveEffects}
+          onClose={()=>setMode('view')}
         />
       )}
     </>
@@ -5099,9 +5021,6 @@ function App(){
   const [bannerOverlay,setBannerOverlay]=useState(45);
   const [bannerBrightness,setBannerBrightness]=useState(100);
   // Vị trí lấy nét (%) + độ zoom của ảnh bìa — dùng chung 1 giá trị cho cả mobile & desktop
-  const [bannerFocalX,setBannerFocalX]=useState(50);
-  const [bannerFocalY,setBannerFocalY]=useState(50);
-  const [bannerZoom,setBannerZoom]=useState(1);
   // Cấu hình ngân hàng nhận quỹ CLB — dùng để tạo mã QR nhắc nợ (VietQR)
   const [bankInfo,setBankInfo]=useState({bankCode:'',accountNo:'',accountName:''});
   // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
@@ -5145,9 +5064,6 @@ function App(){
       if(bn.data.bannerSub) setBannerSub(bn.data.bannerSub);
       if(bn.data.bannerOverlay!==undefined) setBannerOverlay(bn.data.bannerOverlay);
       if(bn.data.bannerBrightness!==undefined) setBannerBrightness(bn.data.bannerBrightness);
-      if(bn.data.bannerFocalX!==undefined) setBannerFocalX(bn.data.bannerFocalX);
-      if(bn.data.bannerFocalY!==undefined) setBannerFocalY(bn.data.bannerFocalY);
-      if(bn.data.bannerZoom!==undefined) setBannerZoom(bn.data.bannerZoom);
     }
     if(tr.ok&&tr.data&&typeof tr.data==='object'){
       setTrash(normalizeTrash(tr.data));
@@ -5176,9 +5092,6 @@ function App(){
         if(bn.data.bannerSub) setBannerSub(bn.data.bannerSub);
         if(bn.data.bannerOverlay!==undefined) setBannerOverlay(bn.data.bannerOverlay);
         if(bn.data.bannerBrightness!==undefined) setBannerBrightness(bn.data.bannerBrightness);
-        if(bn.data.bannerFocalX!==undefined) setBannerFocalX(bn.data.bannerFocalX);
-        if(bn.data.bannerFocalY!==undefined) setBannerFocalY(bn.data.bannerFocalY);
-        if(bn.data.bannerZoom!==undefined) setBannerZoom(bn.data.bannerZoom);
       }
       if(tr.ok&&tr.data&&typeof tr.data==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr.data));
       if(bi.ok&&bi.data&&typeof bi.data==='object'&&!_fbSaving['bankInfo']) setBankInfo(prev=>({...prev,...bi.data}));
@@ -5213,8 +5126,8 @@ function App(){
   },[members]);
   useEffect(()=>{
     if(_skipBanner.current>0){_skipBanner.current--;return;}
-    if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness,bannerFocalX,bannerFocalY,bannerZoom});
-  },[bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness,bannerFocalX,bannerFocalY,bannerZoom]);
+    if(dbReady)fbSet('banner',{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness});
+  },[bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness]);
   useEffect(()=>{
     if(_skipTrash.current>0){_skipTrash.current--;return;}
     if(dbReady)fbSet('trash',trash);
@@ -5500,15 +5413,12 @@ function App(){
   const guardedResyncStats=requireAdmin(resyncPlayerStats);
   const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
   const guardedMergeDuplicatePerson=requireAdmin(mergeDuplicatePerson);
-  const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s, bannerOverlay:ov, bannerBrightness:br, bannerFocalX:fx, bannerFocalY:fy, bannerZoom:zm})=>{
+  const guardedBannerUpdate=requireAdmin(({bannerImg:img, bannerTitle:t, bannerSub:s, bannerOverlay:ov, bannerBrightness:br})=>{
     setBannerImg(img);
     setBannerTitle(t);
     setBannerSub(s);
     if(ov!==undefined) setBannerOverlay(ov);
     if(br!==undefined) setBannerBrightness(br);
-    if(fx!==undefined) setBannerFocalX(fx);
-    if(fy!==undefined) setBannerFocalY(fy);
-    if(zm!==undefined) setBannerZoom(zm);
   });
   const guardedTrashRestorePlayer=requireAdmin(trashRestorePlayer);
   const guardedTrashRestoreMember=requireAdmin(trashRestoreMember);
@@ -5593,9 +5503,6 @@ function App(){
       bannerSub={bannerSub}
       bannerOverlay={bannerOverlay}
       bannerBrightness={bannerBrightness}
-      bannerFocalX={bannerFocalX}
-      bannerFocalY={bannerFocalY}
-      bannerZoom={bannerZoom}
       editable={isAdmin}
       onUpdate={guardedBannerUpdate}
     />
@@ -5646,7 +5553,7 @@ function App(){
       onMerge={guardedMergeDuplicatePerson}
     />}
     {showBackup && <BackupModal
-      data={{players,matches,sessions,members,trash,bankInfo,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness,bannerFocalX,bannerFocalY,bannerZoom}}}
+      data={{players,matches,sessions,members,trash,bankInfo,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness}}}
       onClose={()=>setShowBackup(false)}
       onRestore={(d)=>{
         // Khôi phục từ file là thao tác admin chủ động xác nhận rõ ràng —
@@ -5658,7 +5565,7 @@ function App(){
         const nextMembers=Array.isArray(d.members)?d.members:members;
         const nextTrash=(d.trash&&typeof d.trash==='object')?normalizeTrash(d.trash):trash;
         const nextBankInfo=(d.bankInfo&&typeof d.bankInfo==='object')?{...bankInfo,...d.bankInfo}:bankInfo;
-        const nextBanner=(d.banner&&typeof d.banner==='object')?d.banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness,bannerFocalX,bannerFocalY,bannerZoom};
+        const nextBanner=(d.banner&&typeof d.banner==='object')?d.banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness};
 
         setPlayers(nextPlayers);
         setMatches(nextMatches);
@@ -5671,9 +5578,6 @@ function App(){
         if(nextBanner.bannerSub) setBannerSub(nextBanner.bannerSub);
         if(nextBanner.bannerOverlay!==undefined) setBannerOverlay(nextBanner.bannerOverlay);
         if(nextBanner.bannerBrightness!==undefined) setBannerBrightness(nextBanner.bannerBrightness);
-        if(nextBanner.bannerFocalX!==undefined) setBannerFocalX(nextBanner.bannerFocalX);
-        if(nextBanner.bannerFocalY!==undefined) setBannerFocalY(nextBanner.bannerFocalY);
-        if(nextBanner.bannerZoom!==undefined) setBannerZoom(nextBanner.bannerZoom);
 
         fbSet('players',nextPlayers);
         fbSet('matches',nextMatches);
