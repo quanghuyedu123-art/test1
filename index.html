@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .banner-balls{position:absolute;inset:0;pointer-events:none}
 /* Ảnh bìa: phủ kín khung, luôn canh giữa — đơn giản, không lệch giữa mobile/desktop
    vì mỗi kích thước màn hình đã có tỉ lệ khung riêng phù hợp (xem @media ở trên). */
-.banner-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none;user-select:none}
+.banner-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;pointer-events:none;user-select:none}
 /* Màn quá hẹp: chỉ hiện icon trên nút chỉnh sửa banner, ẩn label chữ để khỏi vỡ dòng */
 @media(max-width:360px){
   .banner-edit-label{display:none}
