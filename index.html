@@ -619,6 +619,90 @@ function parseMatchMonth(dateStr){
   return parts.length>=2 ? parts[1] : null;
 }
 
+/* ─── GIẢI ĐẤU LOẠI TRỰC TIẾP (sơ đồ bốc thăm) ───────────────────────────
+   selectedPlayers: mảng player object (đã chọn đúng N người, N chia hết cho 4).
+   1) Ghép đội: bốc "so le" theo Công Đức — người mạnh nhất ghép người yếu nhất,
+      người mạnh nhì ghép người yếu nhì... để mỗi đội có sức mạnh trung bình
+      gần bằng nhau (không đội nào toàn cao thủ, không đội nào toàn tân binh).
+   2) Xếp cặp vòng 1: xếp các đội theo Công Đức trung bình rồi ghép 2 đội liền kề
+      nhau (hạng 1-2, hạng 3-4,...) để trận nào cũng cân sức, khó đoán tỉ số.      */
+function formBalancedTeams(selectedPlayers){
+  const sorted=[...selectedPlayers].sort((a,b)=>b.elo-a.elo);
+  const n=sorted.length;
+  const teams=[];
+  for(let i=0;i<n/2;i++){
+    const p1=sorted[i], p2=sorted[n-1-i];
+    const avgElo=Math.round((p1.elo+p2.elo)/2);
+    teams.push({id:'t_'+p1.id+'_'+p2.id, players:[p1.name,p2.name], avgElo});
+  }
+  return teams;
+}
+
+function roundLabelByMatchCount(count){
+  if(count===1) return 'Chung Kết';
+  if(count===2) return 'Bán Kết';
+  if(count===4) return 'Tứ Kết';
+  return `Vòng 1/${count}`;
+}
+
+// Tạo toàn bộ khung sơ đồ (các vòng, mỗi vòng gồm nhiều trận) từ danh sách đội đã ghép.
+// Vòng 1 được xếp cặp theo Công Đức gần nhau (đội hạng cao nhất gặp đội hạng nhì,...).
+// Các vòng sau để trống (teamA/teamB=null), sẽ được điền dần khi có kết quả vòng trước.
+function buildBracketRounds(teams){
+  const sortedTeams=[...teams].sort((a,b)=>b.avgElo-a.avgElo);
+  const round0matches=[];
+  for(let i=0;i<sortedTeams.length;i+=2){
+    round0matches.push({
+      id:'m0_'+i,
+      teamA:sortedTeams[i]?.id||null,
+      teamB:sortedTeams[i+1]?.id||null,
+      scoreA:'',scoreB:'',winnerId:null,
+    });
+  }
+  const rounds=[{name:roundLabelByMatchCount(round0matches.length),matches:round0matches}];
+  let count=round0matches.length;
+  let ri=0;
+  while(count>1){
+    count=count/2;
+    const matches=Array.from({length:count},(_,i)=>({id:`m${ri+1}_${i}`,teamA:null,teamB:null,scoreA:'',scoreB:'',winnerId:null}));
+    rounds.push({name:roundLabelByMatchCount(count),matches});
+    ri++;
+  }
+  return rounds;
+}
+
+// Lan truyền đội thắng từ vòng trước lên vòng sau; nếu slot 1 trận thay đổi so với
+// trước (vd. admin sửa lại kết quả vòng trước), tự xoá tỉ số/kết quả các vòng sau
+// cho trận đó để tránh dữ liệu sai lệch.
+function recomputeBracketRounds(rounds){
+  const newRounds=rounds.map(r=>({...r,matches:r.matches.map(m=>({...m}))}));
+  for(let ri=0;ri<newRounds.length-1;ri++){
+    const cur=newRounds[ri].matches, next=newRounds[ri+1].matches;
+    for(let i=0;i<next.length;i++){
+      const m0=cur[i*2], m1=cur[i*2+1];
+      const teamA=m0&&m0.winnerId?m0.winnerId:null;
+      const teamB=m1&&m1.winnerId?m1.winnerId:null;
+      if(next[i].teamA!==teamA||next[i].teamB!==teamB){
+        next[i]={...next[i],teamA,teamB,scoreA:'',scoreB:'',winnerId:null};
+      } else {
+        next[i]={...next[i],teamA,teamB};
+      }
+    }
+  }
+  return newRounds;
+}
+
+// Trận tranh hạng 3: 2 đội thua ở vòng Bán Kết (vòng áp chót, khi có ≥4 đội).
+function computeThirdPlace(rounds, prevThirdPlace){
+  if(rounds.length<2) return null;
+  const semis=rounds[rounds.length-2].matches;
+  if(semis.length!==2) return null;
+  const loserOf=m=>m.winnerId?(m.winnerId===m.teamA?m.teamB:m.teamA):null;
+  const teamA=loserOf(semis[0]), teamB=loserOf(semis[1]);
+  if(prevThirdPlace&&prevThirdPlace.teamA===teamA&&prevThirdPlace.teamB===teamB) return prevThirdPlace;
+  return {teamA,teamB,scoreA:'',scoreB:'',winnerId:null};
+}
+
 /* ─── LỜI SẤM PHƯỚC ĐỨC (random flavor text cho Bảng Phong Thần) ─── */
 const PHUOC_DUC_PROPHECIES = [
   '☯️ Tháng này thắng nhiều, tháng sau chưa chắc — nghiệp quả xoay vòng, đừng chủ quan mà bỏ khởi động.',
@@ -3024,13 +3108,18 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
   },[players,monthMatches]);
 
   const filteredSorted=useMemo(()=>{
-    let list=[...players].sort((a,b)=>b.elo-a.elo);
+    // Chỉ hiện những người chơi đã có lịch sử đánh (đã có ít nhất 1 trận thắng/thua
+    // trong phạm vi đang lọc) — người mới thêm nhưng chưa đánh trận nào sẽ không hiện ở BXH.
+    let list=[...players].filter(p=>{
+      const s=statsForRange[p.name]||{wins:0,losses:0};
+      return (s.wins+s.losses)>0;
+    }).sort((a,b)=>b.elo-a.elo);
     if(search.trim()){
       const q=search.trim().toLowerCase();
       list=list.filter(p=>p.name.toLowerCase().includes(q));
     }
     return list;
-  },[players,search]);
+  },[players,search,statsForRange]);
 
   // Tổng kết toàn CLB cho phạm vi đang lọc
   const clubSummary=useMemo(()=>{
@@ -3342,9 +3431,448 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
 
 /* ─── SO KEO TAB ─────────────────────────────────────────── */
 
-function SoKeoTab({players, matches}){
+/* ─── GIẢI ĐẤU: Modal nhập tỉ số 1 trận ──────────────────── */
+function MatchScoreModal({label, teamAName, teamBName, initialA, initialB, onSave, onClose}){
+  const [a,setA]=useState(initialA!==undefined&&initialA!==null?String(initialA):'');
+  const [b,setB]=useState(initialB!==undefined&&initialB!==null?String(initialB):'');
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:380}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">🏓 {label}</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'10px',alignItems:'center',marginBottom:'16px'}}>
+          <div>
+            <div className="fl" style={{marginBottom:'6px',textAlign:'center'}}>{teamAName}</div>
+            <input className="fi" type="number" value={a} onChange={e=>setA(e.target.value)} style={{textAlign:'center',fontSize:'20px',fontWeight:700}} placeholder="0" autoFocus/>
+          </div>
+          <div style={{fontWeight:800,color:'var(--muted)'}}>VS</div>
+          <div>
+            <div className="fl" style={{marginBottom:'6px',textAlign:'center'}}>{teamBName}</div>
+            <input className="fi" type="number" value={b} onChange={e=>setB(e.target.value)} style={{textAlign:'center',fontSize:'20px',fontWeight:700}} placeholder="0"/>
+          </div>
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Huỷ</button>
+          <button className="btn-save" onClick={()=>onSave(a,b)}>💾 Lưu kết quả</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── GIẢI ĐẤU: Modal sắp xếp lại cặp đấu Vòng 1 ─────────── */
+function EditRound1Modal({teams, round0, onClose, onSave}){
+  const initial=[];
+  round0.forEach(m=>{ initial.push(m.teamA); initial.push(m.teamB); });
+  const [slots,setSlots]=useState(initial);
+
+  const setSlot=(idx,teamId)=>{
+    setSlots(prev=>{
+      const next=[...prev];
+      // Nếu đội này đang ở ô khác thì tự đổi chỗ cho nhau, tránh 1 đội bị gán 2 nơi
+      const otherIdx=next.findIndex((tid,i)=>i!==idx&&tid===teamId&&teamId);
+      if(otherIdx>=0){ next[otherIdx]=next[idx]; }
+      next[idx]=teamId;
+      return next;
+    });
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">🔀 Sắp xếp lại cặp đấu Vòng 1</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px'}}>Chọn lại đội cho từng ô — nếu đội đó đang ở ô khác, 2 đội sẽ tự đổi chỗ cho nhau. Đổi cặp đấu sẽ xoá tỉ số đã nhập của những trận bị ảnh hưởng.</div>
+        <div style={{maxHeight:'50vh',overflowY:'auto'}}>
+          {Array.from({length:slots.length/2},(_,mi)=>(
+            <div key={mi} style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'center',marginBottom:'10px'}}>
+              <select className="fi" value={slots[mi*2]||''} onChange={e=>setSlot(mi*2,e.target.value)}>
+                <option value="">-- Chọn đội --</option>
+                {teams.map(t=><option key={t.id} value={t.id}>{t.players.join(' & ')} ({t.avgElo})</option>)}
+              </select>
+              <span style={{fontSize:'12px',color:'var(--muted)',fontWeight:700}}>VS</span>
+              <select className="fi" value={slots[mi*2+1]||''} onChange={e=>setSlot(mi*2+1,e.target.value)}>
+                <option value="">-- Chọn đội --</option>
+                {teams.map(t=><option key={t.id} value={t.id}>{t.players.join(' & ')} ({t.avgElo})</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Huỷ</button>
+          <button className="btn-save" onClick={()=>onSave(slots)}>💾 Lưu sắp xếp</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── GIẢI ĐẤU: Sơ đồ nhánh đấu (bracket) ─────────────────── */
+function BracketView({rounds, thirdPlace, teamsById, isAdmin, onEditMatch, onEditThirdPlace}){
+  const CARD_H=68, ROW_H=CARD_H+24, COL_W=176, CONN_W=34, PAD=18, TITLE_H=23;
+  const round0Count=rounds[0].matches.length;
+  const totalH=round0Count*ROW_H+PAD*2;
+
+  const centersByRound=useMemo(()=>{
+    let centers=Array.from({length:round0Count},(_,i)=>PAD+i*ROW_H+CARD_H/2);
+    const all=[centers];
+    while(centers.length>1){
+      const next=[];
+      for(let i=0;i<centers.length;i+=2) next.push((centers[i]+centers[i+1])/2);
+      centers=next; all.push(centers);
+    }
+    return all;
+  },[round0Count]);
+
+  const renderMatchCard=(m,ri,mi)=>{
+    const tA=teamsById[m.teamA], tB=teamsById[m.teamB];
+    const isFinal=ri===rounds.length-1;
+    const decided=!!m.winnerId;
+    const clickable=isAdmin&&tA&&tB;
+    return (
+      <div key={m.id} onClick={()=>clickable&&onEditMatch(ri,mi)} style={{
+        position:'absolute', top:centersByRound[ri][mi]-CARD_H/2, left:0, width:COL_W, height:CARD_H,
+        background:isFinal?'linear-gradient(135deg,#7c3aed,#a855f7)':'var(--surface)',
+        border:isFinal?'1px solid #a855f7':'1px solid var(--border)',
+        borderRadius:'10px', padding:'6px 8px', cursor:clickable?'pointer':'default',
+        display:'flex',flexDirection:'column',justifyContent:'center',gap:'4px',
+        boxShadow:isFinal?'0 4px 14px rgba(168,85,247,.35)':'none',
+      }} title={clickable?'Bấm để nhập tỉ số':undefined}>
+        {['A','B'].map(side=>{
+          const t=side==='A'?tA:tB;
+          const score=side==='A'?m.scoreA:m.scoreB;
+          const isWinner=decided&&m.winnerId===(side==='A'?m.teamA:m.teamB);
+          return (
+            <div key={side} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'6px'}}>
+              <span style={{fontSize:'11px',fontWeight:isWinner?800:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                color:!t?'var(--muted2)':isFinal?'#fff':(isWinner?'var(--text)':'var(--muted)')}}>
+                {t? t.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '): '—'}
+              </span>
+              <span style={{fontSize:'11px',fontWeight:800,flexShrink:0,color:isFinal?'#fff':(isWinner?'var(--green)':'var(--muted)')}}>
+                {score!==''&&score!==undefined&&score!==null?score:'-'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderConnectors=ri=>{
+    const cur=centersByRound[ri], next=centersByRound[ri+1];
+    const lines=[];
+    for(let i=0;i<next.length;i++){
+      const y0=cur[i*2], y1=cur[i*2+1], ym=next[i];
+      lines.push(<div key={'h0'+i} style={{position:'absolute',left:0,top:y0-1,width:CONN_W/2,height:2,background:'var(--border2)'}}/>);
+      lines.push(<div key={'h1'+i} style={{position:'absolute',left:0,top:y1-1,width:CONN_W/2,height:2,background:'var(--border2)'}}/>);
+      lines.push(<div key={'v'+i} style={{position:'absolute',left:CONN_W/2-1,top:Math.min(y0,y1),width:2,height:Math.abs(y1-y0),background:'var(--border2)'}}/>);
+      lines.push(<div key={'h2'+i} style={{position:'absolute',left:CONN_W/2,top:ym-1,width:CONN_W/2,height:2,background:'var(--border2)'}}/>);
+    }
+    return lines;
+  };
+
+  return (
+    <>
+      <div style={{overflowX:'auto',paddingBottom:'12px'}}>
+        <div style={{display:'flex',minWidth:'fit-content'}}>
+          {rounds.map((round,ri)=>(
+            <React.Fragment key={ri}>
+              <div>
+                <div style={{height:TITLE_H,textAlign:'center',fontSize:'11px',fontWeight:700,color:'var(--purple)',textTransform:'uppercase',letterSpacing:'.5px'}}>{round.name}</div>
+                <div style={{position:'relative',width:COL_W,height:totalH}}>
+                  {round.matches.map((m,mi)=>renderMatchCard(m,ri,mi))}
+                </div>
+              </div>
+              {ri<rounds.length-1 && (
+                <div>
+                  <div style={{height:TITLE_H}}/>
+                  <div style={{position:'relative',width:CONN_W,height:totalH}}>{renderConnectors(ri)}</div>
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {thirdPlace && thirdPlace.teamA && thirdPlace.teamB && (
+        <div style={{maxWidth:280,margin:'8px auto 0'}}>
+          <div style={{textAlign:'center',fontSize:'11px',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🥉 Tranh Hạng 3</div>
+          <div onClick={()=>isAdmin&&onEditThirdPlace()} style={{cursor:isAdmin?'pointer':'default',background:'var(--surface)',border:'1px solid var(--orange)',borderRadius:'10px',padding:'8px 10px'}}>
+            {['A','B'].map(side=>{
+              const id=side==='A'?thirdPlace.teamA:thirdPlace.teamB;
+              const t=teamsById[id];
+              const score=side==='A'?thirdPlace.scoreA:thirdPlace.scoreB;
+              const isWinner=thirdPlace.winnerId&&thirdPlace.winnerId===id;
+              return (
+                <div key={side} style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}>
+                  <span style={{fontSize:'12px',fontWeight:isWinner?800:500,color:isWinner?'var(--text)':'var(--muted)'}}>{t?t.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'—'}</span>
+                  <span style={{fontSize:'12px',fontWeight:800,color:isWinner?'var(--green)':'var(--muted)'}}>{score!==''&&score!=null?score:'-'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── GIẢI ĐẤU: Tab tạo & quản lý giải đấu loại trực tiếp ─── */
+function TournamentTab({players, tournament, setTournament, isAdmin, showToast}){
+  const [creating,setCreating]=useState(false);
+  const [participantCount,setParticipantCount]=useState(8);
+  const [selectedNames,setSelectedNames]=useState([]);
+  const [tourName,setTourName]=useState('');
+  const [draftTeams,setDraftTeams]=useState(null);
+  const [swapPick,setSwapPick]=useState(null);
+  const [editingMatch,setEditingMatch]=useState(null); // {ri,mi} | 'third'
+  const [showEditRound1,setShowEditRound1]=useState(false);
+  const [confirmReset,setConfirmReset]=useState(false);
+
+  const togglePlayer=name=>{
+    setSelectedNames(prev=>{
+      if(prev.includes(name)) return prev.filter(n=>n!==name);
+      if(prev.length>=participantCount) return prev;
+      return [...prev,name];
+    });
+  };
+
+  const doFormTeams=()=>{
+    const sel=players.filter(p=>selectedNames.includes(p.name));
+    if(sel.length!==participantCount) return;
+    setDraftTeams(formBalancedTeams(sel));
+  };
+
+  const swapDraftPlayers=(ti,pi)=>{
+    if(!swapPick){ setSwapPick({ti,pi}); return; }
+    if(swapPick.ti===ti&&swapPick.pi===pi){ setSwapPick(null); return; }
+    setDraftTeams(prev=>{
+      const next=prev.map(t=>({...t,players:[...t.players]}));
+      const a=next[swapPick.ti].players[swapPick.pi];
+      const b=next[ti].players[pi];
+      next[swapPick.ti].players[swapPick.pi]=b;
+      next[ti].players[pi]=a;
+      next.forEach(t=>{
+        const es=t.players.map(n=>players.find(p=>p.name===n)?.elo||1500);
+        t.avgElo=Math.round((es[0]+es[1])/2);
+      });
+      return next;
+    });
+    setSwapPick(null);
+  };
+
+  const confirmCreateTournament=()=>{
+    if(!draftTeams) return;
+    const rounds=buildBracketRounds(draftTeams);
+    setTournament({
+      id:'tour_'+Date.now(),
+      name:tourName.trim()||'Giải đấu CLB',
+      createdAt:Date.now(),
+      teams:draftTeams,
+      rounds,
+      thirdPlace: rounds.length>=2? computeThirdPlace(rounds,null): null,
+    });
+    setCreating(false); setDraftTeams(null); setSelectedNames([]); setTourName('');
+    showToast&&showToast('Đã tạo sơ đồ giải đấu!');
+  };
+
+  const teamsById=useMemo(()=>{
+    const map={};
+    (tournament?.teams||[]).forEach(t=>{map[t.id]=t;});
+    return map;
+  },[tournament]);
+
+  const saveMatchResult=(ri,mi,scoreA,scoreB)=>{
+    setTournament(prev=>{
+      if(!prev) return prev;
+      const rounds=prev.rounds.map(r=>({...r,matches:r.matches.map(m=>({...m}))}));
+      const m=rounds[ri].matches[mi];
+      const sa=parseInt(scoreA), sb=parseInt(scoreB);
+      m.scoreA=scoreA; m.scoreB=scoreB;
+      m.winnerId=(!isNaN(sa)&&!isNaN(sb)&&sa!==sb)?(sa>sb?m.teamA:m.teamB):null;
+      const newRounds=recomputeBracketRounds(rounds);
+      return {...prev, rounds:newRounds, thirdPlace:newRounds.length>=2?computeThirdPlace(newRounds,prev.thirdPlace):null};
+    });
+    setEditingMatch(null);
+  };
+
+  const saveThirdPlace=(scoreA,scoreB)=>{
+    setTournament(prev=>{
+      if(!prev||!prev.thirdPlace) return prev;
+      const sa=parseInt(scoreA), sb=parseInt(scoreB);
+      const winnerId=(!isNaN(sa)&&!isNaN(sb)&&sa!==sb)?(sa>sb?prev.thirdPlace.teamA:prev.thirdPlace.teamB):null;
+      return {...prev, thirdPlace:{...prev.thirdPlace, scoreA, scoreB, winnerId}};
+    });
+    setEditingMatch(null);
+  };
+
+  const saveRound1Order=newSlots=>{
+    setTournament(prev=>{
+      if(!prev) return prev;
+      const rounds=prev.rounds.map(r=>({...r,matches:r.matches.map(m=>({...m}))}));
+      const r0=rounds[0].matches;
+      for(let i=0;i<r0.length;i++){
+        r0[i].teamA=newSlots[i*2]||null; r0[i].teamB=newSlots[i*2+1]||null;
+        r0[i].scoreA=''; r0[i].scoreB=''; r0[i].winnerId=null;
+      }
+      const newRounds=recomputeBracketRounds(rounds);
+      return {...prev, rounds:newRounds, thirdPlace:newRounds.length>=2?computeThirdPlace(newRounds,null):null};
+    });
+    setShowEditRound1(false);
+    showToast&&showToast('Đã cập nhật cặp đấu Vòng 1.');
+  };
+
+  const resetTournament=()=>{
+    setTournament(null);
+    setConfirmReset(false);
+    showToast&&showToast('Đã xoá giải đấu.');
+  };
+
+  if(!tournament){
+    return <>
+      {!creating && (
+        <div style={{textAlign:'center',padding:'40px 20px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
+          <div style={{fontSize:'36px',marginBottom:'10px'}}>🏆</div>
+          <div style={{marginBottom:'14px'}}>Chưa có giải đấu nào đang diễn ra.</div>
+          {isAdmin ? (
+            <button className="btn-save" style={{display:'inline-block',padding:'10px 20px'}} onClick={()=>{setCreating(true);setDraftTeams(null);}}>+ Tạo giải đấu mới</button>
+          ):(
+            <div style={{fontSize:'12px'}}>Chỉ admin mới có thể tạo giải đấu.</div>
+          )}
+        </div>
+      )}
+
+      {creating && !draftTeams && (
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px'}}>
+          <div className="fg" style={{marginBottom:'12px'}}>
+            <label className="fl">Tên giải đấu (tuỳ chọn)</label>
+            <input className="fi" value={tourName} onChange={e=>setTourName(e.target.value)} placeholder="VD: Giải giao lưu cuối năm"/>
+          </div>
+          <div className="fg" style={{marginBottom:'12px'}}>
+            <label className="fl">Số người tham gia</label>
+            <select className="fi" value={participantCount} onChange={e=>{setParticipantCount(parseInt(e.target.value));setSelectedNames([]);}}>
+              {[4,8,16,32].map(n=><option key={n} value={n}>{n} người ({n/2} đội)</option>)}
+            </select>
+          </div>
+          <div className="fl" style={{marginBottom:'8px'}}>Chọn người chơi ({selectedNames.length}/{participantCount})</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'14px',maxHeight:'260px',overflowY:'auto'}}>
+            {[...players].sort((a,b)=>b.elo-a.elo).map(p=>{
+              const on=selectedNames.includes(p.name);
+              const disabled=!on&&selectedNames.length>=participantCount;
+              return (
+                <button key={p.id} disabled={disabled} onClick={()=>togglePlayer(p.name)} style={{
+                  padding:'6px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:disabled?'not-allowed':'pointer',
+                  fontFamily:'Nunito,sans-serif',opacity:disabled?.4:1,
+                  borderColor:on?'var(--purple)':'var(--border)',
+                  background:on?'var(--purple-bg)':'transparent',
+                  color:on?'var(--purple)':'var(--muted)',fontWeight:on?700:500}}>
+                  {p.name.split(' ').slice(-2).join(' ')} <span style={{opacity:.7}}>({p.elo})</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{display:'flex',gap:'8px'}}>
+            <button className="btn-cancel" onClick={()=>{setCreating(false);setSelectedNames([]);}}>Huỷ</button>
+            <button className="btn-save" style={{flex:1}} disabled={selectedNames.length!==participantCount} onClick={doFormTeams}>
+              🎲 Ghép đội theo Công Đức
+            </button>
+          </div>
+        </div>
+      )}
+
+      {creating && draftTeams && (
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px'}}>
+          <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px'}}>
+            💡 Đã ghép người mạnh với người yếu để các đội cân sức nhau, rồi xếp đội gần điểm nhau đấu vòng 1. Bấm 1 người rồi bấm người khác (đội khác) để đổi chỗ nếu muốn.
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:'10px',marginBottom:'14px'}}>
+            {draftTeams.map((t,ti)=>(
+              <div key={t.id} style={{border:'1px solid var(--border)',borderRadius:'10px',padding:'10px'}}>
+                <div style={{fontSize:'10px',color:'var(--muted)',marginBottom:'6px'}}>TB: {t.avgElo} Công Đức</div>
+                {t.players.map((pname,pi)=>{
+                  const picked=swapPick&&swapPick.ti===ti&&swapPick.pi===pi;
+                  return (
+                    <div key={pi} onClick={()=>swapDraftPlayers(ti,pi)} style={{
+                      padding:'6px 8px',borderRadius:'7px',fontSize:'12px',cursor:'pointer',marginBottom:pi===0?'4px':0,
+                      background:picked?'var(--purple)':'var(--surface2)',
+                      color:picked?'#fff':'var(--text)',fontWeight:600}}>
+                      {pname.split(' ').slice(-2).join(' ')}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:'8px'}}>
+            <button className="btn-cancel" onClick={()=>setDraftTeams(null)}>← Chọn lại người chơi</button>
+            <button className="btn-save" style={{flex:1}} onClick={confirmCreateTournament}>✅ Tạo sơ đồ giải đấu</button>
+          </div>
+        </div>
+      )}
+    </>;
+  }
+
+  return <>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px',marginBottom:'16px'}}>
+      <div className="section-title">🏆 {tournament.name}</div>
+      {isAdmin && (
+        <div style={{display:'flex',gap:'8px'}}>
+          <button onClick={()=>setShowEditRound1(true)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🔀 Sửa cặp đấu Vòng 1</button>
+          <button onClick={()=>setConfirmReset(true)} style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'8px',color:'var(--red)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải</button>
+        </div>
+      )}
+    </div>
+
+    {isAdmin && <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'12px'}}>💡 Bấm vào 1 trận trong sơ đồ để nhập tỉ số — đội thắng sẽ tự động lên vòng sau.</div>}
+
+    <BracketView rounds={tournament.rounds} thirdPlace={tournament.thirdPlace} teamsById={teamsById} isAdmin={isAdmin}
+      onEditMatch={(ri,mi)=>setEditingMatch({ri,mi})}
+      onEditThirdPlace={()=>setEditingMatch('third')}
+    />
+
+    {editingMatch && editingMatch!=='third' && (()=>{
+      const m=tournament.rounds[editingMatch.ri].matches[editingMatch.mi];
+      const tA=teamsById[m.teamA], tB=teamsById[m.teamB];
+      if(!tA||!tB) return null;
+      return <MatchScoreModal
+        label={tournament.rounds[editingMatch.ri].name}
+        teamAName={tA.players.join(' & ')} teamBName={tB.players.join(' & ')}
+        initialA={m.scoreA} initialB={m.scoreB}
+        onClose={()=>setEditingMatch(null)}
+        onSave={(a,b)=>saveMatchResult(editingMatch.ri,editingMatch.mi,a,b)}
+      />;
+    })()}
+
+    {editingMatch==='third' && tournament.thirdPlace && (()=>{
+      const tA=teamsById[tournament.thirdPlace.teamA], tB=teamsById[tournament.thirdPlace.teamB];
+      if(!tA||!tB) return null;
+      return <MatchScoreModal
+        label="🥉 Tranh Hạng 3"
+        teamAName={tA.players.join(' & ')} teamBName={tB.players.join(' & ')}
+        initialA={tournament.thirdPlace.scoreA} initialB={tournament.thirdPlace.scoreB}
+        onClose={()=>setEditingMatch(null)}
+        onSave={(a,b)=>saveThirdPlace(a,b)}
+      />;
+    })()}
+
+    {showEditRound1 && (
+      <EditRound1Modal teams={tournament.teams} round0={tournament.rounds[0].matches}
+        onClose={()=>setShowEditRound1(false)} onSave={saveRound1Order}/>
+    )}
+
+    {confirmReset && (
+      <ConfirmModal msg="Xoá giải đấu hiện tại? Toàn bộ sơ đồ và kết quả sẽ mất." onConfirm={resetTournament} onClose={()=>setConfirmReset(false)}/>
+    )}
+  </>;
+}
+
+function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToast}){
   const [mode,setMode]=useState('doi'); // 'don' | 'doi'
-  const [mainTab,setMainTab]=useState('sokeo'); // 'sokeo' | 'partner' 
+  const [mainTab,setMainTab]=useState('sokeo'); // 'sokeo' | 'partner' | 'giaidau'
   // Đơn
   const [pA,setPa]=useState('');
   const [pB,setPb]=useState('');
@@ -3445,7 +3973,7 @@ function SoKeoTab({players, matches}){
 
     {/* Main tab toggle */}
     <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
-      {[['sokeo','⚔️ So Kèo'],['partner','🤝 Người Ăn Ý']].map(([id,lb])=>(
+      {[['sokeo','⚔️ So Kèo'],['partner','🤝 Người Ăn Ý'],['giaidau','🏆 Giải Đấu']].map(([id,lb])=>(
         <button key={id} onClick={()=>setMainTab(id)} style={{flex:1,padding:'10px',borderRadius:'10px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
           borderColor:mainTab===id?'var(--purple)':'var(--border)',
           background:mainTab===id?'var(--purple-bg)':'var(--surface)',
@@ -3454,6 +3982,11 @@ function SoKeoTab({players, matches}){
         </button>
       ))}
     </div>
+
+    {/* ── GIẢI ĐẤU TAB ── */}
+    {mainTab==='giaidau' && (
+      <TournamentTab players={players} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast}/>
+    )}
 
     {/* ── PARTNER TAB ── */}
     {mainTab==='partner' && <>
@@ -5026,6 +5559,8 @@ function App(){
   // Thùng rác: lưu tạm các mục đã xóa (thành viên/trận đấu/buổi chơi/người chơi) để có thể khôi phục, tự dọn sau 30 ngày
   const [trash,setTrash]=useState({members:[],sessions:[],matches:[],players:[]});
   const TRASH_RETENTION_DAYS=30;
+  // Giải đấu loại trực tiếp (sơ đồ bốc thăm) — chỉ lưu 1 giải đang diễn ra tại 1 thời điểm
+  const [tournament,setTournament]=useState(null);
 
   // Chuẩn hoá dữ liệu trash: Firebase tự xoá các mảng rỗng [] khi lưu,
   // nên khi đọc lại có thể THIẾU hẳn key members/sessions/matches/players.
@@ -5050,7 +5585,7 @@ function App(){
   const loadAll=React.useCallback(async()=>{
     setSyncing(true);
     setLoadError(false);
-    const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash'),fbGet('bankInfo')]);
+    const [p,m,s,mb,bn,tr,bi,tn]=await Promise.all([fbGet('players'),fbGet('matches'),fbGet('sessions'),fbGet('members'),fbGet('banner'),fbGet('trash'),fbGet('bankInfo'),fbGet('tournament')]);
     // Mảng rỗng thật ([]) VẪN được áp dụng miễn là fetch thành công (p.ok) —
     // chỉ khi fetch THẤT BẠI (lỗi mạng/server) mới giữ nguyên state hiện tại,
     // để không hiểu nhầm "chưa tải được" thành "dữ liệu rỗng thật".
@@ -5069,6 +5604,7 @@ function App(){
       setTrash(normalizeTrash(tr.data));
     }
     if(bi.ok&&bi.data&&typeof bi.data==='object') setBankInfo(prev=>({...prev,...bi.data}));
+    if(tn.ok) setTournament(tn.data&&typeof tn.data==='object'?tn.data:null);
     // Chỉ mở khoá ghi (dbReady) khi 4 nguồn dữ liệu cốt lõi đều tải thành công.
     const coreOk = p.ok && m.ok && s.ok && mb.ok;
     if(coreOk){ setDbReady(true); setLoadError(false); }
@@ -5081,7 +5617,7 @@ function App(){
     loadAll();
     // Poll mỗi 30s — dùng fbPoll để bỏ qua khi đang ghi (tăng lên 30s tránh ghi đè khi đang chỉnh)
     const id=setInterval(async()=>{
-      const [p,m,s,mb,bn,tr,bi]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash'),fbPoll('bankInfo')]);
+      const [p,m,s,mb,bn,tr,bi,tn]=await Promise.all([fbPoll('players'),fbPoll('matches'),fbPoll('sessions'),fbPoll('members'),fbPoll('banner'),fbPoll('trash'),fbPoll('bankInfo'),fbPoll('tournament')]);
       if(p.ok&&Array.isArray(p.data)) setPlayers(p.data);
       if(m.ok&&Array.isArray(m.data)) setMatches(m.data);
       if(s.ok&&Array.isArray(s.data)) setSessions(s.data);
@@ -5095,6 +5631,7 @@ function App(){
       }
       if(tr.ok&&tr.data&&typeof tr.data==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr.data));
       if(bi.ok&&bi.data&&typeof bi.data==='object'&&!_fbSaving['bankInfo']) setBankInfo(prev=>({...prev,...bi.data}));
+      if(tn.ok&&!_fbSaving['tournament']) setTournament(tn.data&&typeof tn.data==='object'?tn.data:null);
     },30000);
     return ()=>clearInterval(id);
   },[loadAll,normalizeTrash]);
@@ -5108,6 +5645,7 @@ function App(){
   const _skipBanner=React.useRef(1);
   const _skipTrash=React.useRef(1);
   const _skipBankInfo=React.useRef(1);
+  const _skipTournament=React.useRef(1);
   useEffect(()=>{
     if(_skipPlayers.current>0){_skipPlayers.current--;return;}
     if(dbReady)fbSet('players',players);
@@ -5136,13 +5674,20 @@ function App(){
     if(_skipBankInfo.current>0){_skipBankInfo.current--;return;}
     if(dbReady)fbSet('bankInfo',bankInfo);
   },[bankInfo]);
+  useEffect(()=>{
+    if(_skipTournament.current>0){_skipTournament.current--;return;}
+    if(dbReady)fbSet('tournament',tournament);
+  },[tournament]);
   const [showAdd,setShowAdd]=useState(false);
   const [showTrash,setShowTrash]=useState(false);
   const [showBackup,setShowBackup]=useState(false);
   const [showMerge,setShowMerge]=useState(false);
   const [confirmId,setConfirmId]=useState(null);
   const [toast,setToast]=useState(null);
-  const [isAdmin,setIsAdmin]=useState(()=>{ try{ return localStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
+  // Dùng sessionStorage (không phải localStorage) để trạng thái mở khoá admin chỉ tồn tại
+  // trong phiên trình duyệt hiện tại — đóng tab/trình duyệt lại thì lần truy cập web sau
+  // sẽ phải nhập mã PIN lại từ đầu, thay vì mở mãi mãi như trước.
+  const [isAdmin,setIsAdmin]=useState(()=>{ try{ return sessionStorage.getItem('pcb_admin')==='1'; }catch(e){ return false; } });
   const [showPin,setShowPin]=useState(false);
   const pendingAction=React.useRef(null);
 
@@ -5153,14 +5698,14 @@ function App(){
   };
   const handlePinConfirm=()=>{
     setIsAdmin(true);
-    try{ localStorage.setItem('pcb_admin','1'); }catch(e){}
+    try{ sessionStorage.setItem('pcb_admin','1'); }catch(e){}
     setShowPin(false);
     if(pendingAction.current){ const fn=pendingAction.current; pendingAction.current=null; fn(); }
   };
   const toggleLock=()=>{
     if(isAdmin){
       setIsAdmin(false);
-      try{ localStorage.removeItem('pcb_admin'); }catch(e){}
+      try{ sessionStorage.removeItem('pcb_admin'); }catch(e){}
       showToast('Đã khoá quyền chỉnh sửa');
     } else {
       setShowPin(true);
@@ -5525,7 +6070,7 @@ function App(){
           ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
-      {tab==='sokeo'     && <SoKeoTab players={players} matches={matches}/>}
+      {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast}/>}
       {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin} bankInfo={bankInfo} setBankInfo={setBankInfo} clubName={bannerTitle}/>}
     </div>
 
@@ -5553,7 +6098,7 @@ function App(){
       onMerge={guardedMergeDuplicatePerson}
     />}
     {showBackup && <BackupModal
-      data={{players,matches,sessions,members,trash,bankInfo,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness}}}
+      data={{players,matches,sessions,members,trash,bankInfo,tournament,banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness}}}
       onClose={()=>setShowBackup(false)}
       onRestore={(d)=>{
         // Khôi phục từ file là thao tác admin chủ động xác nhận rõ ràng —
@@ -5565,6 +6110,7 @@ function App(){
         const nextMembers=Array.isArray(d.members)?d.members:members;
         const nextTrash=(d.trash&&typeof d.trash==='object')?normalizeTrash(d.trash):trash;
         const nextBankInfo=(d.bankInfo&&typeof d.bankInfo==='object')?{...bankInfo,...d.bankInfo}:bankInfo;
+        const nextTournament=('tournament' in d)?(d.tournament&&typeof d.tournament==='object'?d.tournament:null):tournament;
         const nextBanner=(d.banner&&typeof d.banner==='object')?d.banner:{bannerImg,bannerTitle,bannerSub,bannerOverlay,bannerBrightness};
 
         setPlayers(nextPlayers);
@@ -5573,6 +6119,7 @@ function App(){
         setMembers(nextMembers);
         setTrash(nextTrash);
         setBankInfo(nextBankInfo);
+        setTournament(nextTournament);
         if(nextBanner.bannerImg!==undefined) setBannerImg(nextBanner.bannerImg);
         if(nextBanner.bannerTitle) setBannerTitle(nextBanner.bannerTitle);
         if(nextBanner.bannerSub) setBannerSub(nextBanner.bannerSub);
@@ -5585,6 +6132,7 @@ function App(){
         fbSet('members',nextMembers);
         fbSet('trash',nextTrash);
         fbSet('bankInfo',nextBankInfo);
+        fbSet('tournament',nextTournament);
         fbSet('banner',nextBanner);
 
         setDbReady(true);
