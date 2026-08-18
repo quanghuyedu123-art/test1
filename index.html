@@ -3732,8 +3732,18 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast})
     showToast&&showToast('Đã xoá giải đấu.');
   };
 
-  if(!tournament){
+  // Phòng trường hợp dữ liệu giải đấu bị thiếu/hỏng (vd. Firebase trả về object
+  // rỗng cho "rounds") — coi như chưa có giải đấu thay vì crash cả app.
+  const tournamentBroken = tournament && (!Array.isArray(tournament.rounds) || tournament.rounds.length===0);
+
+  if(!tournament || tournamentBroken){
     return <>
+      {tournamentBroken && (
+        <div style={{textAlign:'center',padding:'14px',marginBottom:'14px',color:'var(--red)',background:'var(--red-bg)',borderRadius:'10px',border:'1px solid var(--red)',fontSize:'12.5px'}}>
+          ⚠️ Dữ liệu sơ đồ giải đấu bị lỗi/thiếu, không hiển thị được. {isAdmin?'Bấm "Xoá giải" bên dưới rồi tạo lại giúp mình nhé.':'Nhờ admin kiểm tra lại giúp nhé.'}
+          {isAdmin && <div style={{marginTop:'8px'}}><button onClick={()=>setTournament(null)} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải đấu lỗi</button></div>}
+        </div>
+      )}
       {!creating && (
         <div style={{textAlign:'center',padding:'40px 20px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
           <div style={{fontSize:'36px',marginBottom:'10px'}}>🏆</div>
@@ -4423,11 +4433,15 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const [aiSessionLoading,setAiSessionLoading]=useState(null); // sessionId đang load
   const [aiSessionError,setAiSessionError]=useState({}); // {sessionId: error}
 
-  const generateSessionNarrative=async(session)=>{
+  // silent=true khi gọi tự động lúc thêm buổi (không cần báo lỗi ồn ào, cứ để
+  // người dùng bấm nút "AI tường thuật buổi này" thử lại sau nếu lần đầu lỗi).
+  const generateSessionNarrative=async(session, silent)=>{
     const sMatches=getSessionMatches(session);
     if(sMatches.length===0) return;
-    setAiSessionLoading(session.id);
-    setAiSessionError(p=>({...p,[session.id]:''}));
+    if(!silent){
+      setAiSessionLoading(session.id);
+      setAiSessionError(p=>({...p,[session.id]:''}));
+    }
     try{
       const lines=sMatches.map(m=>{
         const winners=(m.eloChanges||[]).filter(e=>e.delta>0).map(e=>e.name).join(' & ')
@@ -4456,11 +4470,14 @@ Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này 
       const data=await response.json();
       const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
       if(!text) throw new Error('empty');
+      // Lưu thẳng vào session (đồng bộ Firebase) để xem lại được sau này,
+      // không chỉ giữ tạm trong state của trình duyệt hiện tại.
+      setSessions(prev=>prev.map(s=>s.id===session.id?{...s,aiNarrative:text}:s));
       setAiSessionText(p=>({...p,[session.id]:text}));
     }catch(e){
-      setAiSessionError(p=>({...p,[session.id]:'Bình luận viên AI đang bận, thử lại sau nhé 🙏'}));
+      if(!silent) setAiSessionError(p=>({...p,[session.id]:'Bình luận viên AI đang bận, thử lại sau nhé 🙏'}));
     }finally{
-      setAiSessionLoading(null);
+      if(!silent) setAiSessionLoading(null);
     }
   };
 
@@ -4507,9 +4524,13 @@ Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này 
     if(!f.date||!f.total) return;
     const att = f.attendees;
     const attending = Object.entries(att).filter(([,v])=>v).map(([k])=>k);
-    setSessions(p=>[...p,{id:Date.now(),date:f.date,players:attending.length,total:parseInt(f.total),attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||''}]);
+    const newSession={id:Date.now(),date:f.date,players:attending.length,total:parseInt(f.total),attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||''};
+    setSessions(p=>[...p,newSession]);
     setF({date:'',total:'',attendees:{},note:''});
     setShowAdd(false);
+    // Buổi chơi coi như "kết thúc" khi được ghi nhận ở đây — tự động nhờ AI
+    // tường thuật (âm thầm, không báo lỗi nếu thất bại; có thể bấm tạo lại sau).
+    generateSessionNarrative(newSession, true);
   };
 
   const deleteSession=(id)=>{
@@ -4997,7 +5018,7 @@ Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này 
                   {(()=>{
                     const sMatches=getSessionMatches(s);
                     if(sMatches.length===0) return null;
-                    const text=aiSessionText[s.id];
+                    const text=s.aiNarrative||aiSessionText[s.id];
                     const loading=aiSessionLoading===s.id;
                     const err=aiSessionError[s.id];
                     return (
