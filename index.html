@@ -866,7 +866,7 @@ function computePairStats(matches){
 // 5) Mục tiêu tích phước — người chơi nào đang gần ngưỡng danh hiệu tiếp theo nhất
 function computeMilestones(players){
   const sortedTiers=[...TIERS].filter(t=>t.min>0).sort((a,b)=>a.min-b.min);
-  const list=(players||[]).map(p=>{
+  const list=(players||[]).filter(p=>((p.wins||0)+(p.losses||0))>0).map(p=>{
     const next=sortedTiers.find(t=>t.min>p.elo);
     if(!next) return null;
     const prevMin=[...sortedTiers].reverse().find(t=>t.min<=p.elo)?.min || 0;
