@@ -4194,73 +4194,6 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const MEMBER_PAGE_SIZE=8;
   const SESSION_PAGE_SIZE=10;
 
-  // ─── AI TƯỜNG THUẬT BUỔI CHƠI ──────────────────────────────
-  // Trận đấu không lưu sessionId trực tiếp nên gộp theo ngày (ưu tiên khớp
-  // cả ngày/tháng/năm nếu trận có năm, còn lại thì so khớp theo ngày/tháng).
-  const getSessionMatches=(session)=>{
-    if(!session?.date) return [];
-    const sKey=sessionDateKey(session.date);
-    return (matches||[]).filter(m=>{
-      if(!m.date) return false;
-      const mKey=sessionDateKey(m.date);
-      const p=m.date.split(/[\/\-]/).map(x=>parseInt(x,10));
-      const hasYear=p.length>=3;
-      if(hasYear) return mKey===sKey;
-      return (mKey%10000)===(sKey%10000); // so ngày/tháng, bỏ qua năm
-    });
-  };
-  const [aiSessionText,setAiSessionText]=useState({}); // {sessionId: text}
-  const [aiSessionLoading,setAiSessionLoading]=useState(null); // sessionId đang load
-  const [aiSessionError,setAiSessionError]=useState({}); // {sessionId: error}
-
-  // silent=true khi gọi tự động lúc thêm buổi (không cần báo lỗi ồn ào, cứ để
-  // người dùng bấm nút "AI tường thuật buổi này" thử lại sau nếu lần đầu lỗi).
-  const generateSessionNarrative=async(session, silent)=>{
-    const sMatches=getSessionMatches(session);
-    if(sMatches.length===0) return;
-    if(!silent){
-      setAiSessionLoading(session.id);
-      setAiSessionError(p=>({...p,[session.id]:''}));
-    }
-    try{
-      const lines=sMatches.map(m=>{
-        const winners=(m.eloChanges||[]).filter(e=>e.delta>0).map(e=>e.name).join(' & ')
-          || (m.result==='W'?(m.team1Players||[m.myTeam]).join(' & '):(m.team2Players||[m.oppTeam]).join(' & '));
-        const losers=(m.eloChanges||[]).filter(e=>e.delta<0).map(e=>e.name).join(' & ')
-          || (m.result==='W'?(m.team2Players||[m.oppTeam]).join(' & '):(m.team1Players||[m.myTeam]).join(' & '));
-        return `${winners} thắng ${losers} ${m.score1}-${m.score2} (${m.type||''})`;
-      }).join('\n');
-
-      const prompt=`Bạn là bình luận viên thể thao tường thuật lại một buổi chơi pickleball của hội bạn bè (CLB "Pích Cờ Bôn Phông Bạt"), ngày ${session.date}. Giọng văn: dí dỏm, sôi nổi kiểu bản tin thể thao, có thể chèn chút troll nhẹ nhàng giữa bạn bè.
-
-Danh sách trận đấu trong buổi (${sMatches.length} trận):
-${lines}
-
-Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này như một bản tin thể thao: nhắc đến kết quả nổi bật, ai chơi tốt/thắng nhiều, có trận nào đáng chú ý (tỷ số sít sao, lội ngược dòng...) nếu thấy hợp lý. Chỉ trả về đúng đoạn văn, không thêm tiêu đề hay lời dẫn.`;
-
-      const response=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-6',
-          max_tokens:1000,
-          messages:[{role:'user', content: prompt}]
-        })
-      });
-      const data=await response.json();
-      const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-      if(!text) throw new Error('empty');
-      // Lưu thẳng vào session (đồng bộ Firebase) để xem lại được sau này,
-      // không chỉ giữ tạm trong state của trình duyệt hiện tại.
-      setSessions(prev=>prev.map(s=>s.id===session.id?{...s,aiNarrative:text}:s));
-      setAiSessionText(p=>({...p,[session.id]:text}));
-    }catch(e){
-      if(!silent) setAiSessionError(p=>({...p,[session.id]:'Bình luận viên AI đang bận, thử lại sau nhé 🙏'}));
-    }finally{
-      if(!silent) setAiSessionLoading(null);
-    }
-  };
-
   // computed per member: how much they owe from sessions
   const memberSpent = useMemo(()=>{
     const spent = {};
@@ -4308,9 +4241,6 @@ Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này 
     setSessions(p=>[...p,newSession]);
     setF({date:'',total:'',attendees:{},note:''});
     setShowAdd(false);
-    // Buổi chơi coi như "kết thúc" khi được ghi nhận ở đây — tự động nhờ AI
-    // tường thuật (âm thầm, không báo lỗi nếu thất bại; có thể bấm tạo lại sau).
-    generateSessionNarrative(newSession, true);
   };
 
   const deleteSession=(id)=>{
@@ -4795,37 +4725,6 @@ Viết một đoạn "highlight" ngắn (3-6 câu) tóm tắt buổi chơi này 
                       <span style={{fontSize:'10px',fontWeight:700,color:'var(--yellow)',textTransform:'uppercase',letterSpacing:'.5px',marginRight:'6px'}}>📝 Ghi chú:</span>{s.note}
                     </div>
                   )}
-                  {(()=>{
-                    const sMatches=getSessionMatches(s);
-                    if(sMatches.length===0) return null;
-                    const text=s.aiNarrative||aiSessionText[s.id];
-                    const loading=aiSessionLoading===s.id;
-                    const err=aiSessionError[s.id];
-                    return (
-                      <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px dashed var(--border2)'}}>
-                        <div style={{fontSize:'10px',fontWeight:700,color:'var(--purple2)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'6px'}}>📰 Tường thuật buổi ({sMatches.length} trận)</div>
-                        {!text && !loading && (
-                          <button onClick={()=>generateSessionNarrative(s)} style={{background:'var(--purple-bg)',border:'1px solid var(--purple)',borderRadius:'8px',color:'var(--purple2)',padding:'6px 12px',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'6px'}}>
-                            🪄 AI tường thuật buổi này
-                          </button>
-                        )}
-                        {loading && (
-                          <div style={{fontSize:'12px',color:'var(--muted)',fontStyle:'italic'}}>⏳ Đang dựng bản tin...</div>
-                        )}
-                        {err && (
-                          <div style={{fontSize:'12px',color:'var(--red)'}}>⚠️ {err}</div>
-                        )}
-                        {text && (
-                          <>
-                            <div style={{fontSize:'12.5px',color:'var(--text)',fontStyle:'italic',lineHeight:'1.6'}}>✨ {text}</div>
-                            <button onClick={()=>generateSessionNarrative(s)} style={{marginTop:'8px',background:'none',border:'1px solid var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
-                              🔄 Tường thuật lại
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
             </div>
