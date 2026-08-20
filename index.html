@@ -1302,55 +1302,6 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
   const hof = useMemo(()=>computeHallOfFame(players||[], matches), [players, matches]);
   const last = n => n;
 
-  // ─── AI TƯỜNG THUẬT BẢNG PHONG THẦN ─────────────────────
-  const [aiText,setAiText]=useState('');
-  const [aiLoading,setAiLoading]=useState(false);
-  const [aiError,setAiError]=useState('');
-
-  const generateAiNarrative=async()=>{
-    if(!hof.hasData) return;
-    setAiLoading(true); setAiError('');
-    try{
-      const matchLines=(hof.monthMatches||[]).slice(0,40).map(m=>{
-        const winners=(m.eloChanges||[]).filter(e=>e.delta>0).map(e=>e.name).join(' & ');
-        const losers=(m.eloChanges||[]).filter(e=>e.delta<0).map(e=>e.name).join(' & ');
-        return `${m.date||''}: ${winners||'?'} thắng ${losers||'?'} (${m.type||''})`;
-      }).join('\n');
-
-      const prompt=`Bạn là "Táo Quân" tường thuật kết quả thi đấu pickleball tháng ${hof.monthLabel} cho một hội nhóm bạn bè (CLB "Pích Cờ Bôn Phông Bạt"). Giọng văn: hài hước, troll nhẹ nhàng giữa bạn bè, pha ngôn ngữ tâm linh/phong thần kiểu Việt Nam (ví dụ: "tích phước đức", "trả nghiệp", "Thiên Đình chấm công", "sổ vàng"...).
-
-Dữ liệu tháng này:
-- Tổng số trận: ${hof.monthMatches.length}
-- Thắng nhiều nhất: ${hof.topWinner?hof.topWinner.name+' ('+hof.topWinner.wins+' trận)':'chưa rõ'}
-- Thua nhiều nhất: ${hof.topLoser?hof.topLoser.name+' ('+hof.topLoser.losses+' trận)':'chưa rõ'}
-- Tăng phước (ELO) nhanh nhất: ${hof.topGainer?hof.topGainer.name+' (+'+hof.topGainer.gain+')':'chưa rõ'}
-- Cặp đôi ăn ý nhất: ${hof.bestPair?hof.bestPair.names+' ('+hof.bestPair.w+'/'+hof.bestPair.total+' thắng)':'chưa rõ'}
-
-Danh sách trận đấu trong tháng:
-${matchLines}
-
-Viết một đoạn tường thuật ngắn (4-6 câu), giọng dí dỏm troll nhẹ, xưng là "Táo Quân" hoặc "Thiên Đình", có nhắc tên cụ thể của người chơi nổi bật ở trên. Chỉ trả về đúng đoạn văn, không thêm tiêu đề hay lời dẫn.`;
-
-      const response=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-6',
-          max_tokens:1000,
-          messages:[{role:'user', content: prompt}]
-        })
-      });
-      const data=await response.json();
-      const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-      if(!text) throw new Error('empty');
-      setAiText(text);
-    }catch(e){
-      setAiError('Táo Quân AI bận chầu trời, thử lại sau nhé 🙏');
-    }finally{
-      setAiLoading(false);
-    }
-  };
-
   return <>
     <div className="stats-grid">
       <div className="stat-card sc-green">
@@ -1410,28 +1361,6 @@ Viết một đoạn tường thuật ngắn (4-6 câu), giọng dí dỏm troll
             🔮 Lời sấm tháng này: {hof.prophecy}
           </div>
         )}
-
-        <div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px dashed rgba(167,139,250,.25)'}}>
-          {!aiText && !aiLoading && (
-            <button onClick={generateAiNarrative} style={{background:'var(--purple-bg)',border:'1px solid var(--purple)',borderRadius:'8px',color:'var(--purple2)',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'6px'}}>
-              🪄 Để Táo Quân AI phán thêm
-            </button>
-          )}
-          {aiLoading && (
-            <div style={{fontSize:'12.5px',color:'var(--muted)',fontStyle:'italic'}}>⏳ Táo Quân đang tra sổ trời...</div>
-          )}
-          {aiError && (
-            <div style={{fontSize:'12px',color:'var(--red)'}}>⚠️ {aiError}</div>
-          )}
-          {aiText && (
-            <>
-              <div className="hof-caption" style={{fontStyle:'italic'}}>✨ {aiText}</div>
-              <button onClick={generateAiNarrative} style={{marginTop:'8px',background:'none',border:'1px solid var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
-                🔄 Phán lại
-              </button>
-            </>
-          )}
-        </div>
 
         <div className="hof-sub">💡 Bảng này tự cập nhật theo trận đấu thật trong tháng — không cần nhập tay, Táo Quân đã ghi hộ.</div>
       </div>
@@ -2394,78 +2323,6 @@ function exportCSV(matches,players){
 }
 
 /* ─── ELO HISTORY CHART ──────────────────────────────────── */
-function EloChart({players,matches}){
-  const [selected,setSelected]=useState('');
-  const player=players.find(p=>p.name===selected);
-
-  const history=useMemo(()=>{
-    if(!player) return [];
-    // build elo timeline from matches (oldest first)
-    let elo=1500;
-    const sorted=[...matches].reverse();
-    const pts=[{date:'Bắt đầu',elo:1500}];
-    sorted.forEach(m=>{
-      const change=(m.eloChanges||[]).find(e=>e.name===player.name);
-      if(change){elo+=change.delta;pts.push({date:m.date,elo,delta:change.delta});}
-    });
-    return pts;
-  },[player,matches]);
-
-  const minE=history.length?Math.min(...history.map(h=>h.elo))-30:1470;
-  const maxE=history.length?Math.max(...history.map(h=>h.elo))+30:1530;
-  const W=560,H=180,PAD=40;
-  const xScale=i=>history.length>1?PAD+(i/(history.length-1))*(W-PAD*2):W/2;
-  const yScale=e=>H-PAD-((e-minE)/(maxE-minE))*(H-PAD*2);
-
-  const pathD=history.map((h,i)=>`${i===0?'M':'L'}${xScale(i)},${yScale(h.elo)}`).join(' ');
-
-  return (
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-        <div className="section-title" style={{fontSize:'15px'}}>📈 Biểu đồ Công Đức</div>
-        <select className="month-sel" value={selected} onChange={e=>setSelected(e.target.value)} style={{fontSize:'12px',padding:'5px 10px'}}>
-          <option value="">-- Chọn người chơi --</option>
-          {players.map(p=><option key={p.id}>{p.name}</option>)}
-        </select>
-      </div>
-      {!selected && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',fontSize:'13px'}}>Chọn người chơi để xem biểu đồ Công Đức</div>}
-      {selected && history.length<=1 && <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',fontSize:'13px'}}>Chưa có đủ dữ liệu trận đấu</div>}
-      {selected && history.length>1 && (
-        <>
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
-            {/* Grid lines */}
-            {[0,.25,.5,.75,1].map(t=>{
-              const y=PAD+(1-t)*(H-PAD*2);
-              const v=Math.round(minE+(maxE-minE)*t);
-              return <g key={t}>
-                <line x1={PAD} y1={y} x2={W-PAD} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3"/>
-                <text x={PAD-4} y={y+4} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>
-              </g>;
-            })}
-            {/* Path */}
-            <path d={pathD} fill="none" stroke="var(--green)" strokeWidth="2" strokeLinejoin="round"/>
-            {/* Fill */}
-            <path d={pathD+` L${xScale(history.length-1)},${H-PAD} L${PAD},${H-PAD} Z`} fill="var(--green)" opacity="0.08"/>
-            {/* Points */}
-            {history.map((h,i)=>(
-              <g key={i}>
-                <circle cx={xScale(i)} cy={yScale(h.elo)} r="3" fill={h.delta>0?'var(--green)':h.delta<0?'var(--red)':'var(--muted)'} stroke="var(--bg)" strokeWidth="1.5"/>
-              </g>
-            ))}
-          </svg>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px',fontSize:'11px',color:'var(--muted)',padding:`0 ${PAD}px`}}>
-            <span>{history[0]?.date}</span>
-            <span style={{fontFamily:'Quicksand',fontSize:'14px',fontWeight:700,color:player.elo>=1500?'var(--green)':'var(--red)'}}>
-              Công Đức hiện tại: {player.elo}
-            </span>
-            <span>{history[history.length-1]?.date}</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 /* ─── TRANG RIÊNG: LỊCH SỬ ĐÁNH CHI TIẾT CỦA NGƯỜI CHƠI ──── */
 function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
@@ -2616,57 +2473,6 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
     return {seq, recentWins, recentLosses:seq.length-recentWins, recentWr, count:seq.length};
   },[myMatchesAsc,player.name]);
 
-  // ─── AI NHẬN XÉT PHONG ĐỘ CÁ NHÂN ─────────────────────────
-  const [aiFormText,setAiFormText]=useState('');
-  const [aiFormLoading,setAiFormLoading]=useState(false);
-  const [aiFormError,setAiFormError]=useState('');
-
-  const generateFormNarrative=async()=>{
-    if(myMatchesAsc.length===0) return;
-    setAiFormLoading(true); setAiFormError('');
-    try{
-      const recentLines=myMatchesAsc.slice(-10).map(m=>{
-        const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);
-        const won=inT1?m.result==='W':m.result==='L';
-        const opp=inT1?(m.team2Players||[m.oppTeam]).join(' & '):(m.team1Players||[m.myTeam]).join(' & ');
-        return `${m.date||''}: ${won?'Thắng':'Thua'} ${opp} (${m.type||''}, ${m.score1}-${m.score2})`;
-      }).join('\n');
-
-      const prompt=`Bạn là "Táo Quân" bình luận thể thao pickleball cho hội bạn bè (CLB "Pích Cờ Bôn Phông Bạt"). Giọng văn: hài hước, troll nhẹ nhàng, pha ngôn ngữ tâm linh/phong thần kiểu Việt Nam (ví dụ: "tích phước đức", "trả nghiệp", "Thiên Đình chấm công"...).
-
-Hãy viết nhận xét phong độ cho người chơi "${player.name}" (hạng ${tier.label}, Công Đức hiện tại ${player.elo}).
-
-Dữ liệu:
-- Tổng: ${realWins} thắng / ${realLosses} thua (tỷ lệ ${wr}%)
-- Phong độ ${recentForm?recentForm.count:0} trận gần nhất: ${recentForm?recentForm.recentWins+' thắng / '+recentForm.recentLosses+' thua':'chưa đủ dữ liệu'} (chuỗi kết quả: ${recentForm?recentForm.seq.join('-'):''})
-- Khắc tinh (đối thủ hay thua nhất, ≥2 trận đối đầu): ${nemesis?nemesis.name+' (thua '+nemesis.losses+'/'+nemesis.matches+' trận, chỉ thắng '+nemesis.winRate+'%)':'chưa rõ, chưa đủ dữ liệu'}
-- Đối thủ hay thắng nhất (≥2 trận đối đầu): ${favoriteVictim?favoriteVictim.name+' (thắng '+favoriteVictim.wins+'/'+favoriteVictim.matches+' trận, tỷ lệ '+favoriteVictim.winRate+'%)':'chưa rõ, chưa đủ dữ liệu'}
-
-Danh sách trận gần đây (cũ đến mới):
-${recentLines}
-
-Viết một đoạn ngắn (3-5 câu) nhận xét phong độ đang lên hay đang xuống, có nhắc cụ thể tên khắc tinh và/hoặc đối thủ hay thắng nhất nếu có dữ liệu, giọng dí dỏm troll nhẹ nhàng, xưng là "Táo Quân" hoặc "Thiên Đình". Chỉ trả về đúng đoạn văn, không thêm tiêu đề hay lời dẫn.`;
-
-      const response=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-6',
-          max_tokens:1000,
-          messages:[{role:'user', content: prompt}]
-        })
-      });
-      const data=await response.json();
-      const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
-      if(!text) throw new Error('empty');
-      setAiFormText(text);
-    }catch(e){
-      setAiFormError('Táo Quân AI bận chầu trời, thử lại sau nhé 🙏');
-    }finally{
-      setAiFormLoading(false);
-    }
-  };
-
   // Đồng đội (đánh đôi cùng đội, tối thiểu 2 trận chung) — dùng để xếp
   // "Quý Nhân Phù Trợ" (thắng cao) và "Vận Rủi Đồng Hành" (thua nhiều)
   const teammateStats=useMemo(()=>{
@@ -2796,31 +2602,6 @@ Viết một đoạn ngắn (3-5 câu) nhận xét phong độ đang lên hay đ
             ))}
           </div>
         </>
-      )}
-
-      {myMatchesAsc.length>0 && (
-        <div style={{background:'linear-gradient(135deg,#1c1633,#241a3d)',border:'1px solid rgba(167,139,250,.25)',borderRadius:'14px',padding:'16px',marginBottom:'20px'}}>
-          <div className="fun-section-title" style={{fontSize:'14px',marginBottom:'10px',color:'#c4b5fd'}}>🔮 Nhận xét phong độ</div>
-          {!aiFormText && !aiFormLoading && (
-            <button onClick={generateFormNarrative} style={{background:'var(--purple-bg)',border:'1px solid var(--purple)',borderRadius:'8px',color:'var(--purple2)',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'6px'}}>
-              🪄 Để Táo Quân AI phán phong độ
-            </button>
-          )}
-          {aiFormLoading && (
-            <div style={{fontSize:'12.5px',color:'var(--muted)',fontStyle:'italic'}}>⏳ Táo Quân đang tra sổ trời...</div>
-          )}
-          {aiFormError && (
-            <div style={{fontSize:'12px',color:'var(--red)'}}>⚠️ {aiFormError}</div>
-          )}
-          {aiFormText && (
-            <>
-              <div className="hof-caption" style={{fontStyle:'italic'}}>✨ {aiFormText}</div>
-              <button onClick={generateFormNarrative} style={{marginTop:'8px',background:'none',border:'1px solid var(--border2)',borderRadius:'8px',color:'var(--muted)',padding:'5px 12px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
-                🔄 Phán lại
-              </button>
-            </>
-          )}
-        </div>
       )}
 
       {(opponentStats.length>0 || teammateStats.length>0) && (() => {
@@ -3005,7 +2786,6 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
       </div>
     </div>
     <EloCard myElo={myElo}/>
-    <EloChart players={players} matches={matches}/>
 
     {/* Filters */}
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'12px 14px',marginBottom:'14px'}}>
@@ -6073,7 +5853,7 @@ function App(){
       onUpdate={guardedBannerUpdate}
     />
 
-    {tab!=='bxh' && tab!=='fund' && (
+    {tab==='dashboard' && (
       <div className="seg-wrap">
         <div className="seg">
           <button className={`seg-btn${matchSeg==='Đôi'?' active':''}`} onClick={()=>setMatchSeg('Đôi')}>👥 Chỉ Số Đánh Đôi</button>
