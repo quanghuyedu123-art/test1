@@ -4481,14 +4481,14 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
                   <button onClick={()=>{setRenamingMember(null);setRenameVal('');setRenameError('');}} style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Hủy</button>
                 </div>
               </div>
-            ):(
+            ):isAdmin&&(
               <div style={{display:'flex',gap:'6px',marginBottom:'10px',paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
-                {isAdmin && <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
+                <button onClick={()=>setDepositTarget(isDepTarget?null:{name:m.name,idx:i})} style={{
                   background:isDepTarget?m.color+'22':'var(--bg3)',border:`1px solid ${isDepTarget?m.color:'var(--border)'}`,
                   borderRadius:'6px',color:isDepTarget?m.color:'var(--muted)',padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'
-                }}>+ Nạp tiền</button>}
-                {isAdmin && <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>}
-                {isAdmin && <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>}
+                }}>+ Nạp tiền</button>
+                <button onClick={()=>{setRenamingMember(i);setRenameVal(m.name);}} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'6px',color:'var(--muted)',padding:'5px 10px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa tên</button>
+                <button onClick={()=>setConfirmDeleteMember(i)} title="Xóa thành viên" style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',color:'var(--red)',padding:'5px 8px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',opacity:.85}}>🗑</button>
               </div>
             )}
 
@@ -4505,9 +4505,16 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
               </div>
             )}
 
-            <div className="fm-row"><span className="fm-lbl">Tổng đã đóng</span><span className="fm-val" style={{color:m.color}}>{fmt(m.paid)}</span></div>
-            <div className="fm-row"><span className="fm-lbl">Đã chi (tính buổi)</span><span className="fm-val">{fmt(spent)}</span></div>
-
+            {/* Không lặp lại "Tổng đã đóng / Đã chi" ở đây nữa vì đã hiện sẵn ở dòng
+                thu gọn phía trên (Đóng X · Chi Y) — mở rộng chỉ để xem thêm lịch sử nạp + thao tác.
+                Trường hợp không phải admin và cũng không có lịch sử nạp (>1 lần), hiện 1 dòng
+                còn lại rõ ràng để khung mở rộng không bị trống. */}
+            {!isAdmin&&(m.deposits||[]).length<=1&&(
+              <div className="fm-row" style={{paddingTop:'10px',borderTop:'1px solid var(--border)'}}>
+                <span className="fm-lbl">Còn lại</span>
+                <span className="fm-val" style={{color:rem>=0?'var(--green)':'var(--red)'}}>{rem<0?'-':''}{fmt(roundUpFund(Math.abs(rem)))}</span>
+              </div>
+            )}
             {(m.deposits||[]).length>1&&(
               <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--border)'}}>
                 <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'4px'}}>Lịch sử nạp</div>
@@ -4642,31 +4649,24 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       </>;
     })()}
 
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',marginTop:'4px',flexWrap:'wrap',gap:'8px'}}>
-      <div className="section-title" style={{fontSize:'14px'}}>Lịch sử buổi chơi</div>
-      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-        {fundMonths.map(m2=>(
-          <button key={m2} onClick={()=>setMonthFund(m2)} style={{
-            padding:'4px 12px',borderRadius:'20px',border:'1px solid',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:500,
-            borderColor:monthFund===m2?'var(--blue)':'var(--border)',
-            background:monthFund===m2?'var(--blue-bg)':'transparent',
-            color:monthFund===m2?'var(--blue)':'var(--muted)'
-          }}>{m2}</button>
-        ))}
-      </div>
-    </div>
-    {/* Lọc theo người — xem người này từng tham gia buổi chơi nào */}
+    <div className="section-title" style={{fontSize:'14px',marginBottom:'10px',marginTop:'4px'}}>Lịch sử buổi chơi</div>
+    {/* Gộp lọc tháng + lọc người vào chung 1 hàng, cùng dùng kiểu dropdown cho nhất quán
+        (trước đây tháng dùng nút chip, người dùng select — 2 kiểu khác nhau trên 2 hàng riêng) */}
     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}}>
-      <span style={{fontSize:'12px',color:'var(--muted)',whiteSpace:'nowrap'}}>👤 Lọc theo người:</span>
+      <span style={{fontSize:'12px',color:'var(--muted)',whiteSpace:'nowrap'}}>📅 Tháng:</span>
+      <select className="month-sel" value={monthFund} onChange={e=>setMonthFund(e.target.value)}>
+        {fundMonths.map(m2=>(<option key={m2} value={m2}>{m2}</option>))}
+      </select>
+      <span style={{fontSize:'12px',color:'var(--muted)',whiteSpace:'nowrap',marginLeft:'2px'}}>👤 Người:</span>
       <select className="month-sel" value={playerFund} onChange={e=>setPlayerFund(e.target.value)}>
         <option value="Tất cả">Tất cả</option>
         {members.map(m=>(<option key={m.name} value={m.name}>{m.name}</option>))}
       </select>
-      {playerFund!=='Tất cả' && (
-        <button onClick={()=>setPlayerFund('Tất cả')} style={{
+      {(monthFund!=='Tất cả'||playerFund!=='Tất cả') && (
+        <button onClick={()=>{setMonthFund('Tất cả');setPlayerFund('Tất cả');}} style={{
           background:'var(--purple-bg)',border:'1px solid var(--purple)',borderRadius:'8px',color:'var(--purple)',
           padding:'5px 10px',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'
-        }}>✕ Bỏ lọc {playerFund}</button>
+        }}>✕ Bỏ lọc</button>
       )}
     </div>
     {/* Lọc theo khoản chi — bấm vào 1 khoản để chỉ xem các buổi có khoản đó,
