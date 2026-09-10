@@ -309,7 +309,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
   .seg-wrap{padding:12px 12px 0}
 }
 /* MOBILE BOTTOM NAV */
-.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#0d111c;border-top:1px solid #1f2433;z-index:9999;height:60px;align-items:stretch;-webkit-backdrop-filter:blur(10px)}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#0d111c;border-top:1px solid #1f2433;z-index:400;height:60px;align-items:stretch;-webkit-backdrop-filter:blur(10px)}
 .mobile-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:#7a8295;cursor:pointer;font-family:'Nunito',sans-serif;font-size:9px;font-weight:600;padding:4px 2px;transition:.15s;-webkit-tap-highlight-color:transparent}
 .mobile-nav-tab.active{color:var(--green)}
 .mobile-nav-tab.active .mni{transform:scale(1.15)}
@@ -932,6 +932,29 @@ function effectiveShares(s){
 function shareAmount(s){
   const shares = effectiveShares(s);
   return shares>0 ? Math.round(s.total/shares) : 0;
+}
+// Tính đúng số tiền 1 người (hoặc cả nhóm Xé Vé) phải trả trong 1 buổi chơi.
+// Tiền nước tách riêng: chỉ chia cho người có mặt trong s.waterDrinkers (nếu buổi có bật tính năng này).
+// Các khoản khác (sân/cầu/khác) vẫn chia đều cho tất cả người tham dự như cũ.
+// Buổi cũ chưa có waterDrinkers -> coi như ai cũng uống nước, giữ nguyên hành vi trước đây.
+// Lưu ý: với "Xé Vé", hàm trả về TỔNG của cả nhóm (không phải mỗi người), giống cách shareAmount*cnt trước đây.
+function personCost(s,name){
+  const attending = s.attendees ? Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k) : [];
+  if(!attending.includes(name)) return 0;
+  const totalWeight = effectiveShares(s);
+  if(totalWeight<=0) return 0;
+  const xeVeCount = attending.includes('Xé Vé') ? Math.max(1, parseInt(s.xeVeCount)||1) : 0;
+  const weightOf = n => n==='Xé Vé' ? xeVeCount : 1;
+  const baseFee = (s.courtFee||0)+(s.shuttleFee||0)+(s.otherFee||0);
+  const waterFee = s.waterFee||0;
+  const drinkers = s.waterDrinkers; // undefined = buổi cũ, coi như ai cũng uống
+  const isDrinker = n => drinkers ? !!drinkers[n] : true;
+  let waterWeight = 0;
+  attending.forEach(n=>{ if(isDrinker(n)) waterWeight += weightOf(n); });
+  const w = weightOf(name);
+  const baseShare = baseFee>0 ? (baseFee/totalWeight)*w : 0;
+  const waterShare = (waterFee>0 && isDrinker(name) && waterWeight>0) ? (waterFee/waterWeight)*w : 0;
+  return Math.round(baseShare+waterShare);
 }
 /* Chuyển ngày buổi chơi (định dạng "DD/MM", có thể có "DD/MM/YYYY") thành số
    để sắp xếp đúng theo thời gian thực tế — không phụ thuộc thứ tự nhập liệu.
@@ -4093,6 +4116,13 @@ function EditSessionModal({session,members,onClose,onSave}){
   };
   const [attendees,setAttendees]=useState(initAtt);
   const toggle=name=>setAttendees(p=>({...p,[name]:!p[name]}));
+  // Ai uống nước — mặc định tất cả người tham dự đều uống (giữ đúng hành vi buổi cũ chưa có tính năng này)
+  const [waterDrinkers,setWaterDrinkers]=useState(()=>{
+    const obj={};
+    members.forEach(m=>{ obj[m.name]= session.waterDrinkers ? !!session.waterDrinkers[m.name] : true; });
+    return obj;
+  });
+  const toggleWater=name=>setWaterDrinkers(p=>({...p,[name]:!p[name]}));
 
   const attending=Object.entries(attendees).filter(([,v])=>v).map(([k])=>k);
   const xeVeOn=attending.includes('Xé Vé');
@@ -4103,18 +4133,25 @@ function EditSessionModal({session,members,onClose,onSave}){
 
   const save=()=>{
     if(!date||feeTotal<=0) return;
+    const waterFeeNum=parseInt(waterFee)||0;
+    let finalWaterDrinkers;
+    if(waterFeeNum>0){
+      finalWaterDrinkers={};
+      attending.forEach(n=>{ finalWaterDrinkers[n]=!!waterDrinkers[n]; });
+    }
     onSave({
       ...session,
       date,
       courtFee:parseInt(courtFee)||0,
       shuttleFee:parseInt(shuttleFee)||0,
-      waterFee:parseInt(waterFee)||0,
+      waterFee:waterFeeNum,
       otherFee:parseInt(otherFee)||0,
       total:feeTotal,
       note,
       attendees,
       players:attending.length,
       xeVeCount:xeVeOn?xeVeCnt:undefined,
+      waterDrinkers:finalWaterDrinkers,
     });
   };
 
@@ -4177,6 +4214,26 @@ function EditSessionModal({session,members,onClose,onSave}){
           )}
         </div>
 
+        {/* Ai uống nước — chỉ hiện khi có tiền nước; chỉ những người được chọn mới bị chia khoản này */}
+        {(parseInt(waterFee)||0)>0 && attending.length>0 && (
+          <div style={{marginBottom:'10px'}}>
+            <div className="fl" style={{marginBottom:'8px'}}>💧 Ai uống nước? (chỉ người này chịu tiền nước)</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+              {attending.map(name=>{
+                const on=!!waterDrinkers[name];
+                return (
+                  <button key={name} onClick={()=>toggleWater(name)} style={{
+                    padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                    borderColor:on?'var(--blue)':'var(--border)',
+                    background:on?'var(--blue-bg)':'transparent',
+                    color:on?'var(--blue)':'var(--muted)',fontWeight:on?600:400
+                  }}>{on?'💧 ':'🚱 '}{name}</button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="fg" style={{marginBottom:'12px'}}>
           <label className="fl">📝 Ghi chú khác</label>
           <input className="fi" value={note} onChange={e=>setNote(e.target.value)} placeholder="VD: Sân Hoàng Anh, giờ chơi 19h..."/>
@@ -4203,7 +4260,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const [depositTarget,setDepositTarget]=useState(null); // {name, idx}
   const [depositAmt,setDepositAmt]=useState('');
   const [depositDate,setDepositDate]=useState('');
-  const [f,setF]=useState({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},note:''});
+  const [f,setF]=useState({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
   const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const fFeeTotal=(parseInt(f.courtFee)||0)+(parseInt(f.shuttleFee)||0)+(parseInt(f.waterFee)||0)+(parseInt(f.otherFee)||0);
   const [renamingMember,setRenamingMember]=useState(null); // idx
@@ -4242,15 +4299,9 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     sessions.forEach(s=>{
       if(s.attendees && Object.keys(s.attendees).length>0){
         const attending = Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k);
-        const share = shareAmount(s);
         attending.forEach(name=>{
           if(spent[name]===undefined) return;
-          if(name==='Xé Vé'){
-            const cnt=Math.max(1, parseInt(s.xeVeCount)||1);
-            spent[name]+=share*cnt;
-          } else {
-            spent[name]+=share;
-          }
+          spent[name]+=personCost(s,name);
         });
       } else {
         // legacy: split equally
@@ -4278,11 +4329,18 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     if(!f.date||fFeeTotal<=0) return;
     const att = f.attendees;
     const attending = Object.entries(att).filter(([,v])=>v).map(([k])=>k);
+    const waterFeeNum = parseInt(f.waterFee)||0;
+    let finalWaterDrinkers;
+    if(waterFeeNum>0){
+      finalWaterDrinkers={};
+      attending.forEach(n=>{ finalWaterDrinkers[n]=f.waterDrinkers[n]!==false; }); // mặc định ai cũng uống trừ khi bỏ chọn
+    }
     const newSession={id:Date.now(),date:f.date,players:attending.length,
-      courtFee:parseInt(f.courtFee)||0,shuttleFee:parseInt(f.shuttleFee)||0,waterFee:parseInt(f.waterFee)||0,otherFee:parseInt(f.otherFee)||0,
-      total:fFeeTotal,attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||''};
+      courtFee:parseInt(f.courtFee)||0,shuttleFee:parseInt(f.shuttleFee)||0,waterFee:waterFeeNum,otherFee:parseInt(f.otherFee)||0,
+      total:fFeeTotal,attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||'',
+      waterDrinkers:finalWaterDrinkers};
     setSessions(p=>[...p,newSession]);
-    setF({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},note:''});
+    setF({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
     setShowAdd(false);
   };
 
@@ -4386,22 +4444,18 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
     if(playerFund==='Tất cả') return null;
     return filteredSessions.reduce((a,s2)=>{
       if(!s2.attendees || !s2.attendees[playerFund]) return a;
-      const share=shareAmount(s2);
-      if(playerFund==='Xé Vé'){
-        const cnt=Math.max(1, parseInt(s2.xeVeCount)||1);
-        return a+share*cnt;
-      }
-      return a+share;
+      return a+personCost(s2,playerFund);
     },0);
   },[filteredSessions,playerFund]);
 
   // Export fund CSV
   const exportFundCSV=()=>{
-    const rows=[['Ngày','Số người','Tiền sân','Tiền cầu/bóng','Tiền nước','Khác','Tổng','Mỗi người','Người tham dự']];
+    const rows=[['Ngày','Số người','Tiền sân','Tiền cầu/bóng','Tiền nước','Khác','Tổng','Mỗi người (TB)','Người tham dự','Người uống nước']];
     [...sessions].reverse().forEach(s2=>{
       const att=s2.attendees?Object.entries(s2.attendees).filter(([,v])=>v).map(([k])=>k):[];
       const per=att.length>0?shareAmount(s2):(s2.players>0?Math.round(s2.total/s2.players):0);
-      rows.push([s2.date,s2.players,s2.courtFee||0,s2.shuttleFee||0,s2.waterFee||0,s2.otherFee||0,s2.total,per,att.join(' | ')]);
+      const waterList=s2.waterFee>0?(s2.waterDrinkers?att.filter(n=>s2.waterDrinkers[n]).join(' | '):'Tất cả'):'—';
+      rows.push([s2.date,s2.players,s2.courtFee||0,s2.shuttleFee||0,s2.waterFee||0,s2.otherFee||0,s2.total,per,att.join(' | '),waterList]);
     });
     const mRows=[['Tên','Đã đóng','Đã chi','Còn lại']];
     members.forEach(m2=>{
@@ -4725,18 +4779,6 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
           Không cần chia nhỏ nếu không muốn — điền hết vào ô <b>Khác</b> cũng được. Tổng: <b style={{color:'var(--yellow)'}}>{fmt(fFeeTotal)}</b>
         </div>
 
-        {/* Xé vé tùy biến */}
-        {!!f.attendees['Xé Vé']&&(
-          <div style={{background:'var(--bg3)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',border:'1px solid var(--border)'}}>
-            <div style={{fontSize:'12px',color:'var(--yellow)',fontWeight:600,marginBottom:'8px'}}>🎫 Xé vé tùy biến</div>
-            <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'6px'}}>
-              <label className="fl" style={{whiteSpace:'nowrap'}}>Số người xé vé:</label>
-              <input className="fi" type="number" min="1" value={f.xeVeCount||''} onChange={e=>setF(p=>({...p,xeVeCount:e.target.value}))} placeholder="2" style={{width:'70px',padding:'5px 8px',fontSize:'13px'}}/>
-            </div>
-            <div style={{fontSize:'11px',color:'var(--muted)'}}>Tiền của nhóm Xé Vé sẽ được chia đều cho đúng số người này (vẫn tính là 1 phần chung trong tổng buổi, nhưng chia nhỏ ra cho từng người xé vé).</div>
-          </div>
-        )}
-
         <div style={{marginBottom:'10px'}}>
           <div className="fl" style={{marginBottom:'8px'}}>Ai đi buổi này? ({Object.entries(f.attendees).filter(([,v])=>v).length} người)</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
@@ -4752,20 +4794,69 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
               );
             })}
           </div>
-          {fFeeTotal>0 && Object.values(f.attendees).filter(Boolean).length>0 && (()=>{
-            const attending=Object.entries(f.attendees).filter(([,v])=>v).map(([k])=>k);
-            const xeVeOn=attending.includes('Xé Vé');
-            const xeVeCnt=xeVeOn?Math.max(1,parseInt(f.xeVeCount)||1):0;
-            const others=attending.filter(n=>n!=='Xé Vé').length;
-            const shares=others+xeVeCnt;
-            const per=shares>0?Math.round(fFeeTotal/shares):0;
-            return (
-              <div style={{marginTop:'8px',fontSize:'12px',color:'var(--green)'}}>
-                Mỗi người: {fmt(per)}{xeVeOn&&xeVeCnt>1?` · Nhóm Xé Vé (${xeVeCnt} người) tổng: ${fmt(per*xeVeCnt)}`:''}
-              </div>
-            );
-          })()}
+          <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'6px'}}>💡 Có người lạ/khách vãng lai chơi cùng? Bấm chọn <b>"Xé Vé"</b> ở trên rồi nhập số người ở khung bên dưới.</div>
         </div>
+
+        {/* Xé vé tùy biến — dùng khi có khách lạ/người ngoài CLB tham gia, không cần thêm họ vào
+            danh sách thành viên: nhập đúng số người, tiền sẽ tự chia đều để thu tại chỗ cho dễ. */}
+        {!!f.attendees['Xé Vé']&&(
+          <div style={{background:'var(--bg3)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',border:'1px solid var(--yellow)'}}>
+            <div style={{fontSize:'12px',color:'var(--yellow)',fontWeight:600,marginBottom:'8px'}}>🎫 Xé vé tùy biến (khách lạ/người ngoài CLB)</div>
+            <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
+              <label className="fl" style={{whiteSpace:'nowrap'}}>Số người xé vé:</label>
+              <input className="fi" type="number" min="1" value={f.xeVeCount||''} onChange={e=>setF(p=>({...p,xeVeCount:e.target.value}))} placeholder="2" style={{width:'70px',padding:'5px 8px',fontSize:'13px'}}/>
+            </div>
+            {fFeeTotal>0 && (()=>{
+              const attending=Object.entries(f.attendees).filter(([,v])=>v).map(([k])=>k);
+              const xeVeCnt=Math.max(1,parseInt(f.xeVeCount)||1);
+              const others=attending.filter(n=>n!=='Xé Vé').length;
+              const shares=others+xeVeCnt;
+              const per=shares>0?Math.round(fFeeTotal/shares):0;
+              return (
+                <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',padding:'8px 10px',fontSize:'12px'}}>
+                  Mỗi khách lạ đóng: <b style={{color:'var(--green)'}}>{fmt(per)}</b> · Tổng thu từ {xeVeCnt} khách: <b style={{color:'var(--green)'}}>{fmt(per*xeVeCnt)}</b>
+                </div>
+              );
+            })()}
+            <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'8px'}}>Tiền của nhóm Xé Vé sẽ được chia đều cho đúng số người này (vẫn tính là 1 phần chung trong tổng buổi, nhưng chia nhỏ ra cho từng người xé vé) — thu đúng số tiền trên từ mỗi khách là đủ, không cần thêm họ vào danh sách thành viên CLB.</div>
+          </div>
+        )}
+
+        {fFeeTotal>0 && Object.values(f.attendees).filter(Boolean).length>0 && (()=>{
+          const attending=Object.entries(f.attendees).filter(([,v])=>v).map(([k])=>k);
+          const xeVeOn=attending.includes('Xé Vé');
+          const xeVeCnt=xeVeOn?Math.max(1,parseInt(f.xeVeCount)||1):0;
+          const others=attending.filter(n=>n!=='Xé Vé').length;
+          const shares=others+xeVeCnt;
+          const per=shares>0?Math.round(fFeeTotal/shares):0;
+          return (
+            <div style={{marginBottom:'10px',fontSize:'12px',color:'var(--green)'}}>
+              Mỗi thành viên CLB: {fmt(per)}
+            </div>
+          );
+        })()}
+
+        {/* Ai uống nước — chỉ hiện khi có tiền nước; chỉ những người được chọn mới bị chia khoản này,
+            người còn lại vẫn chia đều bình thường các khoản sân/cầu/khác */}
+        {(parseInt(f.waterFee)||0)>0 && Object.values(f.attendees).filter(Boolean).length>0 && (
+          <div style={{marginBottom:'10px'}}>
+            <div className="fl" style={{marginBottom:'8px'}}>💧 Ai uống nước? (chỉ người này chịu tiền nước)</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+              {Object.entries(f.attendees).filter(([,v])=>v).map(([name])=>{
+                const on=f.waterDrinkers[name]!==false;
+                return (
+                  <button key={name} onClick={()=>setF(p=>({...p,waterDrinkers:{...p.waterDrinkers,[name]:!on}}))} style={{
+                    padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                    borderColor:on?'var(--blue)':'var(--border)',
+                    background:on?'var(--blue-bg)':'transparent',
+                    color:on?'var(--blue)':'var(--muted)',fontWeight:on?600:400
+                  }}>{on?'💧 ':'🚱 '}{name}</button>
+                );
+              })}
+            </div>
+            <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'6px'}}>Mặc định ai cũng uống nước — bấm vào tên để bỏ người không uống, tiền nước sẽ chỉ chia cho người còn lại.</div>
+          </div>
+        )}
         <div className="fg" style={{marginBottom:'12px'}}>
           <label className="fl">📝 Ghi chú khác</label>
           <input className="fi" value={f.note||''} onChange={sf('note')} placeholder="VD: Sân Hoàng Anh, giờ chơi 19h..."/>
@@ -4776,7 +4867,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
 
     <div className="fund-sessions">
       <div className="fs-header" style={{gridTemplateColumns:'62px 1fr 70px 70px 32px'}}>
-        <div>Ngày</div><div>Số người</div><div>Mỗi người</div><div>Tổng</div><div></div>
+        <div>Ngày</div><div>Số người</div><div>TB/người</div><div>Tổng</div><div></div>
       </div>
       {(()=>{
         const renderSessionRow=s=>{
@@ -4815,11 +4906,18 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
                         {attending.map(name=>{
                           const mem=members.find(m=>m.name===name);
                           const isXeVe=name==='Xé Vé';
+                          // personCost trả về TỔNG của cả nhóm với Xé Vé, và số tiền đúng của riêng người đó với thành viên thường
+                          // (đã tách riêng tiền nước — chỉ tính cho người có trong s.waterDrinkers, nếu buổi có bật tính năng này)
+                          const entryTotal=personCost(s,name);
                           const label=isXeVe&&xeVeCnt>1?`${name} (${xeVeCnt} người)`:name;
-                          const amt=isXeVe&&xeVeCnt>1?`${fmt(perPerson)}/người · ${fmt(perPerson*xeVeCnt)} tổng`:fmt(perPerson);
-                          return <span key={name} style={{fontSize:'12px',padding:'3px 10px',borderRadius:'20px',background:(mem?.color||'#888')+'22',color:mem?.color||'#888',fontWeight:500}}>{label} · {amt}</span>;
+                          const amt=isXeVe&&xeVeCnt>1?`${fmt(Math.round(entryTotal/xeVeCnt))}/người · ${fmt(entryTotal)} tổng`:fmt(entryTotal);
+                          const waterTag = s.waterFee>0 ? (s.waterDrinkers ? (s.waterDrinkers[name]?' 💧':' 🚱') : ' 💧') : '';
+                          return <span key={name} style={{fontSize:'12px',padding:'3px 10px',borderRadius:'20px',background:(mem?.color||'#888')+'22',color:mem?.color||'#888',fontWeight:500}}>{label} · {amt}{waterTag}</span>;
                         })}
                       </div>
+                      {s.waterFee>0 && s.waterDrinkers && attending.some(n=>!s.waterDrinkers[n]) && (
+                        <div style={{fontSize:'10.5px',color:'var(--muted)',marginBottom:s.note?'8px':'0'}}>💧 = có uống nước (bị chia tiền nước) · 🚱 = không uống (không chịu tiền nước)</div>
+                      )}
                     </>
                   )}
                   {(s.courtFee||s.shuttleFee||s.waterFee||s.otherFee)&&(
