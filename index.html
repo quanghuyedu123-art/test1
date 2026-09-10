@@ -945,8 +945,10 @@ function personCost(s,name){
   if(totalWeight<=0) return 0;
   const xeVeCount = attending.includes('Xé Vé') ? Math.max(1, parseInt(s.xeVeCount)||1) : 0;
   const weightOf = n => n==='Xé Vé' ? xeVeCount : 1;
-  const baseFee = (s.courtFee||0)+(s.shuttleFee||0)+(s.otherFee||0);
   const waterFee = s.waterFee||0;
+  // Dùng total - waterFee (không cộng riêng courtFee+shuttleFee+otherFee) để luôn đúng
+  // với CẢ buổi cũ chỉ có trường "total" chung (chưa từng dùng tính năng chia khoản chi) lẫn buổi mới có breakdown đầy đủ.
+  const baseFee = (s.total||0) - waterFee;
   const drinkers = s.waterDrinkers; // undefined = buổi cũ, coi như ai cũng uống
   const isDrinker = n => drinkers ? !!drinkers[n] : true;
   let waterWeight = 0;
