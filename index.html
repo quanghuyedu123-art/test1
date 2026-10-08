@@ -2916,7 +2916,7 @@ function MembersTab({players,members,matches,sessions,isAdmin,onAddPlayer,onDele
   const totalMatches=p=>p.wins+p.losses;
   const winRate=p=>totalMatches(p)>0?Math.round(p.wins/totalMatches(p)*100):0;
   const lastActive=p=>{
-    const ms=matches.filter(m=>[...(m.team1Players||[]),(m.team2Players||[])].includes(p.name));
+    const ms=matches.filter(m=>(m.team1Players||[]).includes(p.name)||(m.team2Players||[]).includes(p.name));
     if(!ms.length) return null;
     return ms.sort((a,b)=>(b.id||0)-(a.id||0))[0].date||null;
   };
@@ -6412,24 +6412,34 @@ function App(){
       }}
     />}
 
-    {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs */}
-    <nav className="mobile-nav">
-      {TABS.slice(0,2).map(t=>(
-        <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
-          <span className="mni">{t.icon}</span>
-          <span>{t.label}</span>
-        </button>
-      ))}
-      <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu" disabled={!dbReady} style={!dbReady?{opacity:.5}:undefined}>
-        <span>+</span>
-      </button>
-      {TABS.slice(2).map(t=>(
-        <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
-          <span className="mni">{t.icon}</span>
-          <span>{t.label}</span>
-        </button>
-      ))}
-    </nav>
+    {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs (chỉ 4 tab thường dùng nhất) */}
+    {(()=>{
+      const MOBILE_TABS=[
+        {id:'dashboard',label:'Tổng Quan',icon:'📊'},
+        {id:'matches',  label:'Lịch Sử',icon:'🏓'},
+        {id:'bxh',      label:'BXH',icon:'🏆'},
+        {id:'members',  label:'Thành Viên',icon:'👥'},
+      ];
+      return (
+        <nav className="mobile-nav">
+          {MOBILE_TABS.slice(0,2).map(t=>(
+            <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+              <span className="mni">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+          <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu" disabled={!dbReady} style={!dbReady?{opacity:.5}:undefined}>
+            <span>+</span>
+          </button>
+          {MOBILE_TABS.slice(2).map(t=>(
+            <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+              <span className="mni">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      );
+    })()}
   </>;
 }
 
