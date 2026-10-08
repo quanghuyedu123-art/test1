@@ -2883,6 +2883,257 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
   </>;
 }
 
+/* ─── MEMBERS TAB ────────────────────────────────────────── */
+function MembersTab({players,members,matches,sessions,isAdmin,onAddPlayer,onDeletePlayer,onRenamePlayer,onUpdateElo,onViewHistory,showToast}){
+  const [search,setSearch]=useState('');
+  const [addName,setAddName]=useState('');
+  const [addElo,setAddElo]=useState('1500');
+  const [showAdd,setShowAdd]=useState(false);
+  const [renamingId,setRenamingId]=useState(null);
+  const [renameVal,setRenameVal]=useState('');
+  const [editEloId,setEditEloId]=useState(null);
+  const [editEloVal,setEditEloVal]=useState('');
+  const [confirmDelId,setConfirmDelId]=useState(null);
+  const [sortBy,setSortBy]=useState('elo'); // elo | name | matches | winrate
+
+  const sorted=useMemo(()=>{
+    let list=[...players];
+    const q=search.trim().toLowerCase();
+    if(q) list=list.filter(p=>p.name.toLowerCase().includes(q));
+    if(sortBy==='elo') list.sort((a,b)=>b.elo-a.elo);
+    else if(sortBy==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    else if(sortBy==='matches') list.sort((a,b)=>(b.wins+b.losses)-(a.wins+a.losses));
+    else if(sortBy==='winrate'){
+      list.sort((a,b)=>{
+        const ra=a.wins+a.losses>0?a.wins/(a.wins+a.losses):0;
+        const rb=b.wins+b.losses>0?b.wins/(b.wins+b.losses):0;
+        return rb-ra;
+      });
+    }
+    return list;
+  },[players,search,sortBy]);
+
+  const totalMatches=p=>p.wins+p.losses;
+  const winRate=p=>totalMatches(p)>0?Math.round(p.wins/totalMatches(p)*100):0;
+  const lastActive=p=>{
+    const ms=matches.filter(m=>[...(m.team1Players||[]),(m.team2Players||[])].includes(p.name));
+    if(!ms.length) return null;
+    return ms.sort((a,b)=>(b.id||0)-(a.id||0))[0].date||null;
+  };
+  const sessionCount=p=>(sessions||[]).filter(s=>s.attendees&&s.attendees[p.name]).length;
+
+  return (
+    <div style={{maxWidth:'720px',margin:'0 auto',padding:'16px'}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px',flexWrap:'wrap',gap:'8px'}}>
+        <div>
+          <div style={{fontSize:'18px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>👥 Thành Viên CLB</div>
+          <div style={{fontSize:'12px',color:'var(--muted)',marginTop:'2px'}}>{players.length} thành viên đang hoạt động</div>
+        </div>
+        {isAdmin&&(
+          <button onClick={()=>setShowAdd(v=>!v)}
+            style={{background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'8px 14px',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',gap:'5px'}}>
+            {showAdd?'✕ Đóng':'➕ Thêm thành viên'}
+          </button>
+        )}
+      </div>
+
+      {/* Add form */}
+      {isAdmin&&showAdd&&(
+        <div style={{background:'var(--surface)',border:'1px solid var(--green)',borderRadius:'12px',padding:'14px',marginBottom:'14px'}}>
+          <div style={{fontSize:'13px',fontWeight:700,marginBottom:'10px',color:'var(--green)'}}>➕ Thêm thành viên mới</div>
+          <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+            <input placeholder="Tên thành viên" value={addName} onChange={e=>setAddName(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter'&&addName.trim()){onAddPlayer(addName.trim(),addElo);setAddName('');setShowAdd(false);}}}
+              style={{flex:'2 1 140px',padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif',outline:'none'}}/>
+            <input type="number" placeholder="ELO ban đầu" value={addElo} onChange={e=>setAddElo(e.target.value)}
+              style={{flex:'1 1 100px',padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif',outline:'none'}}/>
+            <button onClick={()=>{if(addName.trim()){onAddPlayer(addName.trim(),addElo);setAddName('');setShowAdd(false);}}}
+              disabled={!addName.trim()}
+              style={{padding:'8px 16px',borderRadius:'8px',border:'none',background:addName.trim()?'var(--green)':'var(--border)',color:'#fff',fontSize:'13px',fontWeight:700,cursor:addName.trim()?'pointer':'default',fontFamily:'Nunito,sans-serif'}}>
+              Lưu
+            </button>
+          </div>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'6px'}}>💡 Thêm vào BXH & Hòm Công Đức cùng lúc</div>
+        </div>
+      )}
+
+      {/* Search + Sort */}
+      <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap'}}>
+        <input placeholder="🔍 Tìm thành viên..." value={search} onChange={e=>setSearch(e.target.value)}
+          style={{flex:'1 1 160px',padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif',outline:'none'}}/>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
+          style={{padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'12px',fontFamily:'Nunito,sans-serif',outline:'none'}}>
+          <option value="elo">Sắp xếp: Công Đức</option>
+          <option value="name">Sắp xếp: Tên A-Z</option>
+          <option value="matches">Sắp xếp: Số trận</option>
+          <option value="winrate">Sắp xếp: Tỉ lệ thắng</option>
+        </select>
+      </div>
+
+      {/* Member cards */}
+      {sorted.length===0&&(
+        <div style={{textAlign:'center',padding:'48px 16px',color:'var(--muted)'}}>
+          <div style={{fontSize:'40px',marginBottom:'10px'}}>🔍</div>
+          <div style={{fontSize:'14px'}}>Không tìm thấy thành viên nào</div>
+        </div>
+      )}
+      <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+        {sorted.map((p,rank)=>{
+          const wr=winRate(p);
+          const tot=totalMatches(p);
+          const sc=sessionCount(p);
+          const last=lastActive(p);
+          const isRenaming=renamingId===p.id;
+          const isEditElo=editEloId===p.id;
+          const isConfirmDel=confirmDelId===p.id;
+          const memberData=members.find(m=>m.name===p.name);
+          return (
+            <div key={p.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'14px',position:'relative',overflow:'hidden'}}>
+              {/* Color accent bar */}
+              <div style={{position:'absolute',top:0,left:0,bottom:0,width:'4px',background:p.color||'var(--green)',borderRadius:'4px 0 0 4px'}}/>
+              <div style={{paddingLeft:'10px'}}>
+                {/* Top row: rank + name + ELO + actions */}
+                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'8px',flexWrap:'wrap'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'10px',flex:1,minWidth:0}}>
+                    {/* Avatar / rank */}
+                    <div style={{width:'38px',height:'38px',borderRadius:'50%',background:p.color||'var(--green)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',fontWeight:800,color:'#fff',flexShrink:0,fontFamily:'Quicksand,sans-serif',overflow:'hidden'}}>
+                      {p.avatar?<img src={p.avatar} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>:p.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Name + rename */}
+                    <div style={{flex:1,minWidth:0}}>
+                      {isRenaming?(
+                        <div style={{display:'flex',gap:'5px',flexWrap:'wrap'}}>
+                          <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)}
+                            onKeyDown={e=>{if(e.key==='Enter'&&renameVal.trim()){onRenamePlayer(p.name,renameVal.trim(),p.id);setRenamingId(null);}if(e.key==='Escape')setRenamingId(null);}}
+                            style={{flex:1,minWidth:'100px',padding:'4px 8px',borderRadius:'6px',border:'1px solid var(--green)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif',outline:'none'}}/>
+                          <button onClick={()=>{if(renameVal.trim()){onRenamePlayer(p.name,renameVal.trim(),p.id);setRenamingId(null);}}}
+                            style={{padding:'4px 10px',borderRadius:'6px',border:'none',background:'var(--green)',color:'#fff',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓</button>
+                          <button onClick={()=>setRenamingId(null)}
+                            style={{padding:'4px 8px',borderRadius:'6px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕</button>
+                        </div>
+                      ):(
+                        <div>
+                          <div style={{fontSize:'15px',fontWeight:700,fontFamily:'Quicksand,sans-serif',color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div>
+                          {last&&<div style={{fontSize:'11px',color:'var(--muted)'}}>Trận cuối: {last}</div>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ELO + admin actions */}
+                  <div style={{display:'flex',alignItems:'center',gap:'6px',flexShrink:0}}>
+                    {/* ELO badge */}
+                    {isEditElo?(
+                      <div style={{display:'flex',gap:'4px',alignItems:'center'}}>
+                        <input type="number" autoFocus value={editEloVal} onChange={e=>setEditEloVal(e.target.value)}
+                          onKeyDown={e=>{if(e.key==='Enter'){onUpdateElo&&onUpdateElo(p.id,editEloVal);setEditEloId(null);}if(e.key==='Escape')setEditEloId(null);}}
+                          style={{width:'64px',textAlign:'center',padding:'4px',fontSize:'13px',fontWeight:700,borderRadius:'6px',border:'1px solid var(--green)',background:'var(--bg)',color:'var(--text)',fontFamily:'Quicksand,sans-serif',outline:'none'}}/>
+                        <button onClick={()=>{onUpdateElo&&onUpdateElo(p.id,editEloVal);setEditEloId(null);}}
+                          style={{padding:'4px 8px',borderRadius:'6px',border:'none',background:'var(--green)',color:'#fff',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✓</button>
+                        <button onClick={()=>setEditEloId(null)}
+                          style={{padding:'4px 6px',borderRadius:'6px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕</button>
+                      </div>
+                    ):(
+                      <div onClick={()=>{if(isAdmin){setEditEloId(p.id);setEditEloVal(String(p.elo));}}}
+                        style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'8px',padding:'4px 10px',textAlign:'center',cursor:isAdmin?'pointer':'default',minWidth:'54px'}}>
+                        <div style={{fontSize:'11px',color:'var(--green)',fontWeight:600,lineHeight:1.2}}>Công Đức</div>
+                        <div style={{fontSize:'16px',fontWeight:800,color:'var(--green)',fontFamily:'Quicksand,sans-serif',lineHeight:1.2}}>{p.elo}</div>
+                        {isAdmin&&<div style={{fontSize:'9px',color:'var(--muted)',opacity:.6}}>✏️ chỉnh</div>}
+                      </div>
+                    )}
+
+                    {/* Admin actions */}
+                    {isAdmin&&!isRenaming&&!isEditElo&&(
+                      <div style={{display:'flex',gap:'4px',flexDirection:'column'}}>
+                        <button onClick={()=>{setRenamingId(p.id);setRenameVal(p.name);}}
+                          style={{padding:'3px 8px',borderRadius:'6px',border:'1px solid var(--border)',background:'var(--surface2)',color:'var(--text)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>✏️ Đổi tên</button>
+                        {isConfirmDel?(
+                          <div style={{display:'flex',gap:'3px'}}>
+                            <button onClick={()=>{onDeletePlayer(p.id);setConfirmDelId(null);}}
+                              style={{flex:1,padding:'3px 6px',borderRadius:'6px',border:'none',background:'var(--red)',color:'#fff',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Xóa</button>
+                            <button onClick={()=>setConfirmDelId(null)}
+                              style={{padding:'3px 6px',borderRadius:'6px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>Hủy</button>
+                          </div>
+                        ):(
+                          <button onClick={()=>setConfirmDelId(p.id)}
+                            style={{padding:'3px 8px',borderRadius:'6px',border:'1px solid var(--red)',background:'transparent',color:'var(--red)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑️ Xóa</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stats row */}
+                <div style={{display:'flex',gap:'10px',marginTop:'10px',flexWrap:'wrap'}}>
+                  <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--text)'}}>{tot}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Trận</div>
+                  </div>
+                  <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--green)'}}>{p.wins}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Thắng</div>
+                  </div>
+                  <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--red)'}}>{p.losses}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Thua</div>
+                  </div>
+                  <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:wr>=50?'var(--green)':'var(--red)'}}>{tot>0?`${wr}%`:'—'}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Tỉ lệ</div>
+                  </div>
+                  <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--blue,#3b82f6)'}}>{sc}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Buổi</div>
+                  </div>
+                  {memberData&&memberData.paid>0&&(
+                    <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 70px',minWidth:'60px'}}>
+                      <div style={{fontSize:'13px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--yellow)'}}>{fmt(memberData.paid)}</div>
+                      <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Đã đóng</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* View history button */}
+                <div style={{marginTop:'8px',textAlign:'right'}}>
+                  <button onClick={()=>onViewHistory(p)}
+                    style={{padding:'4px 12px',borderRadius:'7px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600}}>
+                    📊 Xem lịch sử trận →
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Summary footer */}
+      {players.length>0&&(
+        <div style={{marginTop:'16px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'12px 16px',display:'flex',gap:'20px',justifyContent:'center',flexWrap:'wrap'}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'20px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>{players.length}</div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>Thành viên</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'20px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>{matches.length}</div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>Tổng trận</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'20px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>{(sessions||[]).length}</div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>Buổi chơi</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'20px',fontWeight:800,fontFamily:'Quicksand,sans-serif'}}>
+              {players.length>0?Math.round(players.reduce((s,p)=>s+p.elo,0)/players.length):1500}
+            </div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>Công Đức TB</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── LEADERBOARD ───────────────────────────────────────── */
 function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRenamePlayer,onViewHistory,isAdmin,onUpdateElo}){
   const [bxhSeg,setBxhSeg]=useState('bxh');
@@ -6013,6 +6264,7 @@ function App(){
     {id:'dashboard',label:'Tổng Quan',icon:'📊'},
     {id:'matches',  label:'Lịch Sử',icon:'🏓'},
     {id:'bxh',      label:'BXH',icon:'🏆'},
+    {id:'members',  label:'Thành Viên',icon:'👥'},
     {id:'sokeo',    label:'So Kèo',icon:'⚔️'},
   ];
 
@@ -6088,6 +6340,7 @@ function App(){
           ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
+      {tab==='members'   && <MembersTab players={players} members={members} matches={matches} sessions={sessions} isAdmin={isAdmin} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onUpdateElo={guardedUpdateElo} onViewHistory={goToPlayerHistory} showToast={showToast}/>}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast}/>}
       {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin} bankInfo={bankInfo} setBankInfo={setBankInfo} clubName={bannerTitle}/>}
     </div>
