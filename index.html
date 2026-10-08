@@ -188,7 +188,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 
 /* MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .modal-title{font-family:'Quicksand',sans-serif;font-size:19px;font-weight:700}
 .modal-close{background:var(--surface2);border:none;color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
@@ -216,7 +216,7 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .ep-val{font-family:'Quicksand',sans-serif;font-size:22px;font-weight:700}
 
 /* FORM ACTIONS */
-.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;position:sticky;bottom:-24px;background:var(--bg2);padding:12px 0 2px;margin-left:-24px;margin-right:-24px;padding-left:24px;padding-right:24px;border-top:1px solid var(--border)}
 .btn-cancel{background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--muted);padding:9px 18px;font-size:14px;cursor:pointer;font-family:'Nunito',sans-serif}
 .btn-save{background:var(--green);border:none;border-radius:9px;color:#fff;padding:9px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif}
 .btn-save:hover{background:var(--green2)}
@@ -3135,7 +3135,7 @@ function MembersTab({players,members,matches,sessions,isAdmin,onAddPlayer,onDele
 }
 
 /* ─── LEADERBOARD ───────────────────────────────────────── */
-function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRenamePlayer,onViewHistory,isAdmin,onUpdateElo}){
+function LeaderboardTab({players,matches,members,sessions,onAddPlayer,onDeletePlayer,onRenamePlayer,onViewHistory,isAdmin,onUpdateElo,showToast}){
   const [bxhSeg,setBxhSeg]=useState('bxh');
   const [h2hA,setH2hA]=useState('');
   const [h2hB,setH2hB]=useState('');
@@ -3238,7 +3238,7 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
   return <>
     {/* Segment */}
     <div style={{display:'flex',background:'var(--surface)',borderRadius:'10px',padding:'4px',gap:'4px',marginBottom:'16px',width:'fit-content'}}>
-      {[['bxh','🏆 Bảng Công Đức'],['h2h','⚔️ Đối Đầu']].map(([id,lb])=>(
+      {[['bxh','🏆 Bảng Công Đức'],['h2h','⚔️ Đối Đầu'],['members','👤 Thành Viên']].map(([id,lb])=>(
         <button key={id} onClick={()=>setBxhSeg(id)} className={`seg-btn${bxhSeg===id?' active':''}`}>{lb}</button>
       ))}
     </div>
@@ -3522,6 +3522,10 @@ function LeaderboardTab({players,matches,members,onAddPlayer,onDeletePlayer,onRe
       )}
       {(!h2hA||!h2hB||h2hA===h2hB)&&<div style={{textAlign:'center',padding:'32px',color:'var(--muted)'}}>Chọn 2 người chơi khác nhau để xem lịch sử đối đầu</div>}
     </>}
+    {bxhSeg==='members' && <MembersTab players={players} members={members} matches={matches}
+      sessions={sessions} isAdmin={isAdmin} onAddPlayer={onAddPlayer}
+      onDeletePlayer={onDeletePlayer} onRenamePlayer={onRenamePlayer}
+      onUpdateElo={onUpdateElo} onViewHistory={onViewHistory} showToast={showToast}/>}
   </>;
 }
 
@@ -6264,7 +6268,6 @@ function App(){
     {id:'dashboard',label:'Tổng Quan',icon:'📊'},
     {id:'matches',  label:'Lịch Sử',icon:'🏓'},
     {id:'bxh',      label:'BXH',icon:'🏆'},
-    {id:'members',  label:'Thành Viên',icon:'👥'},
     {id:'sokeo',    label:'So Kèo',icon:'⚔️'},
   ];
 
@@ -6334,13 +6337,12 @@ function App(){
     <div className="main">
       {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')}/>}
       {tab==='matches'   && <MatchesTab matches={matches} players={players} myElo={myElo} onAdd={openAdd} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
-      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo}/>}
+      {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
           ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
-      {tab==='members'   && <MembersTab players={players} members={members} matches={matches} sessions={sessions} isAdmin={isAdmin} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onUpdateElo={guardedUpdateElo} onViewHistory={goToPlayerHistory} showToast={showToast}/>}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast}/>}
       {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin} bankInfo={bankInfo} setBankInfo={setBankInfo} clubName={bannerTitle}/>}
     </div>
@@ -6418,7 +6420,7 @@ function App(){
         {id:'dashboard',label:'Tổng Quan',icon:'📊'},
         {id:'matches',  label:'Lịch Sử',icon:'🏓'},
         {id:'bxh',      label:'BXH',icon:'🏆'},
-        {id:'members',  label:'Thành Viên',icon:'👥'},
+        {id:'sokeo',    label:'So Kèo',icon:'⚔️'},
       ];
       return (
         <nav className="mobile-nav">
