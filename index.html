@@ -5475,71 +5475,6 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
     return {...m, debt};
   });
 
-  // Tính chi tiết từng buổi (sân + nước riêng) cho 1 thành viên
-  // Chỉ hiển thị các buổi CHƯA được thanh toán (bỏ qua buổi cũ đã bù bởi m.paid)
-  const getSessionBreakdown = (memberName) => {
-    const member = members.find(m=>m.name===memberName);
-    const paid = member ? (member.paid||0) : 0;
-
-    const allSessions = (sessions||[])
-      .filter(s => s.attendees && s.attendees[memberName])
-      .sort((a,b) => { const da=a.date?.split('/').reverse().join('')||''; const db=b.date?.split('/').reverse().join('')||''; return da.localeCompare(db); })
-      .map(s => {
-        const attending = Object.entries(s.attendees||{}).filter(([,v])=>v).map(([k])=>k);
-        const xeVeCount = attending.includes('Xé Vé') ? Math.max(1,parseInt(s.xeVeCount)||1) : 0;
-        const weightOf = n => n==='Xé Vé' ? xeVeCount : 1;
-        const totalWeight = attending.reduce((sum,n)=>sum+weightOf(n),0);
-        const w = weightOf(memberName);
-        const courtBase = (s.courtFee||0)+(s.shuttleFee||0)+(s.otherFee||0);
-        const courtShare = totalWeight>0 ? Math.round(courtBase/totalWeight*w) : 0;
-        const waterFee = s.waterFee||0;
-        const drinkers = s.waterDrinkers;
-        const isDrinker = drinkers ? !!drinkers[memberName] : true;
-        let waterWeight = 0;
-        attending.forEach(n=>{ if(drinkers ? !!drinkers[n] : true) waterWeight+=weightOf(n); });
-        const waterShare = (waterFee>0 && isDrinker && waterWeight>0) ? Math.round(waterFee/waterWeight*w) : 0;
-        return { date:s.date, courtShare, waterShare, hasCourt:courtBase>0, hasWater:waterFee>0, isDrinker, total: courtShare+waterShare };
-      })
-      .filter(x => x.total>0);
-
-    // Bỏ qua các buổi cũ đã được bù bởi khoản đã nộp (paid)
-    // Logic: đi từ buổi cũ nhất → mới nhất, trừ dần paid
-    // Buổi nào còn bị nợ (paid chưa đủ bù) thì hiển thị
-    let remaining = paid;
-    const unpaidSessions = [];
-    for(const s of allSessions){
-      if(remaining >= s.total){
-        remaining -= s.total; // buổi này đã được bù đủ → bỏ qua
-      } else {
-        // buổi này còn nợ (một phần hoặc toàn bộ) → giữ lại để hiển thị
-        unpaidSessions.push(s);
-        remaining = 0;
-      }
-    }
-    return unpaidSessions;
-  };
-
-  const SessionBreakdown = ({memberName}) => {
-    const breakdown = getSessionBreakdown(memberName);
-    if(!breakdown.length) return null;
-    return (
-      <div style={{marginTop:'10px',textAlign:'left',borderTop:'1px dashed #e3e6ea',paddingTop:'8px'}}>
-        <div style={{fontSize:'10px',fontWeight:700,color:'#8a909c',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'5px'}}>Chi tiết các buổi chơi</div>
-        {breakdown.map((b,i)=>(
-          <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'4px 0',borderBottom:i<breakdown.length-1?'1px solid #f5f5f5':'none'}}>
-            <div style={{fontWeight:600,fontSize:'11px',color:'#1a1d24',flexShrink:0,marginRight:'8px'}}>📅 {b.date}</div>
-            <div style={{textAlign:'right',fontSize:'11px',lineHeight:1.6}}>
-              {b.hasCourt && <div style={{color:'#22c55e'}}>🎾 Tiền sân: <b>{fmt(b.courtShare)}</b></div>}
-              {b.hasWater && (b.isDrinker
-                ? <div style={{color:'#3b82f6'}}>💧 Tiền nước: <b>{fmt(b.waterShare)}</b></div>
-                : <div style={{color:'#94a3b8'}}>💧 Tiền nước: <b>không uống</b></div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
 
   const downloadCard = async(name)=>{
     const node = cardRefs.current[name];
@@ -5663,7 +5598,6 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
                   <div><b>{bankName}</b></div>
                   <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
                 </div>
-                <SessionBreakdown memberName={r.name}/>
                 <button onClick={()=>downloadCard(r.name)} disabled={downloading!==null} style={{marginTop:'12px',background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 16px',fontSize:'12px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
                   {downloading===r.name?'⏳ Đang tải...':'⬇️ Tải ảnh này'}
                 </button>
