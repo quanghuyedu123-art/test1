@@ -2774,11 +2774,143 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
 }
 
 /* ─── MATCHES TAB ───────────────────────────────────────── */
+/* ─── SHARE SESSION MODAL ─────────────────────────────────── */
+function ShareSessionModal({matches, players, onClose}){
+  const [copied, setCopied] = useState(false);
+
+  // Lấy ngày hôm nay dạng DD/MM/YYYY
+  const todayStr = useMemo(()=>{
+    const d = new Date();
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  },[]);
+
+  // Lọc trận hôm nay
+  const todayMatches = useMemo(()=>
+    matches.filter(m=>m.date===todayStr||m.date===todayStr.slice(0,5))
+  ,[matches, todayStr]);
+
+  // Tổng hợp ELO thay đổi hôm nay theo từng người
+  const eloSummary = useMemo(()=>{
+    const map = {};
+    todayMatches.forEach(m=>{
+      (m.eloChanges||[]).forEach(({name,delta})=>{
+        if(!map[name]) map[name]={name,total:0,wins:0,losses:0};
+        map[name].total += delta;
+        if(delta>0) map[name].wins++;
+        else map[name].losses++;
+      });
+    });
+    return Object.values(map).sort((a,b)=>b.total-a.total);
+  },[todayMatches]);
+
+  // Top 5 BXH hiện tại
+  const top5 = useMemo(()=>
+    [...players].sort((a,b)=>b.elo-a.elo).slice(0,5)
+  ,[players]);
+
+  // Tạo text chia sẻ Zalo
+  const shareText = useMemo(()=>{
+    if(todayMatches.length===0) return '';
+    const date = todayStr;
+    const lines = [
+      `🏓 KẾT QUẢ PHÔNG BẠT — ${date}`,
+      `━━━━━━━━━━━━━━━━━━`,
+      `📊 ${todayMatches.length} trận | ${eloSummary.length} người tham gia`,
+      ``,
+      `📈 THAY ĐỔI CÔNG ĐỨC:`,
+      ...eloSummary.map(p=>{
+        const arrow = p.total>0?'▲':'▼';
+        const sign = p.total>0?'+':'';
+        const elo = players.find(x=>x.name===p.name)?.elo||1500;
+        return `${arrow} ${p.name}: ${sign}${p.total} (${elo} CĐ)`;
+      }),
+      ``,
+      `🏆 TOP 5 BẢNG CÔNG ĐỨC:`,
+      ...top5.map((p,i)=>`${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${p.name}: ${p.elo} CĐ`),
+      ``,
+      `🔗 Xem chi tiết: phongbat.vercel.app`,
+    ];
+    return lines.join('\n');
+  },[todayMatches, eloSummary, top5, todayStr, players]);
+
+  const copyText = ()=>{
+    navigator.clipboard.writeText(shareText).then(()=>{
+      setCopied(true);
+      setTimeout(()=>setCopied(false), 3000);
+    }).catch(()=>{
+      const el = document.createElement('textarea');
+      el.value = shareText;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(()=>setCopied(false), 3000);
+    });
+  };
+
+  const hasData = todayMatches.length > 0;
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
+        <div className="modal-head">
+          <div className="modal-title">📤 Chia sẻ kết quả hôm nay</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {!hasData ? (
+          <div style={{textAlign:'center',padding:'32px 0',color:'var(--muted)'}}>
+            <div style={{fontSize:'32px',marginBottom:'12px'}}>📭</div>
+            <div style={{fontWeight:700}}>Chưa có trận nào hôm nay</div>
+            <div style={{fontSize:'13px',marginTop:'6px'}}>Ghi trận xong rồi chia sẻ nhé!</div>
+          </div>
+        ) : (<>
+          {/* Preview card */}
+          <div style={{background:'var(--surface)',borderRadius:'14px',padding:'16px',marginBottom:'16px',fontFamily:'monospace',fontSize:'13px',lineHeight:'1.7',whiteSpace:'pre-wrap',maxHeight:'280px',overflowY:'auto',color:'var(--text)'}}>
+            {shareText}
+          </div>
+
+          {/* ELO changes visual */}
+          <div style={{marginBottom:'16px'}}>
+            <div style={{fontSize:'11px',color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.6px',marginBottom:'10px'}}>Thay đổi Công Đức</div>
+            {eloSummary.map(p=>{
+              const gain = p.total > 0;
+              const elo = players.find(x=>x.name===p.name)?.elo||1500;
+              const pct = Math.min(100, Math.abs(p.total)/32*100);
+              return (
+                <div key={p.name} style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'8px'}}>
+                  <div style={{width:'110px',fontSize:'13px',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div>
+                  <div style={{flex:1,background:'var(--border)',borderRadius:'99px',height:'8px',overflow:'hidden'}}>
+                    <div style={{height:'8px',borderRadius:'99px',width:`${pct}%`,background:gain?'var(--green)':'var(--red)',transition:'width .4s'}}/>
+                  </div>
+                  <div style={{width:'70px',textAlign:'right',fontSize:'13px',fontWeight:800,color:gain?'var(--green)':'var(--red)',fontVariantNumeric:'tabular-nums'}}>
+                    {gain?'+':''}{p.total} ({elo})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="form-actions">
+            <button className="btn-cancel" onClick={onClose}>Đóng</button>
+            <button className="btn-save" onClick={copyText} style={{background:copied?'var(--green2)':'var(--green)',minWidth:'160px'}}>
+              {copied ? '✅ Đã copy! Paste vào Zalo' : '📋 Copy chia sẻ Zalo'}
+            </button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+/* ─── MATCHES TAB ─────────────────────────────────────────── */
 function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
   const [monthFilter,setMonthFilter]=useState('Tất cả');
   const [playerFilter,setPlayerFilter]=useState('Tất cả');
   const [editMatch,setEditMatch]=useState(null);
+  const [showShare,setShowShare]=useState(false);
 
   // extract unique months from match dates (DD/MM or DD-MM)
   const months=useMemo(()=>{
@@ -2824,9 +2956,11 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
       <div className="section-title">Lịch sử trận đấu</div>
       <div style={{display:'flex',gap:'6px'}}>
         <button onClick={()=>exportCSV(matches,players)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>📥 Xuất CSV</button>
+        <button onClick={()=>setShowShare(true)} style={{background:'rgba(99,102,241,.15)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'8px',color:'#818cf8',padding:'7px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700}}>📤 Chia sẻ</button>
         <button className="btn-ghi" onClick={onAdd}>+ Ghi trận</button>
       </div>
     </div>
+    {showShare && <ShareSessionModal matches={matches} players={players} onClose={()=>setShowShare(false)}/>}
     <EloCard myElo={myElo}/>
 
     {/* Filters */}
@@ -5342,8 +5476,12 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
   });
 
   // Tính chi tiết từng buổi (sân + nước riêng) cho 1 thành viên
+  // Chỉ hiển thị các buổi CHƯA được thanh toán (bỏ qua buổi cũ đã bù bởi m.paid)
   const getSessionBreakdown = (memberName) => {
-    return (sessions||[])
+    const member = members.find(m=>m.name===memberName);
+    const paid = member ? (member.paid||0) : 0;
+
+    const allSessions = (sessions||[])
       .filter(s => s.attendees && s.attendees[memberName])
       .sort((a,b) => { const da=a.date?.split('/').reverse().join('')||''; const db=b.date?.split('/').reverse().join('')||''; return da.localeCompare(db); })
       .map(s => {
@@ -5360,9 +5498,25 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
         let waterWeight = 0;
         attending.forEach(n=>{ if(drinkers ? !!drinkers[n] : true) waterWeight+=weightOf(n); });
         const waterShare = (waterFee>0 && isDrinker && waterWeight>0) ? Math.round(waterFee/waterWeight*w) : 0;
-        return { date:s.date, courtShare, waterShare, hasCourt:courtBase>0, hasWater:waterFee>0, isDrinker };
+        return { date:s.date, courtShare, waterShare, hasCourt:courtBase>0, hasWater:waterFee>0, isDrinker, total: courtShare+waterShare };
       })
-      .filter(x => x.courtShare>0 || x.waterShare>0);
+      .filter(x => x.total>0);
+
+    // Bỏ qua các buổi cũ đã được bù bởi khoản đã nộp (paid)
+    // Logic: đi từ buổi cũ nhất → mới nhất, trừ dần paid
+    // Buổi nào còn bị nợ (paid chưa đủ bù) thì hiển thị
+    let remaining = paid;
+    const unpaidSessions = [];
+    for(const s of allSessions){
+      if(remaining >= s.total){
+        remaining -= s.total; // buổi này đã được bù đủ → bỏ qua
+      } else {
+        // buổi này còn nợ (một phần hoặc toàn bộ) → giữ lại để hiển thị
+        unpaidSessions.push(s);
+        remaining = 0;
+      }
+    }
+    return unpaidSessions;
   };
 
   const SessionBreakdown = ({memberName}) => {
