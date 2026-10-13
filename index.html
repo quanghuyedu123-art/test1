@@ -3863,6 +3863,8 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast})
   const [tourName,setTourName]=useState('');
   const [draftTeams,setDraftTeams]=useState(null);
   const [swapPick,setSwapPick]=useState(null);
+  const [playerSearch,setPlayerSearch]=useState('');
+  const [editingSlot,setEditingSlot]=useState(null); // {ti,pi} — sửa người trong draft
   const [editingMatch,setEditingMatch]=useState(null); // {ri,mi} | 'third'
   const [showEditRound1,setShowEditRound1]=useState(false);
   const [confirmReset,setConfirmReset]=useState(false);
@@ -3910,7 +3912,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast})
       rounds,
       thirdPlace: rounds.length>=2? computeThirdPlace(rounds,null): null,
     });
-    setCreating(false); setDraftTeams(null); setSelectedNames([]); setTourName('');
+    setCreating(false); setDraftTeams(null); setSelectedNames([]); setTourName(''); setPlayerSearch(''); setEditingSlot(null);
     showToast&&showToast('Đã tạo sơ đồ giải đấu!');
   };
 
@@ -4002,25 +4004,41 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast})
               {[4,8,16,32].map(n=><option key={n} value={n}>{n} người ({n/2} đội)</option>)}
             </select>
           </div>
-          <div className="fl" style={{marginBottom:'8px'}}>Chọn người chơi ({selectedNames.length}/{participantCount})</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'14px',maxHeight:'260px',overflowY:'auto'}}>
-            {[...players].sort((a,b)=>b.elo-a.elo).map(p=>{
-              const on=selectedNames.includes(p.name);
-              const disabled=!on&&selectedNames.length>=participantCount;
-              return (
-                <button key={p.id} disabled={disabled} onClick={()=>togglePlayer(p.name)} style={{
-                  padding:'6px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:disabled?'not-allowed':'pointer',
-                  fontFamily:'Nunito,sans-serif',opacity:disabled?.4:1,
-                  borderColor:on?'var(--purple)':'var(--border)',
-                  background:on?'var(--purple-bg)':'transparent',
-                  color:on?'var(--purple)':'var(--muted)',fontWeight:on?700:500}}>
-                  {p.name.split(' ').slice(-2).join(' ')} <span style={{opacity:.7}}>({p.elo})</span>
-                </button>
-              );
-            })}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px',flexWrap:'wrap',gap:'6px'}}>
+            <div className="fl">Chọn người chơi ({selectedNames.length}/{participantCount})</div>
+            {selectedNames.length>0&&<button onClick={()=>setSelectedNames([])} style={{fontSize:'11px',color:'var(--red)',background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Bỏ chọn hết</button>}
+          </div>
+          <div style={{position:'relative',marginBottom:'8px'}}>
+            <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'13px',color:'var(--muted)',pointerEvents:'none'}}>🔍</span>
+            <input className="fi" value={playerSearch} onChange={e=>setPlayerSearch(e.target.value)}
+              placeholder="Tìm kiếm tên người chơi…"
+              style={{paddingLeft:'30px',background:'var(--surface2)'}}/>
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'14px',maxHeight:'220px',overflowY:'auto'}}>
+            {[...players].sort((a,b)=>b.elo-a.elo)
+              .filter(p=>!playerSearch||p.name.toLowerCase().includes(playerSearch.toLowerCase()))
+              .map(p=>{
+                const on=selectedNames.includes(p.name);
+                const disabled=!on&&selectedNames.length>=participantCount;
+                return (
+                  <button key={p.id} disabled={disabled} onClick={()=>togglePlayer(p.name)} style={{
+                    padding:'6px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:disabled?'not-allowed':'pointer',
+                    fontFamily:'Nunito,sans-serif',opacity:disabled?.4:1,
+                    borderColor:on?'var(--purple)':'var(--border)',
+                    background:on?'var(--purple-bg)':'transparent',
+                    color:on?'var(--purple)':'var(--muted)',fontWeight:on?700:500,
+                    display:'flex',alignItems:'center',gap:'4px'}}>
+                    {on&&<span style={{fontSize:'10px'}}>✓</span>}
+                    {p.name.split(' ').slice(-2).join(' ')} <span style={{opacity:.7}}>({p.elo})</span>
+                  </button>
+                );
+              })}
+            {players.filter(p=>!playerSearch||p.name.toLowerCase().includes(playerSearch.toLowerCase())).length===0&&(
+              <div style={{color:'var(--muted)',fontSize:'12px',padding:'10px 0'}}>Không tìm thấy "{playerSearch}"</div>
+            )}
           </div>
           <div style={{display:'flex',gap:'8px'}}>
-            <button className="btn-cancel" onClick={()=>{setCreating(false);setSelectedNames([]);}}>Huỷ</button>
+            <button className="btn-cancel" onClick={()=>{setCreating(false);setSelectedNames([]);setPlayerSearch('');}}>Huỷ</button>
             <button className="btn-save" style={{flex:1}} disabled={selectedNames.length!==participantCount} onClick={doFormTeams}>
               🎲 Ghép đội theo Công Đức
             </button>
@@ -4031,28 +4049,92 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast})
       {creating && draftTeams && (
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px'}}>
           <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px'}}>
-            💡 Đã ghép người mạnh với người yếu để các đội cân sức nhau, rồi xếp đội gần điểm nhau đấu vòng 1. Bấm 1 người rồi bấm người khác (đội khác) để đổi chỗ nếu muốn.
+            💡 Đã ghép người mạnh với người yếu để các đội cân sức nhau. <b style={{color:'var(--text)'}}>Bấm đổi↕</b> để hoán vị 2 người giữa các đội. <b style={{color:'var(--text)'}}>Bấm ✎</b> để thay thế bằng người khác tuỳ ý.
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:'10px',marginBottom:'14px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:'10px',marginBottom:'14px'}}>
             {draftTeams.map((t,ti)=>(
               <div key={t.id} style={{border:'1px solid var(--border)',borderRadius:'10px',padding:'10px'}}>
-                <div style={{fontSize:'10px',color:'var(--muted)',marginBottom:'6px'}}>TB: {t.avgElo} Công Đức</div>
+                <div style={{fontSize:'10px',color:'var(--muted)',marginBottom:'6px',display:'flex',justifyContent:'space-between'}}>
+                  <span>Đội {ti+1}</span><span>TB: {t.avgElo} CĐ</span>
+                </div>
                 {t.players.map((pname,pi)=>{
                   const picked=swapPick&&swapPick.ti===ti&&swapPick.pi===pi;
+                  const isEditing=editingSlot&&editingSlot.ti===ti&&editingSlot.pi===pi;
                   return (
-                    <div key={pi} onClick={()=>swapDraftPlayers(ti,pi)} style={{
-                      padding:'6px 8px',borderRadius:'7px',fontSize:'12px',cursor:'pointer',marginBottom:pi===0?'4px':0,
-                      background:picked?'var(--purple)':'var(--surface2)',
-                      color:picked?'#fff':'var(--text)',fontWeight:600}}>
-                      {pname.split(' ').slice(-2).join(' ')}
+                    <div key={pi} style={{display:'flex',gap:'4px',marginBottom:pi===0?'4px':0,alignItems:'center'}}>
+                      <div onClick={()=>{if(editingSlot)return;swapDraftPlayers(ti,pi);}} style={{
+                        flex:1,padding:'5px 8px',borderRadius:'7px',fontSize:'12px',cursor:'pointer',
+                        background:picked?'var(--purple)':'var(--surface2)',
+                        color:picked?'#fff':'var(--text)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {pname.split(' ').slice(-2).join(' ')}
+                      </div>
+                      <button onClick={()=>setEditingSlot(isEditing?null:{ti,pi})} title="Thay bằng người khác" style={{
+                        flexShrink:0,width:'24px',height:'24px',borderRadius:'6px',border:'1px solid',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                        borderColor:isEditing?'var(--purple)':'var(--border2)',
+                        background:isEditing?'var(--purple-bg)':'transparent',
+                        color:isEditing?'var(--purple)':'var(--muted)',padding:0,display:'flex',alignItems:'center',justifyContent:'center'}}>✎</button>
                     </div>
                   );
                 })}
               </div>
             ))}
           </div>
+
+          {editingSlot && (()=>{
+            const curName=draftTeams[editingSlot.ti].players[editingSlot.pi];
+            const usedNames=draftTeams.flatMap(t=>t.players);
+            const avail=players.filter(p=>!usedNames.includes(p.name)||p.name===curName);
+            const [slotSearch,setSlotSearch]=React.useState('');
+            return (
+              <div style={{background:'var(--bg3)',border:'1px solid var(--purple)',borderRadius:'10px',padding:'12px',marginBottom:'12px'}}>
+                <div style={{fontSize:'12px',fontWeight:600,marginBottom:'8px',color:'var(--purple)'}}>
+                  ✎ Thay người cho Đội {editingSlot.ti+1} — vị trí {editingSlot.pi+1} (đang là: <b>{curName.split(' ').slice(-2).join(' ')}</b>)
+                </div>
+                <div style={{position:'relative',marginBottom:'8px'}}>
+                  <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:'var(--muted)',pointerEvents:'none'}}>🔍</span>
+                  <input className="fi" value={slotSearch} onChange={e=>setSlotSearch(e.target.value)}
+                    placeholder="Tìm người thay thế…" style={{paddingLeft:'30px',background:'var(--surface)'}}
+                    autoFocus/>
+                </div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'5px',maxHeight:'140px',overflowY:'auto'}}>
+                  {avail.filter(p=>!slotSearch||p.name.toLowerCase().includes(slotSearch.toLowerCase())).map(p=>{
+                    const isCur=p.name===curName;
+                    return (
+                      <button key={p.id} onClick={()=>{
+                        if(isCur){setEditingSlot(null);return;}
+                        setDraftTeams(prev=>{
+                          const next=prev.map(t=>({...t,players:[...t.players]}));
+                          // nếu người mới đang ở đội khác thì đổi chỗ
+                          for(let i=0;i<next.length;i++) for(let j=0;j<next[i].players.length;j++){
+                            if(next[i].players[j]===p.name&&!(i===editingSlot.ti&&j===editingSlot.pi)){
+                              next[i].players[j]=curName;
+                            }
+                          }
+                          next[editingSlot.ti].players[editingSlot.pi]=p.name;
+                          next.forEach(t=>{const es=t.players.map(n=>players.find(x=>x.name===n)?.elo||1500);t.avgElo=Math.round((es[0]+es[1])/2);});
+                          return next;
+                        });
+                        setEditingSlot(null);
+                      }} style={{
+                        padding:'5px 10px',borderRadius:'16px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                        borderColor:isCur?'var(--purple)':'var(--border)',
+                        background:isCur?'var(--purple)':'transparent',
+                        color:isCur?'#fff':'var(--text)',fontWeight:isCur?700:500}}>
+                        {p.name.split(' ').slice(-2).join(' ')} ({p.elo})
+                      </button>
+                    );
+                  })}
+                  {avail.filter(p=>!slotSearch||p.name.toLowerCase().includes(slotSearch.toLowerCase())).length===0&&(
+                    <span style={{fontSize:'12px',color:'var(--muted)'}}>Không tìm thấy</span>
+                  )}
+                </div>
+                <button onClick={()=>setEditingSlot(null)} style={{marginTop:'8px',fontSize:'11px',color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Đóng</button>
+              </div>
+            );
+          })()}
+
           <div style={{display:'flex',gap:'8px'}}>
-            <button className="btn-cancel" onClick={()=>setDraftTeams(null)}>← Chọn lại người chơi</button>
+            <button className="btn-cancel" onClick={()=>{setDraftTeams(null);setEditingSlot(null);}}>← Chọn lại người chơi</button>
             <button className="btn-save" style={{flex:1}} onClick={confirmCreateTournament}>✅ Tạo sơ đồ giải đấu</button>
           </div>
         </div>
