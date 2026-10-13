@@ -1903,14 +1903,8 @@ function AddMatchModal({players,sessions,onClose,onSave}){
   const [date,setDate]=useState(`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`);
   const [score1,setScore1]=useState('');
   const [score2,setScore2]=useState('');
-  // Đơn
-  const [p1,setP1]=useState('');
-  const [p2,setP2]=useState('');
-  // Đôi
-  const [t1a,setT1a]=useState('');
-  const [t1b,setT1b]=useState('');
-  const [t2a,setT2a]=useState('');
-  const [t2b,setT2b]=useState('');
+  // Quick-pick: {name: 'A'|'B'}
+  const [picks,setPicks]=useState({});
 
   // Buổi chơi đã đặt sân — dùng để lọc danh sách người chơi khi ghi trận
   // Chỉ tính các buổi có TIỀN SÂN (buổi thật sự đặt sân để chơi), không tính buổi
@@ -1939,52 +1933,56 @@ function AddMatchModal({players,sessions,onClose,onSave}){
   const hasScore=score1!==''&&score2!=='';
   const win=s1>s2;
 
-  // compute ELO preview
-  const eloPreview=useMemo(()=>{
-    if(!hasScore) return null;
-    if(type==='Đơn'){
-      const pa=players.find(p=>p.name===p1), pb=players.find(p=>p.name===p2);
-      if(!pa||!pb) return null;
-      const d=calcEloChangePair(pa.elo,pb.elo,win,'Đơn');
-      return [{name:pa.name,delta:d},{name:pb.name,delta:-d}];
-    } else {
-      const pa=players.find(p=>p.name===t1a),pb=players.find(p=>p.name===t1b);
-      const pc=players.find(p=>p.name===t2a),pd=players.find(p=>p.name===t2b);
-      if(!pa||!pc) return null;
-      const elo1=pa&&pb?Math.round((pa.elo+(pb?.elo||pa.elo))/2):pa?.elo||1500;
-      const elo2=pc&&pd?Math.round((pc.elo+(pd?.elo||pc.elo))/2):pc?.elo||1500;
-      const d=calcEloChangePair(elo1,elo2,win,'Đôi');
-      const res=[];
-      if(pa) res.push({name:pa.name,delta:d});
-      if(pb) res.push({name:pb.name,delta:d});
-      if(pc) res.push({name:pc.name,delta:-d});
-      if(pd) res.push({name:pd.name,delta:-d});
-      return res;
-    }
-  },[hasScore,win,type,p1,p2,t1a,t1b,t2a,t2b,players]);
-
   const pOpts=(sessionAttendees && sessionAttendees.length>0)
     ? players.filter(p=>sessionAttendees.includes(p.name)).map(p=>p.name)
     : players.map(p=>p.name);
-  const sel=(val,fn,others=[])=>{
-    const taken=(others||[]).filter(Boolean);
-    return (
-      <select className="fi" value={val} onChange={e=>fn(e.target.value)}>
-        <option value="">-- Chọn người --</option>
-        {pOpts.filter(n=>n===val||!taken.includes(n)).map(n=><option key={n}>{n}</option>)}
-      </select>
-    );
+
+  const maxPerSide=type==='Đơn'?1:2;
+  const sideA=Object.entries(picks).filter(([,v])=>v==='A').map(([n])=>n);
+  const sideB=Object.entries(picks).filter(([,v])=>v==='B').map(([n])=>n);
+
+  // compute ELO preview
+  const eloPreview=useMemo(()=>{
+    if(!hasScore||!sideA.length||!sideB.length) return null;
+    const pA=sideA.map(n=>players.find(p=>p.name===n)).filter(Boolean);
+    const pB=sideB.map(n=>players.find(p=>p.name===n)).filter(Boolean);
+    if(!pA.length||!pB.length) return null;
+    const elo1=Math.round(pA.reduce((s,p)=>s+p.elo,0)/pA.length);
+    const elo2=Math.round(pB.reduce((s,p)=>s+p.elo,0)/pB.length);
+    const matchType=type==='Đơn'?'Đơn':'Đôi';
+    const d=calcEloChangePair(elo1,elo2,win,matchType);
+    return [
+      ...pA.map(p=>({name:p.name,delta:d})),
+      ...pB.map(p=>({name:p.name,delta:-d})),
+    ];
+  },[hasScore,win,type,sideA.join(','),sideB.join(','),players]);
+
+  const togglePick=name=>{
+    setPicks(prev=>{
+      const cur=prev[name];
+      const next={...prev};
+      const aCount=Object.values(prev).filter(v=>v==='A').length;
+      const bCount=Object.values(prev).filter(v=>v==='B').length;
+      if(!cur){
+        if(aCount<maxPerSide) next[name]='A';
+        else if(bCount<maxPerSide) next[name]='B';
+      } else if(cur==='A'){
+        if(bCount<maxPerSide) next[name]='B';
+        else delete next[name];
+      } else {
+        delete next[name];
+      }
+      return next;
+    });
   };
 
   const save=()=>{
     if(!hasScore||score1===''||score2==='') return;
-    let team1,team2;
-    if(type==='Đơn'){if(!p1||!p2)return;team1=p1;team2=p2;}
-    else{if(!t1a||!t2a)return;team1=t1b?`${t1a} & ${t1b}`:t1a;team2=t2b?`${t2a} & ${t2b}`:t2a;}
+    if(!sideA[0]||!sideB[0]) return;
+    const team1=sideA.join(' & '), team2=sideB.join(' & ');
     onSave({id:Date.now(),type,date,score1:s1,score2:s2,result:win?'W':'L',
       myTeam:team1,oppTeam:team2,
-      team1Players:type==='Đơn'?[p1]:[t1a,t1b].filter(Boolean),
-      team2Players:type==='Đơn'?[p2]:[t2a,t2b].filter(Boolean),
+      team1Players:sideA, team2Players:sideB,
       eloChanges:eloPreview||[]
     });
     onClose();
@@ -2020,7 +2018,7 @@ function AddMatchModal({players,sessions,onClose,onSave}){
         {/* Loại */}
         <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
           {['Đơn','Đôi'].map(t=>(
-            <button key={t} onClick={()=>setType(t)} style={{flex:1,padding:'8px',borderRadius:'8px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,
+            <button key={t} onClick={()=>{setType(t);setPicks({});}} style={{flex:1,padding:'8px',borderRadius:'8px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,
               borderColor:type===t?'var(--green)':'var(--border)',
               background:type===t?'var(--green-bg)':'var(--surface)',
               color:type===t?'var(--green)':'var(--muted)'}}>
@@ -2029,27 +2027,58 @@ function AddMatchModal({players,sessions,onClose,onSave}){
           ))}
         </div>
 
-        {/* Players */}
-        {type==='Đơn'?(
-          <div className="form-grid" style={{marginBottom:'12px'}}>
-            <div className="fg"><label className="fl">Người 1 (Đội A)</label>{sel(p1,setP1,[p2])}</div>
-            <div className="fg"><label className="fl">Người 2 (Đội B)</label>{sel(p2,setP2,[p1])}</div>
-          </div>
-        ):(
-          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'center',marginBottom:'12px'}}>
-            <div>
-              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--green)'}}>⚡ Đội A</div>
-              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t1a,setT1a,[t1b,t2a,t2b])}</div>
-              <div className="fg"><label className="fl">Người 2 (tuỳ chọn)</label>{sel(t1b,setT1b,[t1a,t2a,t2b])}</div>
+        {/* Quick-pick: chọn người bằng chip — tap 1 lần → Đội A, tap 2 lần → Đội B, tap 3 lần → bỏ chọn */}
+        <div style={{marginBottom:'12px'}}>
+          {/* Slot hiển thị */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'6px',alignItems:'start',marginBottom:'10px'}}>
+            <div style={{background:'var(--green-bg)',border:'1px solid var(--green)',borderRadius:'10px',padding:'8px'}}>
+              <div style={{fontSize:'11px',fontWeight:700,color:'var(--green)',marginBottom:'5px',textAlign:'center'}}>⚡ Đội A</div>
+              {Array.from({length:maxPerSide}).map((_,i)=>(
+                <div key={i} style={{background:sideA[i]?'var(--green)':'rgba(0,0,0,.05)',borderRadius:'7px',padding:'5px 8px',
+                  fontSize:'12px',fontWeight:700,color:sideA[i]?'#fff':'var(--muted)',textAlign:'center',
+                  marginBottom:i<maxPerSide-1?'4px':0,minHeight:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {sideA[i]?sideA[i].split(' ').slice(-2).join(' '):'—'}
+                </div>
+              ))}
             </div>
-            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:700,color:'var(--muted)',fontSize:'14px',paddingTop:'16px'}}>VS</div>
-            <div>
-              <div className="fl" style={{marginBottom:'6px',textAlign:'center',color:'var(--red)'}}>🔥 Đội B</div>
-              <div className="fg" style={{marginBottom:'6px'}}><label className="fl">Người 1</label>{sel(t2a,setT2a,[t1a,t1b,t2b])}</div>
-              <div className="fg"><label className="fl">Người 2 (tuỳ chọn)</label>{sel(t2b,setT2b,[t1a,t1b,t2a])}</div>
+            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:700,color:'var(--muted)',fontSize:'14px',paddingTop:'20px'}}>VS</div>
+            <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'8px'}}>
+              <div style={{fontSize:'11px',fontWeight:700,color:'var(--red)',marginBottom:'5px',textAlign:'center'}}>🔥 Đội B</div>
+              {Array.from({length:maxPerSide}).map((_,i)=>(
+                <div key={i} style={{background:sideB[i]?'var(--red)':'rgba(0,0,0,.05)',borderRadius:'7px',padding:'5px 8px',
+                  fontSize:'12px',fontWeight:700,color:sideB[i]?'#fff':'var(--muted)',textAlign:'center',
+                  marginBottom:i<maxPerSide-1?'4px':0,minHeight:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {sideB[i]?sideB[i].split(' ').slice(-2).join(' '):'—'}
+                </div>
+              ))}
             </div>
           </div>
-        )}
+
+          {/* Chip người chơi */}
+          <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px'}}>
+            👇 Bấm chọn người · <span style={{color:'var(--green)'}}>1 lần = Đội A</span> · <span style={{color:'var(--red)'}}>2 lần = Đội B</span> · 3 lần = bỏ
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+            {pOpts.map(name=>{
+              const side=picks[name];
+              const isA=side==='A', isB=side==='B';
+              return (
+                <button key={name} onClick={()=>togglePick(name)} style={{
+                  padding:'7px 12px',borderRadius:'20px',border:'2px solid',fontSize:'13px',cursor:'pointer',
+                  fontFamily:'Nunito,sans-serif',fontWeight:700,transition:'.12s',
+                  borderColor:isA?'var(--green)':isB?'var(--red)':'var(--border)',
+                  background:isA?'var(--green)':isB?'var(--red)':'var(--surface2)',
+                  color:isA||isB?'#fff':'var(--muted)'}}>
+                  {isA?'A · ':isB?'B · ':''}
+                  {name.split(' ').slice(-2).join(' ')}
+                </button>
+              );
+            })}
+          </div>
+          {(sideA.length>0||sideB.length>0)&&(
+            <button onClick={()=>setPicks({})} style={{marginTop:'6px',fontSize:'11px',color:'var(--red)',background:'transparent',border:'none',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✕ Xoá chọn</button>
+          )}
+        </div>
 
         {/* Score */}
         <div className="score-row">
@@ -4059,6 +4088,24 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
     return map;
   },[tournament]);
 
+  // Phát hiện vô địch
+  const champion=useMemo(()=>{
+    if(!tournament) return null;
+    if(tournament.type==='roundrobin'){
+      if(!tournament.rrMatches?.length) return null;
+      const allDone=tournament.rrMatches.every(m=>m.scoreA!==''&&m.scoreB!=='');
+      if(!allDone) return null;
+      const st=computeRRStandings(tournament.teams,tournament.rrMatches);
+      return st[0]?{team:(tournament.teams||[]).find(t=>t.id===st[0].id)||null,pts:st[0].pts,wins:st[0].wins}:null;
+    } else {
+      const lastRound=tournament.rounds?.[tournament.rounds.length-1];
+      const finalMatch=lastRound?.matches?.[0];
+      if(!finalMatch?.winnerId) return null;
+      const map={}; (tournament.teams||[]).forEach(t=>{map[t.id]=t;});
+      return {team:map[finalMatch.winnerId]||null};
+    }
+  },[tournament]);
+
   // Ghi trận đấu vào lịch sử + tính ELO
   const recordToHistory=(tA, tB, scoreA, scoreB, label)=>{
     if(!addMatch||!tA||!tB) return;
@@ -4293,13 +4340,14 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
 
           {editingSlot && (()=>{
             const curName=draftTeams[editingSlot.ti].players[editingSlot.pi];
-            const usedNames=draftTeams.flatMap(t=>t.players);
-            const avail=players.filter(p=>!usedNames.includes(p.name)||p.name===curName);
+            // Chỉ cho chọn trong số người đã tham gia giải — xoay vòng giữa các vị trí
+            const allDraftNames=draftTeams.flatMap(t=>t.players);
+            const avail=players.filter(p=>allDraftNames.includes(p.name));
             const filtered=avail.filter(p=>!slotSearch||p.name.toLowerCase().includes(slotSearch.toLowerCase()));
             return (
               <div style={{background:'var(--bg3)',border:'1px solid var(--purple)',borderRadius:'10px',padding:'12px',marginBottom:'12px'}}>
                 <div style={{fontSize:'12px',fontWeight:600,marginBottom:'8px',color:'var(--purple)'}}>
-                  ✎ Thay người — Đội {editingSlot.ti+1} · vị trí {editingSlot.pi+1} · đang là: <b>{curName.split(' ').slice(-2).join(' ')}</b>
+                  🔄 Đổi chỗ — Đội {editingSlot.ti+1} · vị trí {editingSlot.pi+1} · đang là: <b>{curName.split(' ').slice(-2).join(' ')}</b>
                 </div>
                 <div style={{position:'relative',marginBottom:'8px'}}>
                   <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:'var(--muted)',pointerEvents:'none'}}>🔍</span>
@@ -4365,6 +4413,36 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
         </div>
       )}
     </div>
+
+    {/* ── VINH DANH VÔ ĐỊCH ── */}
+    {champion && champion.team && (
+      <div style={{
+        background:'linear-gradient(135deg,#78350f,#92400e,#b45309)',
+        border:'2px solid #fbbf24',borderRadius:'14px',padding:'18px 20px',
+        textAlign:'center',marginBottom:'14px',
+        boxShadow:'0 4px 20px rgba(251,191,36,.35)'
+      }}>
+        <div style={{fontSize:'32px',marginBottom:'4px'}}>🏆</div>
+        <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'15px',color:'#fef3c7',letterSpacing:'.3px',marginBottom:'4px'}}>
+          VÔ ĐỊCH · {tournament.name}
+        </div>
+        <div style={{fontSize:'22px',fontWeight:900,color:'#fbbf24',fontFamily:'Quicksand,sans-serif',marginBottom:'6px'}}>
+          {champion.team.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & ')}
+        </div>
+        {champion.pts!=null && (
+          <div style={{fontSize:'12px',color:'#fde68a',opacity:.85}}>
+            {champion.wins} thắng · {champion.pts} điểm
+          </div>
+        )}
+        <div style={{marginTop:'8px',display:'flex',justifyContent:'center',gap:'6px',flexWrap:'wrap'}}>
+          {champion.team.players.map(n=>(
+            <span key={n} style={{background:'rgba(251,191,36,.2)',border:'1px solid rgba(251,191,36,.5)',borderRadius:'20px',padding:'3px 10px',fontSize:'12px',color:'#fde68a',fontWeight:700}}>
+              👑 {n.split(' ').slice(-2).join(' ')}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
 
     {/* ── LOẠI TRỰC TIẾP ── */}
     {!isRR && <>
