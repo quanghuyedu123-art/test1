@@ -1522,6 +1522,8 @@ function MatchHistorySection({matches,players,onDelete,onEditMatch}){
   const [monthF,setMonthF]=useState('Tất cả');
   const [playerF,setPlayerF]=useState('Tất cả');
   const [editMatch,setEditMatch]=useState(null);
+  const [showLimit,setShowLimit]=useState(20);
+  const [showShare,setShowShare]=useState(false);
 
   const months=useMemo(()=>{
     const s=new Set();
@@ -1579,11 +1581,30 @@ function MatchHistorySection({matches,players,onDelete,onEditMatch}){
         </div>
       </div>
     </div>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'8px'}}>
       <span style={{fontSize:'13px',color:'var(--muted)'}}>{filtered.length} trận · {wins}W {losses}L</span>
-      <button onClick={()=>exportCSV(matches,players)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>📥 Xuất CSV</button>
+      <div style={{display:'flex',gap:'6px'}}>
+        <button onClick={()=>exportCSV(matches,players)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--muted)',padding:'6px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>📥 CSV</button>
+        <button onClick={()=>setShowShare(true)} style={{background:'rgba(99,102,241,.15)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'8px',color:'#818cf8',padding:'6px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700}}>📤 Chia sẻ</button>
+      </div>
     </div>
-    <MatchList matches={filtered} showDel={!!onDelete} onDelete={onDelete} players={players} onEdit={m=>setEditMatch(m)} perspective={playerF!=='Tất cả'?playerF:null}/>
+    <MatchList matches={filtered.slice(0,showLimit)} showDel={!!onDelete} onDelete={onDelete} players={players} onEdit={m=>setEditMatch(m)} perspective={playerF!=='Tất cả'?playerF:null}/>
+    {/* Pagination */}
+    {filtered.length > showLimit && (
+      <div style={{display:'flex',gap:'6px',justifyContent:'center',marginTop:'12px',flexWrap:'wrap'}}>
+        <span style={{fontSize:'12px',color:'var(--muted)',alignSelf:'center'}}>Hiện {showLimit}/{filtered.length} trận · Xem thêm:</span>
+        {[10,20,30,50].filter(n=>n>showLimit).map(n=>(
+          <button key={n} onClick={()=>setShowLimit(n)} style={{padding:'5px 12px',borderRadius:'16px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600}}>{n}</button>
+        ))}
+        <button onClick={()=>setShowLimit(filtered.length)} style={{padding:'5px 12px',borderRadius:'16px',border:'1px solid var(--purple)',background:'var(--purple-bg)',color:'var(--purple)',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700}}>Tất cả</button>
+      </div>
+    )}
+    {showLimit > 20 && filtered.length <= showLimit && (
+      <div style={{display:'flex',justifyContent:'center',marginTop:'8px'}}>
+        <button onClick={()=>setShowLimit(20)} style={{padding:'5px 14px',borderRadius:'16px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>↑ Thu gọn</button>
+      </div>
+    )}
+    {showShare && <ShareSessionModal matches={matches} players={players} onClose={()=>setShowShare(false)}/>}
     {editMatch&&onEditMatch&&<EditMatchModal match={editMatch} players={players} onClose={()=>setEditMatch(null)} onSave={m=>{onEditMatch(m);setEditMatch(null);}}/>}
   </>;
 }
@@ -3031,13 +3052,44 @@ function ShareSessionModal({matches, players, onClose}){
     return [...players].filter(p=>names.has(p.name)).sort((a,b)=>b.elo-a.elo).slice(0,5);
   },[players, eloSummary]);
 
+  // Top 5 BXH tổng (không giới hạn hôm nay)
+  const top5Overall = useMemo(()=>[...players].sort((a,b)=>b.elo-a.elo).slice(0,5),[players]);
+
+  // Bình luận vui tự động
+  const funComments = useMemo(()=>{
+    if(eloSummary.length===0) return [];
+    const lines=[];
+    const mvp = eloSummary[0];
+    const loser = eloSummary[eloSummary.length-1];
+    const mvpElo = players.find(x=>x.name===mvp.name)?.elo||1500;
+    const loserElo = players.find(x=>x.name===loser.name)?.elo||1500;
+    const mvpPhrases=[
+      `${mvp.name} hôm nay đánh như "pro gamer" vậy 🔥`,
+      `${mvp.name} lại thống trị rồi, ai mà cản được! 🏆`,
+      `${mvp.name} hôm nay ăn sóng không đọ được 💪`,
+      `${mvp.name} vô địch buổi hôm nay, mời trà đi! ☕`,
+    ];
+    const loserPhrases=[
+      `${loser.name} hôm nay gặp vận đen nhỉ, buổi sau gỡ thôi! 😅`,
+      `Chúc ${loser.name} buổi sau đánh hay hơn nhé 🙏`,
+      `${loser.name} ráng lên! Thắng lại được mà 💪`,
+      `${loser.name} hôm nay xui xui xíu, ngày mai sẽ khác! 🌟`,
+    ];
+    if(mvp.total>0) lines.push('🌟 '+mvpPhrases[mvpElo%mvpPhrases.length]);
+    if(loser.total<0&&loser.name!==mvp.name) lines.push('💙 '+loserPhrases[loserElo%loserPhrases.length]);
+    // Extra fun comments based on total matches
+    if(todayMatches.length>=10) lines.push(`🎉 Trận đấu nhiệt tình thế! ${todayMatches.length} trận 1 buổi, siêu chăm!`);
+    if(eloSummary.length>=6) lines.push(`👥 Hôm nay ${eloSummary.length} người góp mặt, đông vui ghê!`);
+    return lines;
+  },[eloSummary, todayMatches, players]);
+
   // Tạo text chia sẻ Zalo
   const shareText = useMemo(()=>{
     if(todayMatches.length===0) return '';
     const date = todayStr;
     const lines = [
       `🏓 KẾT QUẢ PHÔNG BẠT — ${date}`,
-      `━━━━━━━━━━━━━━━━━━`,
+      `━━━━━━━━━━━━━━━━━━━━`,
       `📊 ${todayMatches.length} trận | ${eloSummary.length} người tham gia`,
       ``,
       `📈 THAY ĐỔI CÔNG ĐỨC:`,
@@ -3048,13 +3100,18 @@ function ShareSessionModal({matches, players, onClose}){
         return `${arrow} ${p.name}: ${sign}${p.total} (${elo} CĐ)`;
       }),
       ``,
-      `🏆 TOP BUỔI HÔM NAY:`,
-      ...top5.map((p,i)=>`${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${p.name}: ${p.elo} CĐ`),
-      ``,
-      `🔗 Xem chi tiết: phongbat.vercel.app`,
+      `🏆 TOP 5 BẢNG CÔNG ĐỨC:`,
+      ...top5Overall.map((p,i)=>`${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${p.name}: ${p.elo} CĐ`),
     ];
+    if(funComments.length>0){
+      lines.push(``);
+      lines.push(`💬 BÌNH LUẬN:`);
+      funComments.forEach(c=>lines.push(c));
+    }
+    lines.push(``);
+    lines.push(`🔗 Xem chi tiết: phongbat.vercel.app`);
     return lines.join('\n');
-  },[todayMatches, eloSummary, top5, todayStr, players]);
+  },[todayMatches, eloSummary, top5Overall, funComments, todayStr, players]);
 
   const copyText = ()=>{
     navigator.clipboard.writeText(shareText).then(()=>{
@@ -4487,30 +4544,34 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
 
   const confirmCreateTournament=()=>{
     if(!draftTeams) return;
-    if(tourType==='roundrobin'){
-      const rrMatches=buildRoundRobinSchedule(draftTeams);
-      setTournament({
-        id:'tour_'+Date.now(),
-        name:tourName.trim()||'Giải đấu Vòng Tròn',
-        createdAt:Date.now(),
-        type:'roundrobin',
-        teams:draftTeams,
-        rrMatches,
-      });
-    } else {
-      const rounds=buildBracketRounds(draftTeams);
-      setTournament({
-        id:'tour_'+Date.now(),
-        name:tourName.trim()||'Giải đấu CLB',
-        createdAt:Date.now(),
-        type:'knockout',
-        teams:draftTeams,
-        rounds,
-        thirdPlace: rounds.length>=2? computeThirdPlace(rounds,null): null,
-      });
+    try{
+      if(tourType==='roundrobin'){
+        const rrMatches=buildRoundRobinSchedule(draftTeams);
+        setTournament({
+          id:'tour_'+Date.now(),
+          name:tourName.trim()||'Giải đấu Vòng Tròn',
+          createdAt:Date.now(),
+          type:'roundrobin',
+          teams:draftTeams,
+          rrMatches,
+        });
+      } else {
+        const rounds=buildBracketRounds(draftTeams);
+        setTournament({
+          id:'tour_'+Date.now(),
+          name:tourName.trim()||'Giải đấu CLB',
+          createdAt:Date.now(),
+          type:'knockout',
+          teams:draftTeams,
+          rounds,
+          thirdPlace: rounds.length>=2? computeThirdPlace(rounds,null): null,
+        });
+      }
+      setCreating(false); setDraftTeams(null); setSelectedNames([]); setTourName(''); setPlayerSearch(''); setEditingSlot(null); setSlotSearch('');
+      showToast&&showToast('Đã tạo sơ đồ giải đấu!');
+    } catch(e){
+      showToast&&showToast('❌ Lỗi tạo giải: '+e.message);
     }
-    setCreating(false); setDraftTeams(null); setSelectedNames([]); setTourName(''); setPlayerSearch(''); setEditingSlot(null); setSlotSearch('');
-    showToast&&showToast('Đã tạo sơ đồ giải đấu!');
   };
 
   const teamsById=useMemo(()=>{
@@ -4640,6 +4701,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
 
   const resetTournament=()=>{
     setTournament(null);
+    fbSet('tournament',null);
     setConfirmReset(false);
     showToast&&showToast('Đã xoá giải đấu.');
   };
@@ -4657,7 +4719,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
       {tournamentBroken && (
         <div style={{textAlign:'center',padding:'14px',marginBottom:'14px',color:'var(--red)',background:'var(--red-bg)',borderRadius:'10px',border:'1px solid var(--red)',fontSize:'12.5px'}}>
           ⚠️ Dữ liệu sơ đồ giải đấu bị lỗi/thiếu, không hiển thị được. {isAdmin?'Bấm "Xoá giải" bên dưới rồi tạo lại giúp mình nhé.':'Nhờ admin kiểm tra lại giúp nhé.'}
-          {isAdmin && <div style={{marginTop:'8px'}}><button onClick={()=>setTournament(null)} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải đấu lỗi</button></div>}
+          {isAdmin && <div style={{marginTop:'8px'}}><button onClick={()=>{setTournament(null);fbSet('tournament',null);showToast&&showToast('Đã xoá giải đấu lỗi.');}} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải đấu lỗi</button></div>}
         </div>
       )}
       {!creating && (
@@ -7531,7 +7593,7 @@ function App(){
     {id:'dashboard',label:'Tổng Quan',icon:'📊'},
     {id:'bxh',      label:'BXH',icon:'🏆'},
     {id:'sokeo',    label:'Công Cụ',icon:'🎮'},
-    {id:'fund',     label:'Quỹ',icon:'💰'},
+    {id:'fund',     label:'Hòm Công Đức',icon:'🙏'},
   ];
 
   return <>
@@ -7672,7 +7734,7 @@ function App(){
         {id:'dashboard',label:'Tổng Quan',icon:'📊'},
         {id:'bxh',      label:'BXH',icon:'🏆'},
         {id:'sokeo',    label:'Công Cụ',icon:'🎮'},
-        {id:'fund',     label:'Quỹ',icon:'💰'},
+        {id:'fund',     label:'Hòm Công Đức',icon:'🙏'},
       ];
       return (
         <nav className="mobile-nav">
