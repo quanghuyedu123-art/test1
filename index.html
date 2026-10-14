@@ -4799,9 +4799,9 @@ function PlayerPicker({value, onChange, exclude=[], players, label, accentColor}
   );
 }
 
-function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToast, addMatch}){
+function SoKeoTab({players, matches, sessions, tournament, setTournament, isAdmin, showToast, addMatch}){
   const [mode,setMode]=useState('doi'); // 'don' | 'doi'
-  const [mainTab,setMainTab]=useState('sokeo'); // 'sokeo' | 'partner' | 'giaidau'
+  const [mainTab,setMainTab]=useState('sokeo'); // 'sokeo' | 'partner' | 'spin' | 'giaidau'
   // Đơn
   const [pA,setPa]=useState('');
   const [pB,setPb]=useState('');
@@ -4812,8 +4812,36 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
   const [d2b,setD2b]=useState('');
   // Partner analysis
   const [partnerFor,setPartnerFor]=useState('');
+  const [partnerLimit,setPartnerLimit]=useState(5);
   // H2H expanded
   const [h2hExpanded,setH2hExpanded]=useState(false);
+  // Spin / chia đội
+  const recentCourtSessions=useMemo(()=>
+    [...(sessions||[])].filter(s=>s.attendees&&Object.values(s.attendees).some(Boolean))
+      .sort((a,b)=>{
+        const pa=a.date.split(/[\/\-]/),pb=b.date.split(/[\/\-]/);
+        const da=pa.length>=3?new Date(pa[2],pa[1]-1,pa[0]):new Date(2024,pa[1]-1,pa[0]);
+        const db=pb.length>=3?new Date(pb[2],pb[1]-1,pb[0]):new Date(2024,pb[1]-1,pb[0]);
+        return db-da||(b.id-a.id);
+      }).slice(0,10)
+  ,[sessions]);
+  const [spinSessionId,setSpinSessionId]=useState('');
+  const [spinPlayers,setSpinPlayers]=useState([]);
+  const [spinMode,setSpinMode]=useState('random'); // 'random' | 'elo'
+  const [spinResult,setSpinResult]=useState(null);
+  const [spinning,setSpinning]=useState(false);
+
+  // Khi chọn buổi → auto điền spinPlayers từ attendees
+  const pickSpinSession=(id)=>{
+    setSpinSessionId(id);
+    setSpinResult(null);
+    if(!id){setSpinPlayers([]);return;}
+    const s=recentCourtSessions.find(x=>String(x.id)===String(id));
+    if(s?.attendees){
+      const att=Object.entries(s.attendees).filter(([,v])=>v).map(([k])=>k);
+      setSpinPlayers(att);
+    }
+  };
 
   const analysis = useMemo(()=>{
     if(mode==='don'){
@@ -4864,6 +4892,55 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
 
   const qColor=q=>q>=75?'var(--green)':q>=50?'var(--yellow)':'var(--red)';
 
+  // ── SPIN / chia đội logic ──
+  const toggleSpinPlayer=(name)=>{
+    setSpinPlayers(prev=>prev.includes(name)?prev.filter(n=>n!==name):[...prev,name]);
+    setSpinResult(null);
+  };
+  const doSpin=()=>{
+    if(spinPlayers.length<2){return;}
+    setSpinning(true);
+    setSpinResult(null);
+    setTimeout(()=>{
+      let list=[...spinPlayers];
+      let teamA=[],teamB=[];
+      if(spinMode==='elo'){
+        // Sắp xếp theo ELO, xen kẽ snake draft: 1→A,2→B,3→B,4→A,5→A,...
+        list.sort((a,b)=>{
+          const ea=players.find(p=>p.name===a)?.elo||1500;
+          const eb=players.find(p=>p.name===b)?.elo||1500;
+          return eb-ea;
+        });
+        list.forEach((n,i)=>{
+          // snake: 0→A,1→B,2→B,3→A,4→A,5→B,...
+          const slot=[0,1,1,0][i%4]??i%2;
+          (slot===0?teamA:teamB).push(n);
+        });
+      } else {
+        // Random shuffle
+        for(let i=list.length-1;i>0;i--){
+          const j=Math.floor(Math.random()*(i+1));
+          [list[i],list[j]]=[list[j],list[i]];
+        }
+        list.forEach((n,i)=>(i%2===0?teamA:teamB).push(n));
+      }
+      // Tính ELO trung bình
+      const avgElo=(team)=>{
+        if(!team.length) return 0;
+        return Math.round(team.reduce((s,n)=>{
+          return s+(players.find(p=>p.name===n)?.elo||1500);
+        },0)/team.length);
+      };
+      const eA=avgElo(teamA),eB=avgElo(teamB);
+      const diff=eA-eB;
+      const winPctA=Math.round(1/(1+Math.pow(10,-diff/400))*100);
+      const handicap=Math.round(Math.abs(diff)/60);
+      const quality=Math.max(0,100-Math.round(Math.abs(diff)/8));
+      setSpinResult({teamA,teamB,eA,eB,diff:Math.abs(diff),winPctA,winPctB:100-winPctA,handicap,stronger:diff>0?'A':'B',quality});
+      setSpinning(false);
+    },900);
+  };
+
   // Partner analysis: tính tỷ lệ thắng khi ghép đôi với từng người
   const partnerStats = useMemo(()=>{
     if(!partnerFor) return [];
@@ -4893,9 +4970,9 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
     <div className="section-title" style={{marginBottom:'16px'}}>⚔️ So Kèo & Đánh Giá Chấp</div>
 
     {/* Main tab toggle */}
-    <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
-      {[['sokeo','⚔️ So Kèo'],['partner','🤝 Người Ăn Ý'],['giaidau','🏆 Giải Đấu']].map(([id,lb])=>(
-        <button key={id} onClick={()=>setMainTab(id)} style={{flex:1,padding:'10px',borderRadius:'10px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'5px',marginBottom:'16px'}}>
+      {[['sokeo','⚔️ So Kèo'],['partner','🤝 Ăn Ý'],['spin','🎰 Chia Đội'],['giaidau','🏆 Giải Đấu']].map(([id,lb])=>(
+        <button key={id} onClick={()=>setMainTab(id)} style={{padding:'9px 4px',borderRadius:'10px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',textAlign:'center',
           borderColor:mainTab===id?'var(--purple)':'var(--border)',
           background:mainTab===id?'var(--purple-bg)':'var(--surface)',
           color:mainTab===id?'var(--purple)':'var(--muted)'}}>
@@ -4916,20 +4993,22 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
       </div>
 
       {partnerFor && partnerStats.length>0 && (
-        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',overflow:'hidden',marginBottom:'16px'}}>
-          <div style={{padding:'12px 16px',background:'var(--bg3)',borderBottom:'1px solid var(--border)',fontSize:'12px',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.6px'}}>
-            🤝 Khi {partnerFor.split(' ').slice(-2).join(' ')} đánh đôi cùng...
+        <>
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',overflow:'hidden',marginBottom:'12px'}}>
+          <div style={{padding:'12px 16px',background:'var(--bg3)',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.6px'}}>
+              🤝 Khi {partnerFor.split(' ').slice(-2).join(' ')} đánh đôi cùng...
+            </div>
+            <div style={{fontSize:'12px',color:'var(--muted)'}}>{Math.min(partnerLimit,partnerStats.length)}/{partnerStats.length} người</div>
           </div>
-          {partnerStats.map((p,i)=>{
+          {partnerStats.slice(0,partnerLimit).map((p,i)=>{
             const hasData=p.total>0;
             const wrColor=!hasData?'var(--muted)':p.wr>=60?'var(--green)':p.wr>=40?'var(--yellow)':'var(--red)';
             return (
-              <div key={p.name} style={{padding:'13px 16px',borderBottom:i<partnerStats.length-1?'1px solid var(--border)':'none',display:'flex',alignItems:'center',gap:'12px'}}>
-                {/* Avatar */}
+              <div key={p.name} style={{padding:'13px 16px',borderBottom:i<Math.min(partnerLimit,partnerStats.length)-1?'1px solid var(--border)':'none',display:'flex',alignItems:'center',gap:'12px'}}>
                 <div style={{width:38,height:38,borderRadius:'50%',background:p.avatar?'transparent':p.color+'22',color:p.color,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:'13px',flexShrink:0,overflow:'hidden'}}>
                   {p.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:p.name.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase()}
                 </div>
-                {/* Name + bar */}
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:'14px',marginBottom:'5px'}}>{p.name}</div>
                   {hasData ? (
@@ -4943,7 +5022,6 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
                     <div style={{fontSize:'12px',color:'var(--muted)'}}>Chưa đánh đôi cùng nhau</div>
                   )}
                 </div>
-                {/* WR badge */}
                 <div style={{textAlign:'right',flexShrink:0}}>
                   {hasData ? (
                     <>
@@ -4958,12 +5036,190 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
             );
           })}
         </div>
+        {/* Phân trang */}
+        <div style={{display:'flex',gap:'6px',justifyContent:'center',marginBottom:'16px'}}>
+          {[5,10,15,20,25].map(n=>(
+            <button key={n} onClick={()=>setPartnerLimit(n)}
+              style={{padding:'6px 14px',borderRadius:'8px',border:'1px solid',cursor:'pointer',fontSize:'12px',fontWeight:600,fontFamily:'Nunito,sans-serif',transition:'.15s',
+                borderColor:partnerLimit===n?'var(--purple)':'var(--border)',
+                background:partnerLimit===n?'var(--purple-bg)':'var(--surface)',
+                color:partnerLimit===n?'var(--purple)':'var(--muted)',
+                opacity:n>partnerStats.length?.4:1}}>
+              {n}
+            </button>
+          ))}
+        </div>
+        </>
       )}
 
       {partnerFor && partnerStats.every(p=>p.total===0) && (
         <div style={{textAlign:'center',padding:'32px',color:'var(--muted)',background:'var(--surface)',borderRadius:'14px',border:'1px solid var(--border)'}}>
           <div style={{fontSize:'32px',marginBottom:'8px'}}>🏓</div>
           <div>Chưa có trận đôi nào được ghi lại cho {partnerFor}</div>
+        </div>
+      )}
+    </>}
+
+    {/* ── SPIN / CHIA ĐỘI TAB ── */}
+    {mainTab==='spin' && <>
+      {/* Mode toggle */}
+      <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
+        {[['random','🎲 Quay Ngẫu Nhiên'],['elo','📊 Sắp Theo ELO']].map(([id,lb])=>(
+          <button key={id} onClick={()=>{setSpinMode(id);setSpinResult(null);}} style={{flex:1,padding:'10px',borderRadius:'10px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
+            borderColor:spinMode===id?'var(--orange)':'var(--border)',
+            background:spinMode===id?'var(--orange-bg)':'var(--surface)',
+            color:spinMode===id?'var(--orange)':'var(--muted)'}}>
+            {lb}
+          </button>
+        ))}
+      </div>
+
+      {/* Chọn buổi chơi */}
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
+        <div className="fl" style={{marginBottom:'10px'}}>📅 Chọn buổi chơi</div>
+        {recentCourtSessions.length===0?(
+          <div style={{color:'var(--muted)',fontSize:'13px',textAlign:'center',padding:'12px 0'}}>Chưa có buổi chơi nào có danh sách người tham gia</div>
+        ):(
+          <select value={spinSessionId} onChange={e=>pickSpinSession(e.target.value)}
+            style={{width:'100%',padding:'10px 12px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text)',fontSize:'14px',fontFamily:'Nunito,sans-serif',cursor:'pointer',outline:'none'}}>
+            <option value=''>— Chọn buổi —</option>
+            {recentCourtSessions.map(s=>{
+              const cnt=Object.values(s.attendees||{}).filter(Boolean).length;
+              return <option key={s.id} value={s.id}>📅 {s.date} · {cnt} người</option>;
+            })}
+          </select>
+        )}
+        {spinPlayers.length>0&&(
+          <div style={{marginTop:'12px'}}>
+            <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'8px'}}>👥 {spinPlayers.length} người có mặt:</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+              {spinPlayers.map(name=>{
+                const p=players.find(x=>x.name===name);
+                return (
+                  <div key={name} style={{display:'flex',alignItems:'center',gap:'5px',padding:'5px 9px',borderRadius:'20px',background:'var(--orange-bg)',border:'1px solid var(--orange)',fontSize:'12px',fontWeight:600,color:'var(--orange)'}}>
+                    <div style={{width:20,height:20,borderRadius:'50%',background:p?.avatar?'transparent':(p?.color||'#888')+'33',color:p?.color||'#888',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'9px',fontWeight:700,overflow:'hidden',flexShrink:0}}>
+                      {p?.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(name.split(' ').slice(-1)[0]||'?').slice(0,2).toUpperCase()}
+                    </div>
+                    {name.split(' ').slice(-2).join(' ')}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Nút quay */}
+      <button onClick={doSpin} disabled={spinPlayers.length<2||spinning}
+        style={{width:'100%',padding:'14px',borderRadius:'12px',border:'none',cursor:spinPlayers.length<2?'not-allowed':'pointer',
+          background:spinPlayers.length<2?'var(--bg3)':'linear-gradient(135deg,var(--orange),#f59e0b)',
+          color:spinPlayers.length<2?'var(--muted)':'#fff',fontWeight:700,fontSize:'16px',fontFamily:'Nunito,sans-serif',
+          transition:'.2s',marginBottom:'16px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}>
+        {spinning?<><span style={{animation:'spin 0.6s linear infinite',display:'inline-block'}}>🎰</span> Đang chia...</>
+          :spinPlayers.length<2?'Chọn ít nhất 2 người để chia đội'
+          :`🎰 ${spinMode==='random'?'Quay Ngẫu Nhiên':'Chia Theo ELO'} (${spinPlayers.length} người)`}
+      </button>
+
+      {/* Kết quả */}
+      {spinResult && (
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',overflow:'hidden',marginBottom:'16px'}}>
+          {/* Header quality */}
+          <div style={{background:'linear-gradient(135deg,#1a1040,#2d1b69)',padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{color:'#c4b5fd',fontWeight:700,fontSize:'13px'}}>🎯 KẾT QUẢ CHIA ĐỘI</div>
+            <div style={{background:'rgba(0,0,0,.3)',borderRadius:'20px',padding:'3px 12px',fontSize:'11px',fontWeight:700,
+              color:spinResult.quality>=75?'var(--green)':spinResult.quality>=50?'var(--yellow)':'var(--red)'}}>
+              MATCH QUALITY: {spinResult.quality}/100
+            </div>
+          </div>
+
+          {/* Teams */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',padding:'16px',alignItems:'start'}}>
+            {/* Team A */}
+            <div>
+              <div style={{fontWeight:700,fontSize:'13px',color:'var(--green)',marginBottom:'10px',textAlign:'center'}}>⚡ Đội A</div>
+              {spinResult.teamA.map(name=>{
+                const p=players.find(x=>x.name===name);
+                return (
+                  <div key={name} style={{display:'flex',alignItems:'center',gap:'7px',marginBottom:'7px'}}>
+                    <div style={{width:30,height:30,borderRadius:'50%',background:p?.avatar?'transparent':(p?.color||'#888')+'22',color:p?.color||'#888',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,overflow:'hidden',flexShrink:0}}>
+                      {p?.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(p?.name||name).split(' ').slice(-1)[0].slice(0,2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{fontSize:'12px',fontWeight:600}}>{name.split(' ').slice(-2).join(' ')}</div>
+                      <div style={{fontSize:'10px',color:'var(--muted)'}}>{p?.elo||1500} CĐ</div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{marginTop:'8px',padding:'6px 10px',background:'var(--green-bg)',borderRadius:'8px',textAlign:'center'}}>
+                <div style={{fontSize:'11px',color:'var(--muted)'}}>TB ELO</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'16px'}}>{spinResult.eA}</div>
+              </div>
+            </div>
+
+            {/* VS column */}
+            <div style={{textAlign:'center',paddingTop:'24px'}}>
+              <div style={{fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'14px',marginBottom:'8px'}}>VS</div>
+              {spinResult.diff===0?(
+                <div style={{background:'var(--green-bg)',borderRadius:'8px',padding:'6px',fontSize:'11px',color:'var(--green)',fontWeight:600}}>⚖️ Cân</div>
+              ):(
+                <div style={{background:'rgba(168,85,247,.1)',borderRadius:'8px',padding:'6px',textAlign:'center'}}>
+                  <div style={{fontSize:'9px',color:'var(--purple)',fontWeight:600,marginBottom:'2px'}}>CHẤP</div>
+                  <div style={{fontFamily:'Quicksand',fontWeight:800,color:'var(--purple)',fontSize:'18px'}}>{spinResult.handicap}</div>
+                  <div style={{fontSize:'9px',color:'var(--muted)'}}>quả</div>
+                </div>
+              )}
+            </div>
+
+            {/* Team B */}
+            <div>
+              <div style={{fontWeight:700,fontSize:'13px',color:'var(--red)',marginBottom:'10px',textAlign:'center'}}>🔥 Đội B</div>
+              {spinResult.teamB.map(name=>{
+                const p=players.find(x=>x.name===name);
+                return (
+                  <div key={name} style={{display:'flex',alignItems:'center',gap:'7px',marginBottom:'7px',justifyContent:'flex-end'}}>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:'12px',fontWeight:600}}>{name.split(' ').slice(-2).join(' ')}</div>
+                      <div style={{fontSize:'10px',color:'var(--muted)'}}>{p?.elo||1500} CĐ</div>
+                    </div>
+                    <div style={{width:30,height:30,borderRadius:'50%',background:p?.avatar?'transparent':(p?.color||'#888')+'22',color:p?.color||'#888',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,overflow:'hidden',flexShrink:0}}>
+                      {p?.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(p?.name||name).split(' ').slice(-1)[0].slice(0,2).toUpperCase()}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{marginTop:'8px',padding:'6px 10px',background:'var(--red-bg)',borderRadius:'8px',textAlign:'center'}}>
+                <div style={{fontSize:'11px',color:'var(--muted)'}}>TB ELO</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'16px'}}>{spinResult.eB}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Win % bar */}
+          <div style={{padding:'0 16px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',fontWeight:700,marginBottom:'5px'}}>
+              <span style={{color:'var(--green)'}}>{spinResult.winPctA}%</span>
+              <span style={{color:'var(--muted)',fontSize:'11px'}}>Tỉ lệ thắng</span>
+              <span style={{color:'var(--red)'}}>{spinResult.winPctB}%</span>
+            </div>
+            <div style={{height:'8px',borderRadius:'4px',overflow:'hidden',background:'var(--red-bg)'}}>
+              <div style={{height:'100%',width:spinResult.winPctA+'%',background:'var(--green)',borderRadius:'4px',transition:'width .6s ease'}}/>
+            </div>
+            {spinResult.diff>0&&(
+              <div style={{textAlign:'center',marginTop:'8px',fontSize:'12px',color:'var(--muted)'}}>
+                Đội <b style={{color:spinResult.stronger==='A'?'var(--green)':'var(--red)'}}{...{}}>
+                  {spinResult.stronger==='A'?'A':'B'}
+                </b> mạnh hơn {spinResult.diff} CĐ — chấp {spinResult.handicap} quả/game
+              </div>
+            )}
+          </div>
+
+          {/* Nút quay lại */}
+          <div style={{padding:'0 16px 16px'}}>
+            <button onClick={doSpin} style={{width:'100%',padding:'10px',borderRadius:'10px',border:'1px solid var(--orange)',background:'transparent',color:'var(--orange)',fontWeight:600,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
+              🔄 Quay lại
+            </button>
+          </div>
         </div>
       )}
     </>}
@@ -7100,7 +7356,7 @@ function App(){
           ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
-      {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast} addMatch={addMatch}/>}
+      {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} sessions={sessions} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast} addMatch={addMatch}/>}
       {tab==='fund'      && <FundTab players={players} setPlayers={setPlayers} sessions={sessions} setSessions={setSessions} members={members} setMembers={setMembers} matches={matches} setMatches={setMatches} onRenameMember={guardedRenameEverywhere} showToast={showToast} onTrashAdd={trashAdd} isAdmin={isAdmin} bankInfo={bankInfo} setBankInfo={setBankInfo} clubName={bannerTitle}/>}
     </div>
 
