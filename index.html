@@ -1337,7 +1337,7 @@ function EloCard({myElo}){
 }
 
 /* ─── DASHBOARD ─────────────────────────────────────────── */
-function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer}){
+function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament}){
   const wins=matches.filter(m=>m.result==='W').length;
   const losses=matches.length-wins;
 
@@ -1387,6 +1387,72 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
         <div className="sc-sub">{wins}W · {losses}L</div>
       </div>
     </div>
+
+    {tournament && (()=>{
+      const isRR=tournament.type==='roundrobin';
+      const total=isRR?(tournament.rrMatches||[]).length:((tournament.rounds||[]).reduce((s,r)=>s+r.matches.length,0));
+      const done=isRR?(tournament.rrMatches||[]).filter(m=>m.scoreA!==''&&m.scoreB!=='').length:((tournament.rounds||[]).reduce((s,r)=>s+r.matches.filter(m=>m.scoreA!==''||m.scoreB!=='').length,0));
+      const pct=total?Math.round(done/total*100):0;
+      // Top standings for RR
+      const standings=isRR?computeRRStandings(tournament.teams||[],tournament.rrMatches||[]).slice(0,3):[];
+      const teamsById2={};(tournament.teams||[]).forEach(t=>{teamsById2[t.id]=t;});
+      return (
+        <div onClick={onGoTournament} style={{
+          background:'linear-gradient(135deg,#1e1b4b,#2e1065)',
+          border:'1px solid rgba(167,139,250,.4)',borderRadius:'14px',
+          padding:'14px 16px',marginBottom:'16px',cursor:'pointer',
+          boxShadow:'0 4px 16px rgba(139,92,246,.2)'
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+            <div>
+              <div style={{fontSize:'11px',color:'rgba(167,139,250,.8)',fontWeight:700,letterSpacing:'.5px',textTransform:'uppercase',marginBottom:'2px'}}>
+                {isRR?'🔄 Vòng Tròn':'🏆 Loại Trực Tiếp'}
+              </div>
+              <div style={{fontSize:'15px',fontWeight:800,color:'#e9d5ff',fontFamily:'Quicksand,sans-serif'}}>
+                {tournament.name}
+              </div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:'18px',fontWeight:900,color:'#c4b5fd'}}>{pct}%</div>
+              <div style={{fontSize:'10px',color:'rgba(196,181,253,.7)'}}>{done}/{total} trận</div>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div style={{height:'4px',background:'rgba(255,255,255,.1)',borderRadius:'2px',marginBottom:'10px'}}>
+            <div style={{height:'100%',width:pct+'%',background:'linear-gradient(90deg,#a78bfa,#7c3aed)',borderRadius:'2px',transition:'width .4s'}}/>
+          </div>
+          {/* RR top 3 */}
+          {isRR && standings.length>0 && (
+            <div style={{display:'flex',flexDirection:'column',gap:'4px',marginBottom:'6px'}}>
+              {standings.map((s,i)=>{
+                const t=teamsById2[s.id];
+                const medals=['🥇','🥈','🥉'];
+                return (
+                  <div key={s.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                      <span style={{fontSize:'13px'}}>{medals[i]||'·'}</span>
+                      <span style={{fontSize:'12px',color:'#e9d5ff',fontWeight:i===0?700:500}}>
+                        {t?t.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'?'}
+                      </span>
+                    </div>
+                    <span style={{fontSize:'11px',color:'#c4b5fd',fontWeight:700}}>{s.wins}T · {s.pts}đ</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!isRR && tournament.rounds && (()=>{
+            const curRound=tournament.rounds.find(r=>r.matches.some(m=>!m.winnerId&&m.teamA&&m.teamB));
+            return curRound?(
+              <div style={{fontSize:'12px',color:'rgba(196,181,253,.8)'}}>
+                Đang thi đấu: <b style={{color:'#c4b5fd'}}>{curRound.name}</b>
+              </div>
+            ):null;
+          })()}
+          <div style={{fontSize:'11px',color:'rgba(167,139,250,.6)',marginTop:'6px',textAlign:'right'}}>Bấm để vào nhập tỉ số →</div>
+        </div>
+      );
+    })()}
 
     <div className="fun-section-title">📜 Bảng Phong Thần {hof.monthLabel ? `· ${hof.monthLabel}` : ''}</div>
     {!hof.hasData ? (
@@ -2844,16 +2910,20 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
 function ShareSessionModal({matches, players, onClose}){
   const [copied, setCopied] = useState(false);
 
-  // Lấy ngày hôm nay dạng DD/MM/YYYY
+  // Lấy ngày hôm nay dạng DD/MM/YYYY và YYYY-MM-DD
   const todayStr = useMemo(()=>{
     const d = new Date();
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   },[]);
+  const todayISO = useMemo(()=>{
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  },[]);
 
-  // Lọc trận hôm nay
+  // Lọc trận hôm nay — hỗ trợ cả DD/MM, DD/MM/YYYY (trận thường) lẫn YYYY-MM-DD (giải đấu)
   const todayMatches = useMemo(()=>
-    matches.filter(m=>m.date===todayStr||m.date===todayStr.slice(0,5))
-  ,[matches, todayStr]);
+    matches.filter(m=>m.date===todayStr||m.date===todayStr.slice(0,5)||m.date===todayISO)
+  ,[matches, todayStr, todayISO]);
 
   // Tổng hợp ELO thay đổi hôm nay theo từng người
   const eloSummary = useMemo(()=>{
@@ -2869,10 +2939,11 @@ function ShareSessionModal({matches, players, onClose}){
     return Object.values(map).sort((a,b)=>b.total-a.total);
   },[todayMatches]);
 
-  // Top 5 BXH hiện tại
-  const top5 = useMemo(()=>
-    [...players].sort((a,b)=>b.elo-a.elo).slice(0,5)
-  ,[players]);
+  // Top người chơi trong buổi hôm nay (chỉ lấy người đã đánh)
+  const top5 = useMemo(()=>{
+    const names = new Set(eloSummary.map(e=>e.name));
+    return [...players].filter(p=>names.has(p.name)).sort((a,b)=>b.elo-a.elo).slice(0,5);
+  },[players, eloSummary]);
 
   // Tạo text chia sẻ Zalo
   const shareText = useMemo(()=>{
@@ -2891,7 +2962,7 @@ function ShareSessionModal({matches, players, onClose}){
         return `${arrow} ${p.name}: ${sign}${p.total} (${elo} CĐ)`;
       }),
       ``,
-      `🏆 TOP 5 BẢNG CÔNG ĐỨC:`,
+      `🏆 TOP BUỔI HÔM NAY:`,
       ...top5.map((p,i)=>`${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${p.name}: ${p.elo} CĐ`),
       ``,
       `🔗 Xem chi tiết: phongbat.vercel.app`,
@@ -3841,7 +3912,7 @@ function BracketView({rounds, thirdPlace, teamsById, isAdmin, onEditMatch, onEdi
     const tA=teamsById[m.teamA], tB=teamsById[m.teamB];
     const isFinal=ri===rounds.length-1;
     const decided=!!m.winnerId;
-    const clickable=isAdmin&&tA&&tB;
+    const clickable=tA&&tB;
     return (
       <div key={m.id} onClick={()=>clickable&&onEditMatch(ri,mi)} style={{
         position:'absolute', top:centersByRound[ri][mi]-CARD_H/2, left:0, width:COL_W, height:CARD_H,
@@ -3910,7 +3981,7 @@ function BracketView({rounds, thirdPlace, teamsById, isAdmin, onEditMatch, onEdi
       {thirdPlace && thirdPlace.teamA && thirdPlace.teamB && (
         <div style={{maxWidth:280,margin:'8px auto 0'}}>
           <div style={{textAlign:'center',fontSize:'11px',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:'8px'}}>🥉 Tranh Hạng 3</div>
-          <div onClick={()=>isAdmin&&onEditThirdPlace()} style={{cursor:isAdmin?'pointer':'default',background:'var(--surface)',border:'1px solid var(--orange)',borderRadius:'10px',padding:'8px 10px'}}>
+          <div onClick={()=>onEditThirdPlace()} style={{cursor:'pointer',background:'var(--surface)',border:'1px solid var(--orange)',borderRadius:'10px',padding:'8px 10px'}}>
             {['A','B'].map(side=>{
               const id=side==='A'?thirdPlace.teamA:thirdPlace.teamB;
               const t=teamsById[id];
@@ -3963,7 +4034,7 @@ function RoundRobinView({rrMatches, teams, teamsById, isAdmin, onEditMatch}){
                   <td style={{padding:'9px 10px',fontWeight:700,color:idx===0?'#fbbf24':idx===1?'#94a3b8':idx===2?'#cd7c32':'var(--muted)',fontFamily:'Quicksand,sans-serif'}}>{medal||idx+1}</td>
                   <td style={{padding:'9px 10px',fontWeight:isTop?700:500}}>
                     <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'130px'}}>
-                      {t?t.players.map(n=>n.split(' ').slice(-1)[0]).join(' & '):'?'}
+                      {t?t.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'?'}
                     </div>
                     {t&&<div style={{fontSize:'10px',color:'var(--muted)'}}>{t.avgElo} CĐ</div>}
                   </td>
@@ -3983,22 +4054,22 @@ function RoundRobinView({rrMatches, teams, teamsById, isAdmin, onEditMatch}){
 
     {/* Lịch thi đấu */}
     <div style={{fontSize:'13px',fontWeight:700,marginBottom:'8px'}}>📅 Lịch thi đấu</div>
-    {isAdmin&&<div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'10px'}}>💡 Bấm vào trận để nhập tỉ số — kết quả tự ghi vào lịch sử &amp; cập nhật Công Đức.</div>}
+    <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'10px'}}>💡 Bấm vào trận để nhập tỉ số — kết quả tự ghi vào lịch sử &amp; cập nhật Công Đức.</div>
     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
       {rrMatches.map((m,idx)=>{
         const tA=teamsById[m.teamA], tB=teamsById[m.teamB];
         const hasScore=m.scoreA!==''&&m.scoreB!=='';
         const decided=!!m.winnerId;
         return (
-          <div key={m.id} onClick={()=>isAdmin&&onEditMatch(m.id)}
+          <div key={m.id} onClick={()=>onEditMatch(m.id)}
             style={{background:'var(--surface)',border:'1px solid '+(decided?'var(--green)':hasScore?'var(--border)':'var(--border)'),borderRadius:'10px',
-              padding:'10px 14px',cursor:isAdmin?'pointer':'default',display:'grid',
+              padding:'10px 14px',cursor:'pointer',display:'grid',
               gridTemplateColumns:'24px 1fr auto 1fr',gap:'8px',alignItems:'center',
               opacity:1,transition:'background .12s'}}>
             <div style={{fontSize:'11px',color:'var(--muted)',fontWeight:600,textAlign:'center'}}>{idx+1}</div>
             <div style={{fontSize:'12px',fontWeight:m.winnerId===m.teamA?700:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
               color:m.winnerId===m.teamA?'var(--green)':decided?'var(--muted)':'var(--text)'}}>
-              {tA?tA.players.map(n=>n.split(' ').slice(-1)[0]).join(' & '):'?'}
+              {tA?tA.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'?'}
             </div>
             <div style={{textAlign:'center',fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'15px',whiteSpace:'nowrap',
               color:hasScore?'var(--text)':'var(--muted2)'}}>
@@ -4006,13 +4077,157 @@ function RoundRobinView({rrMatches, teams, teamsById, isAdmin, onEditMatch}){
             </div>
             <div style={{fontSize:'12px',fontWeight:m.winnerId===m.teamB?700:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'right',
               color:m.winnerId===m.teamB?'var(--green)':decided?'var(--muted)':'var(--text)'}}>
-              {tB?tB.players.map(n=>n.split(' ').slice(-1)[0]).join(' & '):'?'}
+              {tB?tB.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'?'}
             </div>
           </div>
         );
       })}
     </div>
   </>;
+}
+
+/* ─── Phân tích kết quả sau giải ─── */
+function TournamentAnalysis({tournament, teamsById}){
+  const [open,setOpen]=useState(false);
+  const isRR=tournament.type==='roundrobin';
+  const allMatches=isRR
+    ?(tournament.rrMatches||[]).filter(m=>m.scoreA!==''&&m.scoreA!=null&&m.scoreB!==''&&m.scoreB!=null)
+    :(tournament.rounds||[]).flatMap(r=>(r.matches||[]).filter(m=>m.scoreA!==''&&m.scoreA!=null&&m.scoreB!==''&&m.scoreB!=null));
+  const parsed=allMatches.map(m=>({...m,a:parseInt(m.scoreA),b:parseInt(m.scoreB),diff:Math.abs(parseInt(m.scoreA)-parseInt(m.scoreB)),total:parseInt(m.scoreA)+parseInt(m.scoreB)})).filter(m=>!isNaN(m.a)&&!isNaN(m.b));
+  if(!parsed.length) return null;
+  const mostExciting=parsed.reduce((best,m)=>!best||(m.diff<best.diff||(m.diff===best.diff&&m.total>best.total))?m:best,null);
+  const biggestWin=parsed.reduce((best,m)=>!best||m.diff>best.diff?m:best,null);
+  const mostGoals=parsed.reduce((best,m)=>!best||m.total>best.total?m:best,null);
+  let bestAttack=null,bestDefense=null;
+  if(isRR){
+    const st=computeRRStandings(tournament.teams||[],tournament.rrMatches||[]);
+    bestAttack=st.reduce((b,s)=>!b||s.gf>b.gf?s:b,null);
+    bestDefense=st.reduce((b,s)=>!b||s.ga<b.ga?s:b,null);
+  }
+  const short=t=>t?t.players.map(n=>n.split(' ').slice(-2).join(' ')).join(' & '):'?';
+  const sc=m=>`${m.scoreA}–${m.scoreB}`;
+  const items=[
+    mostExciting&&{icon:'🎯',label:'Trận kịch tính nhất',main:`${short(teamsById[mostExciting.teamA])} ${sc(mostExciting)} ${short(teamsById[mostExciting.teamB])}`,sub:`Cách biệt ${mostExciting.diff} · Tổng ${mostExciting.total} điểm`},
+    biggestWin&&biggestWin.diff>0&&biggestWin.id!==mostExciting?.id&&{icon:'💪',label:'Thắng thuyết phục nhất',main:`${short(teamsById[biggestWin.teamA])} ${sc(biggestWin)} ${short(teamsById[biggestWin.teamB])}`,sub:`Cách biệt ${biggestWin.diff} điểm`},
+    mostGoals&&mostGoals.id!==mostExciting?.id&&mostGoals.id!==biggestWin?.id&&{icon:'🔥',label:'Trận nhiều điểm nhất',main:`${short(teamsById[mostGoals.teamA])} ${sc(mostGoals)} ${short(teamsById[mostGoals.teamB])}`,sub:`Tổng ${mostGoals.total} điểm`},
+    bestAttack&&{icon:'⚡',label:'Hàng công sắc bén nhất',main:short(teamsById[bestAttack.id]),sub:`Ghi ${bestAttack.gf} điểm tổng cộng`},
+    bestDefense&&{icon:'🛡',label:'Hàng thủ vững nhất',main:short(teamsById[bestDefense.id]),sub:`Chỉ thủng lưới ${bestDefense.ga} điểm`},
+  ].filter(Boolean);
+  if(!items.length) return null;
+  return (
+    <div style={{marginBottom:'14px',border:'1px solid var(--border)',borderRadius:'12px',overflow:'hidden'}}>
+      <button onClick={()=>setOpen(p=>!p)} style={{width:'100%',background:'var(--surface)',border:'none',padding:'11px 14px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'Nunito,sans-serif',fontSize:'13px',fontWeight:700,color:'var(--text)'}}>
+        <span>📊 Phân tích sau giải</span>
+        <span style={{color:'var(--muted)',fontSize:'11px'}}>{open?'▲':'▼'}</span>
+      </button>
+      {open&&(
+        <div style={{borderTop:'1px solid var(--border)',padding:'12px 14px',background:'var(--bg3)',display:'flex',flexDirection:'column',gap:'12px'}}>
+          {items.map((item,i)=>(
+            <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start'}}>
+              <div style={{fontSize:'18px',lineHeight:1,flexShrink:0,marginTop:'1px'}}>{item.icon}</div>
+              <div>
+                <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:700,marginBottom:'2px',textTransform:'uppercase',letterSpacing:'.5px'}}>{item.label}</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text)',fontFamily:'Quicksand,sans-serif'}}>{item.main}</div>
+                <div style={{fontSize:'11px',color:'var(--muted2)',marginTop:'1px'}}>{item.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Modal sửa đội sau khi đã tạo giải (chỉ admin) ─── */
+function EditTeamsModal({tournament, players, onSave, onClose}){
+  const [teams,setTeams]=useState(tournament.teams.map(t=>({...t,players:[...t.players]})));
+  const [editingSlot,setEditingSlot]=useState(null); // {ti,pi}
+  const [search,setSearch]=useState('');
+  const replacePlayer=(ti,pi,newName)=>{
+    setTeams(prev=>{
+      const next=prev.map(t=>({...t,players:[...t.players]}));
+      const oldName=next[ti].players[pi];
+      // Nếu người mới đang ở đội khác thì swap
+      let swapped=false;
+      for(let i=0;i<next.length&&!swapped;i++){
+        for(let j=0;j<next[i].players.length&&!swapped;j++){
+          if(next[i].players[j]===newName&&!(i===ti&&j===pi)){
+            next[i].players[j]=oldName; swapped=true;
+          }
+        }
+      }
+      next[ti].players[pi]=newName;
+      // Cập nhật avgElo
+      next.forEach(t=>{
+        const elos=t.players.map(n=>{const p=players.find(x=>x.name===n);return p?p.elo:1500;});
+        t.avgElo=Math.round(elos.reduce((s,e)=>s+e,0)/elos.length);
+      });
+      return next;
+    });
+    setEditingSlot(null); setSearch('');
+  };
+  const currentNames=new Set(teams.flatMap(t=>t.players));
+  const filteredPlayers=players.filter(p=>!search||p.name.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">✏️ Sửa thành viên đội</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{maxHeight:'62vh',overflowY:'auto'}}>
+          <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px',lineHeight:1.55}}>
+            Bấm vào tên để chọn vị trí cần sửa, rồi chọn người thay thế bên dưới. Người có dấu <b style={{color:'var(--orange)'}}>⇄</b> đang ở đội khác — chọn sẽ tự hoán đổi.
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(148px,1fr))',gap:'8px',marginBottom:'12px'}}>
+            {teams.map((t,ti)=>(
+              <div key={t.id} style={{border:'1px solid '+(editingSlot?.ti===ti?'var(--purple)':'var(--border)'),borderRadius:'10px',padding:'9px',background:'var(--surface)',transition:'border-color .15s'}}>
+                <div style={{fontSize:'10px',color:'var(--muted)',marginBottom:'6px',display:'flex',justifyContent:'space-between'}}>
+                  <span style={{fontWeight:700}}>Đội {ti+1}</span><span>{t.avgElo} CĐ</span>
+                </div>
+                {t.players.map((pname,pi)=>{
+                  const isEd=editingSlot&&editingSlot.ti===ti&&editingSlot.pi===pi;
+                  return (
+                    <button key={pi}
+                      onClick={()=>{if(isEd){setEditingSlot(null);setSearch('');}else{setEditingSlot({ti,pi});setSearch('');}}}
+                      style={{display:'block',width:'100%',marginBottom:pi<t.players.length-1?'4px':0,padding:'5px 8px',borderRadius:'7px',fontSize:'11px',cursor:'pointer',textAlign:'left',fontFamily:'Nunito,sans-serif',fontWeight:600,background:isEd?'var(--purple)':'var(--bg3)',color:isEd?'#fff':'var(--text)',border:'none',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {pname.split(' ').slice(-2).join(' ')} ✎
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {editingSlot&&(
+            <div style={{background:'var(--surface)',border:'1px solid var(--purple)',borderRadius:'10px',padding:'12px',marginBottom:'8px'}}>
+              <div style={{fontSize:'12px',fontWeight:700,color:'var(--purple)',marginBottom:'8px'}}>
+                Đang sửa: <span style={{color:'var(--text)'}}>{teams[editingSlot.ti].players[editingSlot.pi]}</span> (Đội {editingSlot.ti+1})
+              </div>
+              <input className="fi" value={search} onChange={e=>setSearch(e.target.value)}
+                placeholder="🔍 Tìm người chơi…" style={{marginBottom:'8px',fontSize:'13px'}} autoFocus/>
+              <div style={{display:'flex',flexWrap:'wrap',gap:'5px',maxHeight:'130px',overflowY:'auto'}}>
+                {filteredPlayers.map(p=>{
+                  const isCur=p.name===teams[editingSlot.ti].players[editingSlot.pi];
+                  const inOther=!isCur&&currentNames.has(p.name);
+                  return (
+                    <button key={p.id} onClick={()=>replacePlayer(editingSlot.ti,editingSlot.pi,p.name)}
+                      style={{padding:'4px 10px',borderRadius:'14px',fontSize:'11px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:isCur?700:500,border:'1px solid '+(isCur?'var(--purple)':inOther?'var(--orange)':'var(--border)'),background:isCur?'var(--purple)':'transparent',color:isCur?'#fff':inOther?'var(--orange)':'var(--text)'}}>
+                      {p.name.split(' ').slice(-2).join(' ')} ({p.elo}){inOther?' ⇄':''}
+                    </button>
+                  );
+                })}
+                {!filteredPlayers.length&&<div style={{fontSize:'12px',color:'var(--muted)',padding:'8px 0'}}>Không tìm thấy</div>}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Huỷ</button>
+          <button className="btn-save" onClick={()=>onSave(teams)}>💾 Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ─── GIẢI ĐẤU: Tab tạo & quản lý giải đấu loại trực tiếp ─── */
@@ -4030,6 +4245,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
   const [editingMatch,setEditingMatch]=useState(null); // {ri,mi} | 'third'
   const [showEditRound1,setShowEditRound1]=useState(false);
   const [confirmReset,setConfirmReset]=useState(false);
+  const [showEditTeams,setShowEditTeams]=useState(false);
 
   const togglePlayer=name=>{
     setSelectedNames(prev=>{
@@ -4208,6 +4424,12 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
     });
     setShowEditRound1(false);
     showToast&&showToast('Đã cập nhật cặp đấu Vòng 1.');
+  };
+
+  const saveEditedTeams=(newTeams)=>{
+    setTournament(prev=>prev?{...prev,teams:newTeams}:prev);
+    setShowEditTeams(false);
+    showToast&&showToast('✅ Đã cập nhật thành viên đội!');
   };
 
   const resetTournament=()=>{
@@ -4417,6 +4639,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
       </div>
       {isAdmin && (
         <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+          <button onClick={()=>setShowEditTeams(true)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✏️ Sửa đội</button>
           {!isRR&&<button onClick={()=>setShowEditRound1(true)} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🔀 Sửa cặp Vòng 1</button>}
           <button onClick={()=>setConfirmReset(true)} style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'8px',color:'var(--red)',padding:'6px 12px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải</button>
         </div>
@@ -4453,9 +4676,12 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
       </div>
     )}
 
+    {/* ── PHÂN TÍCH SAU GIẢI ── */}
+    {champion && <TournamentAnalysis tournament={tournament} teamsById={teamsById}/>}
+
     {/* ── LOẠI TRỰC TIẾP ── */}
     {!isRR && <>
-      {isAdmin && <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'12px'}}>💡 Bấm vào 1 trận để nhập tỉ số — kết quả tự ghi vào lịch sử &amp; cập nhật Công Đức.</div>}
+      <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'12px'}}>💡 Bấm vào 1 trận để nhập tỉ số — kết quả tự ghi vào lịch sử &amp; cập nhật Công Đức.</div>
       <BracketView rounds={tournament.rounds} thirdPlace={tournament.thirdPlace} teamsById={teamsById} isAdmin={isAdmin}
         onEditMatch={(ri,mi)=>setEditingMatch({ri,mi})}
         onEditThirdPlace={()=>setEditingMatch('third')}
@@ -4500,10 +4726,77 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
         onSave={(a,b)=>saveRRMatch(editingMatch,a,b)}/>;
     })()}
 
+    {showEditTeams && <EditTeamsModal tournament={tournament} players={players} onSave={saveEditedTeams} onClose={()=>setShowEditTeams(false)}/>}
     {confirmReset && (
       <ConfirmModal msg="Xoá giải đấu hiện tại? Toàn bộ kết quả sẽ mất." onConfirm={resetTournament} onClose={()=>setConfirmReset(false)}/>
     )}
   </>;
+}
+
+/* ─── PlayerPicker: chọn người có tìm kiếm ─── */
+function PlayerPicker({value, onChange, exclude=[], players, label, accentColor}){
+  const [open,setOpen]=useState(false);
+  const [search,setSearch]=useState('');
+  const selected=players.find(p=>p.name===value);
+  const opts=players.filter(p=>!exclude.filter(Boolean).includes(p.name)&&(!search||p.name.toLowerCase().includes(search.toLowerCase())));
+  const color=accentColor||'var(--purple)';
+  const close=()=>{setOpen(false);setSearch('');};
+  return (
+    <div style={{position:'relative'}}>
+      {label&&<div className="fl" style={{marginBottom:'6px',color}}>{label}</div>}
+      <button onClick={()=>{setOpen(o=>!o);setSearch('');}}
+        style={{width:'100%',padding:'9px 11px',borderRadius:'10px',border:'1px solid',cursor:'pointer',
+          textAlign:'left',fontFamily:'Nunito,sans-serif',background:'var(--surface)',
+          borderColor:open?color:'var(--border)',
+          display:'flex',alignItems:'center',gap:'8px',transition:'border-color .15s'}}>
+        {selected?(
+          <>
+            <div style={{width:28,height:28,borderRadius:'50%',background:selected.avatar?'transparent':(selected.color||'#888')+'22',color:selected.color||'#888',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,flexShrink:0,overflow:'hidden'}}>
+              {selected.avatar?<img src={selected.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:selected.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase()}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:'13px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{selected.name.split(' ').slice(-2).join(' ')}</div>
+              <div style={{fontSize:'11px',color:'var(--muted)'}}>{selected.elo} CĐ</div>
+            </div>
+          </>
+        ):(
+          <div style={{flex:1,color:'var(--muted)',fontSize:'13px'}}>— Chọn người —</div>
+        )}
+        <span style={{fontSize:'10px',color:'var(--muted)',flexShrink:0}}>{open?'▲':'▼'}</span>
+      </button>
+      {open&&(
+        <div style={{position:'absolute',left:0,right:0,top:'100%',marginTop:'4px',zIndex:200,
+          background:'var(--surface)',border:'1px solid '+color,borderRadius:'10px',
+          overflow:'hidden',boxShadow:'0 6px 20px rgba(0,0,0,.25)'}}>
+          <div style={{padding:'8px'}}>
+            <input className="fi" value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="🔍 Tìm tên…" style={{fontSize:'13px',margin:0}} autoFocus/>
+          </div>
+          <div style={{maxHeight:'220px',overflowY:'auto',borderTop:'1px solid var(--border)'}}>
+            {!opts.length&&<div style={{textAlign:'center',padding:'16px',color:'var(--muted)',fontSize:'13px'}}>Không tìm thấy</div>}
+            {opts.map(p=>{
+              const isSel=p.name===value;
+              return (
+                <div key={p.name} onClick={()=>{onChange(p.name);close();}}
+                  style={{padding:'9px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'10px',
+                    background:isSel?'var(--purple-bg)':'transparent',
+                    borderBottom:'1px solid var(--border)',transition:'background .1s'}}>
+                  <div style={{width:32,height:32,borderRadius:'50%',background:p.avatar?'transparent':(p.color||'#888')+'22',color:p.color||'#888',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:700,flexShrink:0,overflow:'hidden'}}>
+                    {p.avatar?<img src={p.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:p.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase()}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:'13px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:isSel?'var(--purple)':'var(--text)'}}>{p.name}</div>
+                    <div style={{fontSize:'11px',color:'var(--muted)'}}>{p.elo} Công Đức</div>
+                  </div>
+                  {isSel&&<div style={{color:'var(--purple)',fontSize:'16px',fontWeight:800}}>✓</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToast, addMatch}){
@@ -4521,14 +4814,6 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
   const [partnerFor,setPartnerFor]=useState('');
   // H2H expanded
   const [h2hExpanded,setH2hExpanded]=useState(false);
-
-  const pOpts=players.map(p=>p.name);
-  const sel=(val,fn,exclude=[])=>(
-    <select className="fi" value={val} onChange={e=>fn(e.target.value)}>
-      <option value="">-- Chọn --</option>
-      {pOpts.filter(n=>!exclude.includes(n)).map(n=><option key={n}>{n}</option>)}
-    </select>
-  );
 
   const analysis = useMemo(()=>{
     if(mode==='don'){
@@ -4627,11 +4912,7 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
     {/* ── PARTNER TAB ── */}
     {mainTab==='partner' && <>
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
-        <div className="fl" style={{marginBottom:'8px'}}>🎯 Chọn người muốn xem</div>
-        <select className="fi" value={partnerFor} onChange={e=>setPartnerFor(e.target.value)}>
-          <option value="">-- Chọn người chơi --</option>
-          {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
-        </select>
+        <PlayerPicker value={partnerFor} onChange={setPartnerFor} exclude={[]} players={players} label="🎯 Chọn người muốn xem" accentColor="var(--purple)"/>
       </div>
 
       {partnerFor && partnerStats.length>0 && (
@@ -4704,25 +4985,21 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
     {/* Player selection */}
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
       {mode==='don'?(
-        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'center'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'start'}}>
           <div>
-            <div className="fl" style={{marginBottom:'6px',color:'var(--green)'}}>⚡ Người A</div>
-            {sel(pA,setPa,[pB])}
-            {pA&&<div style={{textAlign:'center',marginTop:'6px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'15px'}}>{players.find(p=>p.name===pA)?.elo||''} Công Đức</div>}
+            <PlayerPicker value={pA} onChange={setPa} exclude={[pB]} players={players} label="⚡ Người A" accentColor="var(--green)"/>
           </div>
-          <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px'}}>VS</div>
+          <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px',paddingTop:'32px'}}>VS</div>
           <div>
-            <div className="fl" style={{marginBottom:'6px',color:'var(--red)'}}>🔥 Người B</div>
-            {sel(pB,setPb,[pA])}
-            {pB&&<div style={{textAlign:'center',marginTop:'6px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'15px'}}>{players.find(p=>p.name===pB)?.elo||''} Công Đức</div>}
+            <PlayerPicker value={pB} onChange={setPb} exclude={[pA]} players={players} label="🔥 Người B" accentColor="var(--red)"/>
           </div>
         </div>
       ):(
         <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'start'}}>
           <div>
             <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--green)'}}>⚡ Cặp 1</div>
-            <div style={{marginBottom:'8px'}}><div className="fl" style={{marginBottom:'4px'}}>Người 1</div>{sel(d1a,setD1a,[d1b,d2a,d2b])}</div>
-            <div><div className="fl" style={{marginBottom:'4px'}}>Người 2</div>{sel(d1b,setD1b,[d1a,d2a,d2b])}</div>
+            <div style={{marginBottom:'10px'}}><PlayerPicker value={d1a} onChange={setD1a} exclude={[d1b,d2a,d2b]} players={players} label="Người 1"/></div>
+            <div><PlayerPicker value={d1b} onChange={setD1b} exclude={[d1a,d2a,d2b]} players={players} label="Người 2"/></div>
             {(d1a||d1b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'13px'}}>
               TB: {analysis?.elo1||'—'} Công Đức
             </div>}
@@ -4730,8 +5007,8 @@ function SoKeoTab({players, matches, tournament, setTournament, isAdmin, showToa
           <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px',paddingTop:'28px'}}>VS</div>
           <div>
             <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--red)'}}>🔥 Cặp 2</div>
-            <div style={{marginBottom:'8px'}}><div className="fl" style={{marginBottom:'4px'}}>Người 1</div>{sel(d2a,setD2a,[d1a,d1b,d2b])}</div>
-            <div><div className="fl" style={{marginBottom:'4px'}}>Người 2</div>{sel(d2b,setD2b,[d1a,d1b,d2a])}</div>
+            <div style={{marginBottom:'10px'}}><PlayerPicker value={d2a} onChange={setD2a} exclude={[d1a,d1b,d2b]} players={players} label="Người 1"/></div>
+            <div><PlayerPicker value={d2b} onChange={setD2b} exclude={[d1a,d1b,d2a]} players={players} label="Người 2"/></div>
             {(d2a||d2b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'13px'}}>
               TB: {analysis?.elo2||'—'} Công Đức
             </div>}
@@ -6815,7 +7092,7 @@ function App(){
     )}
 
     <div className="main">
-      {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')}/>}
+      {tab==='dashboard' && <Dashboard matches={matches.filter(m=>matchSeg==='Tất cả'||m.type===matchSeg)} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')}/>}
       {tab==='matches'   && <MatchesTab matches={matches} players={players} myElo={myElo} onAdd={openAdd} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
