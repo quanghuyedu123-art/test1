@@ -2670,7 +2670,7 @@ function exportCSV(matches,players){
 
 /* ─── ELO HISTORY CHART ──────────────────────────────────── */
 /* ─── TRANG RIÊNG: LỊCH SỬ ĐÁNH CHI TIẾT CỦA NGƯỜI CHƠI ──── */
-function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
+function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
   const [monthFilter,setMonthFilter]=useState('Tất cả');
   const [editMatch,setEditMatch]=useState(null);
@@ -2819,6 +2819,30 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
     return {seq, recentWins, recentLosses:seq.length-recentWins, recentWr, count:seq.length};
   },[myMatchesAsc,player.name]);
 
+  // Chuỗi thắng/thua hiện tại (≥2)
+  const matchStreak=useMemo(()=>{
+    if(!myMatchesAsc.length) return null;
+    const recent=[...myMatchesAsc].reverse();
+    const getR=m=>{const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);return(inT1?m.result==='W':m.result==='L')?'W':'L';};
+    const first=getR(recent[0]);
+    let count=0;
+    for(const m of recent){if(getR(m)===first)count++;else break;}
+    return count>=2?{type:first,count}:null;
+  },[myMatchesAsc,player.name]);
+
+  // Chuỗi tham dự buổi tập + tổng số buổi đã đến
+  const mySessionStreak=useMemo(()=>{
+    if(!sessions||!sessions.length) return 0;
+    return computeSessionStreaks([player],sessions)[player.name]||0;
+  },[player,sessions]);
+  const sessionsAttended=useMemo(()=>{
+    if(!sessions) return null;
+    return sessions.filter(s=>s.attendees&&s.attendees[player.name]===true).length;
+  },[sessions,player.name]);
+
+  // Số trận Ngôi sao hy vọng đã chơi
+  const starMatchCount=useMemo(()=>myMatchesAsc.filter(m=>m.isStar).length,[myMatchesAsc]);
+
   // Đồng đội (đánh đôi cùng đội, tối thiểu 2 trận chung) — dùng để xếp
   // "Quý Nhân Phù Trợ" (thắng cao) và "Vận Rủi Đồng Hành" (thua nhiều)
   const teammateStats=useMemo(()=>{
@@ -2890,6 +2914,11 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
             <span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'20px',background:tier.bg,color:tier.color,fontWeight:700}}>{tier.icon} {tier.label}</span>
             <span style={{fontSize:'14px',color:'var(--muted)'}}>Công Đức {player.elo}</span>
+            {mySessionStreak>=2&&<span style={{fontSize:'11px',padding:'2px 9px',borderRadius:'20px',background:'rgba(251,146,60,.15)',color:'var(--orange)',fontWeight:700}}>🔥 {mySessionStreak} buổi liên tiếp</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:'12px',marginTop:'5px',flexWrap:'wrap'}}>
+            {sessionsAttended!==null&&<span style={{fontSize:'11px',color:'var(--muted)'}}>🏸 {sessionsAttended} buổi tham dự</span>}
+            {starMatchCount>0&&<span style={{fontSize:'11px',color:'#fbbf24',fontWeight:600}}>⭐ {starMatchCount} trận sao</span>}
           </div>
           {onUpdateAvatar && <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'6px'}}>Bấm biểu tượng 📷 để đổi ảnh · bấm vào ảnh để xem cỡ lớn</div>}
         </div>
@@ -2928,6 +2957,31 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
         </div>
       </div>
 
+      {(recentForm||matchStreak)&&(
+        <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'12px',alignItems:'stretch'}}>
+          {recentForm&&(
+            <div style={{display:'flex',alignItems:'center',gap:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'8px 12px',flex:'1 1 auto'}}>
+              <span style={{fontSize:'11px',color:'var(--muted)',fontWeight:600,whiteSpace:'nowrap'}}>Phong độ:</span>
+              <div style={{display:'flex',gap:'3px'}}>
+                {recentForm.seq.map((r,i)=>(
+                  <div key={i} style={{width:22,height:22,borderRadius:'50%',background:r==='W'?'var(--green)':'var(--red)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'9px',fontWeight:800,color:'#fff'}}>{r}</div>
+                ))}
+              </div>
+              <span style={{fontSize:'10px',color:'var(--muted)',marginLeft:'2px'}}>{recentForm.recentWins}/{recentForm.count}</span>
+            </div>
+          )}
+          {matchStreak&&(
+            <div style={{background:matchStreak.type==='W'?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)',border:`1px solid ${matchStreak.type==='W'?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'}`,borderRadius:'10px',padding:'8px 14px',display:'flex',alignItems:'center',gap:'6px',whiteSpace:'nowrap',flexShrink:0}}>
+              <span style={{fontSize:'15px'}}>{matchStreak.type==='W'?'🔥':'🧊'}</span>
+              <div>
+                <div style={{fontSize:'12px',fontWeight:700,color:matchStreak.type==='W'?'var(--green)':'var(--red)'}}>Chuỗi {matchStreak.type==='W'?'thắng':'thua'} ×{matchStreak.count}</div>
+                <div style={{fontSize:'9px',color:'var(--muted)'}}>trận gần nhất</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {statsMismatch && (
         <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'10px 12px',marginBottom:'18px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',flexWrap:'wrap'}}>
           <div style={{fontSize:'11px',color:'var(--red)',flex:'1 1 200px'}}>
@@ -2948,6 +3002,45 @@ function PlayerHistoryPage({player, players, matches, onBack, onEditMatch, onDel
             ))}
           </div>
         </>
+      )}
+
+      {(nemesis||favoriteVictim)&&(
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'18px'}}>
+          {nemesis&&(()=>{
+            const np=players.find(pp=>pp.name===nemesis.name);
+            const clickable=!!(np&&onViewHistory);
+            return (
+              <div onClick={()=>clickable&&onViewHistory(np)}
+                style={{background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.22)',borderRadius:'12px',padding:'10px 12px',cursor:clickable?'pointer':'default'}}>
+                <div style={{fontSize:'10px',color:'var(--red)',fontWeight:700,marginBottom:'6px'}}>⚔️ KÌNH ĐỊCH</div>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  {np?<PlayerAvatar player={np} size={28}/>:<div style={{width:28,height:28,borderRadius:'50%',background:'var(--surface2)',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,color:'var(--muted)'}}>{initials(nemesis.name)}</div>}
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:'13px',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nemesis.name.split(' ').slice(-2).join(' ')}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'1px'}}><span style={{color:'var(--green)'}}>{nemesis.wins}W</span>–<span style={{color:'var(--red)'}}>{nemesis.losses}L</span> · {nemesis.winRate}% thắng</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          {favoriteVictim&&favoriteVictim.name!==nemesis?.name&&(()=>{
+            const fp=players.find(pp=>pp.name===favoriteVictim.name);
+            const clickable=!!(fp&&onViewHistory);
+            return (
+              <div onClick={()=>clickable&&onViewHistory(fp)}
+                style={{background:'rgba(34,197,94,.07)',border:'1px solid rgba(34,197,94,.22)',borderRadius:'12px',padding:'10px 12px',cursor:clickable?'pointer':'default'}}>
+                <div style={{fontSize:'10px',color:'var(--green)',fontWeight:700,marginBottom:'6px'}}>🏆 KHẮC CHẾ</div>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  {fp?<PlayerAvatar player={fp} size={28}/>:<div style={{width:28,height:28,borderRadius:'50%',background:'var(--surface2)',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,color:'var(--muted)'}}>{initials(favoriteVictim.name)}</div>}
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:'13px',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{favoriteVictim.name.split(' ').slice(-2).join(' ')}</div>
+                    <div style={{fontSize:'10px',color:'var(--muted)',marginTop:'1px'}}><span style={{color:'var(--green)'}}>{favoriteVictim.wins}W</span>–<span style={{color:'var(--red)'}}>{favoriteVictim.losses}L</span> · {favoriteVictim.winRate}% thắng</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {(opponentStats.length>0 || teammateStats.length>0) && (() => {
@@ -3857,7 +3950,9 @@ function LeaderboardTab({players,matches,members,sessions,onAddPlayer,onDeletePl
                 {i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
               </div>
               <div className="player-cell">
-                <PlayerAvatar player={p} size={34}/>
+                <div onClick={()=>!isRenaming&&onViewHistory&&onViewHistory(p)} style={{flexShrink:0,cursor:isRenaming?'default':'pointer'}} title={isRenaming?'':'Xem lịch sử đánh +/- điểm'}>
+                  <PlayerAvatar player={p} size={34}/>
+                </div>
                 <div style={{minWidth:0,flex:1}}>
                   {isRenaming ? (
                     <div style={{display:'flex',gap:'4px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
@@ -7734,7 +7829,7 @@ function App(){
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
-          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
+          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} sessions={sessions} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} sessions={sessions} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast} addMatch={addMatch}/>}
