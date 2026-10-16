@@ -195,8 +195,8 @@ body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-
 .elo-case-sub{font-size:10px;color:var(--muted);margin-top:2px}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:24px;width:100%;max-width:500px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.6);margin:auto 0}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .modal-title{font-family:'Quicksand',sans-serif;font-size:19px;font-weight:700}
 .modal-close{background:var(--surface2);border:none;color:var(--muted);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
@@ -5292,6 +5292,9 @@ function SoKeoTab({players, matches, sessions, tournament, setTournament, isAdmi
         return db-da||(b.id-a.id);
       }).slice(0,10)
   ,[sessions]);
+  // Chỉ hiện người có buổi chơi gần đây trong So Kèo / Ăn Ý
+  const recentPlayerNames=useMemo(()=>{const s=new Set();recentCourtSessions.forEach(x=>Object.entries(x.attendees||{}).filter(([,v])=>v).forEach(([k])=>s.add(k)));return s;},[recentCourtSessions]);
+  const recentPlayers=useMemo(()=>players.filter(p=>recentPlayerNames.has(p.name)||!recentCourtSessions.length),[players,recentPlayerNames,recentCourtSessions.length]);
   const [spinSessionId,setSpinSessionId]=useState('');
   const [spinPlayers,setSpinPlayers]=useState([]);
   const [spinMode,setSpinMode]=useState('random'); // 'random' | 'elo'
@@ -5480,7 +5483,7 @@ function SoKeoTab({players, matches, sessions, tournament, setTournament, isAdmi
       {/* ── Ăn Ý section ── */}
       {analyzeTab==='partner' && <>
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
-        <PlayerPicker value={partnerFor} onChange={setPartnerFor} exclude={[]} players={players} label="🎯 Chọn người muốn xem" accentColor="var(--purple)"/>
+        <PlayerPicker value={partnerFor} onChange={setPartnerFor} exclude={[]} players={recentPlayers} label="🎯 Chọn người muốn xem" accentColor="var(--purple)"/>
       </div>
 
       {partnerFor && partnerStats.length>0 && (
@@ -5731,19 +5734,19 @@ function SoKeoTab({players, matches, sessions, tournament, setTournament, isAdmi
       {mode==='don'?(
         <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'start'}}>
           <div>
-            <PlayerPicker value={pA} onChange={setPa} exclude={[pB]} players={players} label="⚡ Người A" accentColor="var(--green)"/>
+            <PlayerPicker value={pA} onChange={setPa} exclude={[pB]} players={recentPlayers} label="⚡ Người A" accentColor="var(--green)"/>
           </div>
           <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px',paddingTop:'32px'}}>VS</div>
           <div>
-            <PlayerPicker value={pB} onChange={setPb} exclude={[pA]} players={players} label="🔥 Người B" accentColor="var(--red)"/>
+            <PlayerPicker value={pB} onChange={setPb} exclude={[pA]} players={recentPlayers} label="🔥 Người B" accentColor="var(--red)"/>
           </div>
         </div>
       ):(
         <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'12px',alignItems:'start'}}>
           <div>
             <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--green)'}}>⚡ Cặp 1</div>
-            <div style={{marginBottom:'10px'}}><PlayerPicker value={d1a} onChange={setD1a} exclude={[d1b,d2a,d2b]} players={players} label="Người 1"/></div>
-            <div><PlayerPicker value={d1b} onChange={setD1b} exclude={[d1a,d2a,d2b]} players={players} label="Người 2"/></div>
+            <div style={{marginBottom:'10px'}}><PlayerPicker value={d1a} onChange={setD1a} exclude={[d1b,d2a,d2b]} players={recentPlayers} label="Người 1"/></div>
+            <div><PlayerPicker value={d1b} onChange={setD1b} exclude={[d1a,d2a,d2b]} players={recentPlayers} label="Người 2"/></div>
             {(d1a||d1b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--green)',fontSize:'13px'}}>
               TB: {analysis?.elo1||'—'} Công Đức
             </div>}
@@ -5751,8 +5754,8 @@ function SoKeoTab({players, matches, sessions, tournament, setTournament, isAdmi
           <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'16px',paddingTop:'28px'}}>VS</div>
           <div>
             <div className="fl" style={{marginBottom:'8px',textAlign:'center',color:'var(--red)'}}>🔥 Cặp 2</div>
-            <div style={{marginBottom:'10px'}}><PlayerPicker value={d2a} onChange={setD2a} exclude={[d1a,d1b,d2b]} players={players} label="Người 1"/></div>
-            <div><PlayerPicker value={d2b} onChange={setD2b} exclude={[d1a,d1b,d2a]} players={players} label="Người 2"/></div>
+            <div style={{marginBottom:'10px'}}><PlayerPicker value={d2a} onChange={setD2a} exclude={[d1a,d1b,d2b]} players={recentPlayers} label="Người 1"/></div>
+            <div><PlayerPicker value={d2b} onChange={setD2b} exclude={[d1a,d1b,d2a]} players={recentPlayers} label="Người 2"/></div>
             {(d2a||d2b)&&<div style={{textAlign:'center',marginTop:'8px',fontFamily:'Quicksand,sans-serif',fontWeight:700,color:'var(--red)',fontSize:'13px'}}>
               TB: {analysis?.elo2||'—'} Công Đức
             </div>}
@@ -6088,6 +6091,8 @@ function EditSessionModal({session,members,onClose,onSave}){
 function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,matches,setMatches,onRenameMember,showToast,onTrashAdd,isAdmin,bankInfo,setBankInfo,clubName}){
   const memberNames = FUND_MEMBERS.map(m=>m.name);
   // Data được load/save bởi App cha — FundTab chỉ dùng trực tiếp
+  const _td=new Date();
+  const _todayStr=`${String(_td.getDate()).padStart(2,'0')}/${String(_td.getMonth()+1).padStart(2,'0')}`;
   const [showAdd,setShowAdd]=useState(false);
   const [showAddMember,setShowAddMember]=useState(false);
   const [newMember,setNewMember]=useState({name:'',paid:''});
@@ -6096,7 +6101,7 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
   const [depositTarget,setDepositTarget]=useState(null); // {name, idx}
   const [depositAmt,setDepositAmt]=useState('');
   const [depositDate,setDepositDate]=useState('');
-  const [f,setF]=useState({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
+  const [f,setF]=useState({date:_todayStr,courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
   const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
   const fFeeTotal=(parseInt(f.courtFee)||0)+(parseInt(f.shuttleFee)||0)+(parseInt(f.waterFee)||0)+(parseInt(f.otherFee)||0);
   const [renamingMember,setRenamingMember]=useState(null); // idx
@@ -6176,7 +6181,8 @@ function FundTab({players,setPlayers,sessions,setSessions,members,setMembers,mat
       total:fFeeTotal,attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||'',
       waterDrinkers:finalWaterDrinkers};
     setSessions(p=>[...p,newSession]);
-    setF({date:'',courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
+    const _nd=new Date(),_ns=`${String(_nd.getDate()).padStart(2,'0')}/${String(_nd.getMonth()+1).padStart(2,'0')}`;
+    setF({date:_ns,courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},note:''});
     setShowAdd(false);
   };
 
