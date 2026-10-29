@@ -633,6 +633,28 @@ const VIETQR_BG_PHOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD
 
 // Component render QR dùng inline QrCodeGen (không cần CDN)
 function QRCodeView({bankCode, accountNo, accountName, amount, note, size=200}){
+  const [loaded,setLoaded]=React.useState(false);
+  const [err,setErr]=React.useState(false);
+  React.useEffect(()=>{ setLoaded(false); setErr(false); },[bankCode,accountNo,amount,note]);
+  if(!bankCode||!accountNo) return null;
+  const safeName=(accountName||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').substring(0,25).toUpperCase();
+  const safeNote=(note||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').substring(0,25);
+  const p=new URLSearchParams();
+  if(amount&&amount>0) p.set('amount',Math.round(amount));
+  if(safeNote) p.set('addInfo',safeNote);
+  if(safeName) p.set('accountName',safeName);
+  const url=`https://img.vietqr.io/image/${bankCode}-${accountNo}-compact.png?${p.toString()}`;
+  return (
+    <div style={{width:size,height:size,background:'#fff',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+      {!loaded&&!err&&<span style={{fontSize:'12px',color:'#aaa'}}>⏳</span>}
+      {err&&<span style={{fontSize:'11px',color:'#c00',textAlign:'center',padding:'8px'}}>❌ Lỗi QR</span>}
+      <img src={url} alt="QR"
+        style={{width:'100%',height:'100%',objectFit:'contain',display:loaded?'block':'none'}}
+        onLoad={()=>setLoaded(true)}
+        onError={()=>setErr(true)}/>
+    </div>
+  );
+}){
   // Dùng VietQR image API - chuẩn nhất, hiện đủ thông tin số tiền
   const [imgSrc, setImgSrc] = React.useState(null);
   const [err, setErr] = React.useState(false);
@@ -7206,12 +7228,17 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
     if(!node || !window.html2canvas) return;
     setDownloading(name);
     try{
-      const canvas = await window.html2canvas(node,{backgroundColor:'#1a1d24',scale:2,useCORS:false,allowTaint:true,imageTimeout:0});
-      const link = document.createElement('a');
-      link.download = `no-quy-${name.replace(/\s+/g,'-')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    }catch(e){}
+      const canvas = await window.html2canvas(node,{backgroundColor:'#1a1d24',scale:2,useCORS:true,allowTaint:true,imageTimeout:3000});
+      try{
+        const link = document.createElement('a');
+        link.download = `no-quy-${name.replace(/\s+/g,'-')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }catch(corsErr){
+        // QR image từ vietqr.io bị CORS taint → chụp màn hình thay thế
+        alert('Để lưu ảnh, bạn chụp màn hình (screenshot) nhé! (Ảnh QR từ VietQR không cho phép export tự động)');
+      }
+    }catch(e){ console.error('html2canvas:',e); }
     setDownloading(null);
   };
 
@@ -7306,32 +7333,30 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
             const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
             const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
             return (
-              <div key={r.name} style={{marginBottom:'4px'}}>
-                {/* Card với ảnh nền người cầm thẻ + QR overlay */}
-                <div ref={el=>cardRefs.current[r.name]=el} style={{position:'relative',width:'100%',borderRadius:'16px',overflow:'hidden',boxShadow:'0 4px 20px #0003',background:'#1a1d24'}}>
-                  {/* Ảnh nền */}
-                  <img src={VIETQR_BG_PHOTO} alt="" style={{width:'100%',display:'block',objectFit:'cover',opacity:0.92}} crossOrigin={undefined}/>
-                  {/* Overlay gradient bottom */}
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,height:'55%',background:'linear-gradient(to top,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.4) 55%,transparent 100%)'}}/>
-                  {/* Tên + số tiền ở góc trên trái */}
-                  <div style={{position:'absolute',top:'10px',left:'12px',right:'12px',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                    <div style={{background:'rgba(0,0,0,0.55)',backdropFilter:'blur(6px)',borderRadius:'10px',padding:'6px 10px',maxWidth:'60%'}}>
-                      <div style={{fontSize:'13px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif',lineHeight:1.2}}>{r.name}</div>
-                      <div style={{fontSize:'9px',color:'rgba(255,255,255,0.7)',marginTop:'2px'}}>🙏 Còn nợ Hòm Công Đức</div>
+              <div key={r.name} style={{marginBottom:'8px'}}>
+                {/* Card gọn - gradient background, QR trung tâm */}
+                <div ref={el=>cardRefs.current[r.name]=el} style={{borderRadius:'16px',overflow:'hidden',boxShadow:'0 4px 20px #0004',background:'linear-gradient(135deg,#1a1d24 0%,#2d3250 50%,#1a1d24 100%)'}}>
+                  {/* Header: tên + số tiền */}
+                  <div style={{padding:'14px 16px 10px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
+                    <div>
+                      <div style={{fontSize:'15px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif'}}>{r.name}</div>
+                      <div style={{fontSize:'10px',color:'rgba(255,255,255,0.5)',marginTop:'2px'}}>🙏 Còn nợ Hòm Công Đức</div>
                     </div>
-                    <div style={{background:'rgba(239,68,68,0.9)',backdropFilter:'blur(4px)',borderRadius:'10px',padding:'6px 10px',textAlign:'right'}}>
-                      <div style={{fontSize:'15px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif',lineHeight:1}}>{fmt(r.debt)}</div>
-                      <div style={{fontSize:'8px',color:'rgba(255,255,255,0.85)',marginTop:'2px'}}>VND</div>
+                    <div style={{background:'rgba(239,68,68,0.9)',borderRadius:'10px',padding:'6px 12px',textAlign:'right'}}>
+                      <div style={{fontSize:'16px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif',lineHeight:1}}>{fmt(r.debt)}</div>
+                      <div style={{fontSize:'9px',color:'rgba(255,255,255,0.8)',marginTop:'2px'}}>VND</div>
                     </div>
                   </div>
-                  {/* QR overlay đặt đúng vào ô QR trong ảnh thẻ - top~60%, left~27%, w~46% */}
-                  <div style={{position:'absolute',top:'57%',left:'25%',width:'50%',aspectRatio:'1',display:'flex',alignItems:'center',justifyContent:'center',padding:'1%',background:'#fff',borderRadius:'6px',boxShadow:'0 2px 12px rgba(0,0,0,0.3)'}}>
-                    <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note} size={220}/>
+                  {/* QR trung tâm */}
+                  <div style={{padding:'16px',display:'flex',justifyContent:'center'}}>
+                    <div style={{background:'#fff',borderRadius:'12px',padding:'10px',boxShadow:'0 2px 16px rgba(0,0,0,0.3)'}}>
+                      <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note} size={200}/>
+                    </div>
                   </div>
-                  {/* Footer info */}
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'6px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <div style={{fontSize:'9px',color:'rgba(255,255,255,0.6)',fontWeight:600}}>Phông Bạt 🏓</div>
-                    <div style={{fontSize:'9px',color:'rgba(255,255,255,0.55)'}}>Chuyển khoản ngay!</div>
+                  {/* Footer */}
+                  <div style={{padding:'8px 16px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,0.55)',fontWeight:700}}>Phông Bạt 🏓</div>
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,0.45)'}}>Chuyển khoản ngay!</div>
                   </div>
                 </div>
                 {/* Nút tải */}
