@@ -24,7 +24,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -429,19 +429,24 @@ function buildVietQRString({bankCode, accountNo, accountName, amount, note}){
   qr += _crc16(qr).toString(16).toUpperCase().padStart(4,'0');
   return qr;
 }
-// Component render QR offline bằng qrcodejs
-function QRCodeView({bankCode, accountNo, accountName, amount, note, size=220}){
-  const ref = React.useRef(null);
+// Component render QR offline bằng qrcode (toDataURL)
+function QRCodeView({bankCode, accountNo, accountName, amount, note, size=200}){
+  const [dataUrl,setDataUrl]=React.useState(null);
+  const [err,setErr]=React.useState(false);
   React.useEffect(()=>{
-    if(!ref.current||!bankCode||!accountNo) return;
-    ref.current.innerHTML='';
-    const data = buildVietQRString({bankCode,accountNo,accountName,amount,note});
-    if(!data||typeof QRCode==='undefined') return;
-    try{ new QRCode(ref.current,{text:data,width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M}); }
-    catch(e){ ref.current.innerHTML='<div style="color:red;font-size:11px">Lỗi tạo QR</div>'; }
+    setDataUrl(null);setErr(false);
+    if(!bankCode||!accountNo) return;
+    const data=buildVietQRString({bankCode,accountNo,accountName,amount,note});
+    if(!data) return;
+    if(typeof QRCode==='undefined'||typeof QRCode.toDataURL!=='function'){ setErr(true); return; }
+    QRCode.toDataURL(data,{width:size,margin:1,errorCorrectionLevel:'M',color:{dark:'#000000',light:'#ffffff'}},(e,url)=>{
+      if(e) setErr(true); else setDataUrl(url);
+    });
   },[bankCode,accountNo,accountName,amount,note,size]);
   if(!bankCode||!accountNo) return null;
-  return <div ref={ref} style={{display:'flex',justifyContent:'center',borderRadius:'10px',overflow:'hidden'}}/>;
+  if(err) return <div style={{width:size,height:size,background:'#fee',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',color:'#c00',textAlign:'center',padding:'8px'}}>❌ Lỗi tạo QR</div>;
+  if(!dataUrl) return <div style={{width:size,height:size,background:'#f5f5f5',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',color:'#999'}}>⏳ Đang tạo...</div>;
+  return <img src={dataUrl} style={{width:size,height:size,borderRadius:'8px',display:'block'}} alt="QR chuyển khoản"/>;
 }
 function initials(n){ return n.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(); }
 // Kiểm tra tên đã tồn tại chưa (không phân biệt hoa/thường), dùng chung cho cả BXH và Quỹ vì 2 danh sách này đồng bộ tên với nhau
@@ -7077,23 +7082,42 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
             const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
             const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
             return (
-              <div key={r.name} ref={el=>cardRefs.current[r.name]=el} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',textAlign:'center'}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginBottom:'8px'}}>
-                  <div style={{width:'26px',height:'26px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:r.color+'22',color:r.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700}}>
+              <div key={r.name} ref={el=>cardRefs.current[r.name]=el} style={{background:'#fff',border:'1px solid #e3e6ea',borderRadius:'16px',overflow:'hidden',boxShadow:'0 2px 12px #0001'}}>
+                {/* Header màu theo member */}
+                <div style={{background:`linear-gradient(135deg,${r.color},${r.color}bb)`,padding:'14px 16px 12px',display:'flex',alignItems:'center',gap:'10px'}}>
+                  <div style={{width:'38px',height:'38px',borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'rgba(255,255,255,0.25)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:800,border:'2px solid rgba(255,255,255,0.5)'}}>
                     {matchedPlayer?.avatar?<img src={matchedPlayer.avatar} alt={r.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(r.name)}
                   </div>
-                  <div style={{fontSize:'15px',fontWeight:800,color:'#1a1d24',fontFamily:'Quicksand,sans-serif'}}>{r.name}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:'15px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</div>
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,0.8)',marginTop:'1px'}}>🙏 Còn nợ Hòm Công Đức</div>
+                  </div>
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    <div style={{fontSize:'19px',fontWeight:900,color:'#fff',fontFamily:'Quicksand,sans-serif',lineHeight:1}}>{fmt(r.debt)}</div>
+                    <div style={{fontSize:'9px',color:'rgba(255,255,255,0.75)',marginTop:'2px'}}>VND</div>
+                  </div>
                 </div>
-                <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Còn nợ Hòm Công Đức</div>
-                <div style={{fontSize:'24px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(r.debt)}</div>
-                <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note}/>
-                <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
-                  <div><b>{bankName}</b></div>
-                  <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
+                {/* Body: QR + bank info */}
+                <div style={{padding:'14px 16px',textAlign:'center',background:'#fff'}}>
+                  <div style={{display:'flex',justifyContent:'center',marginBottom:'10px'}}>
+                    <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note}/>
+                  </div>
+                  <div style={{fontSize:'11px',color:'#555',lineHeight:1.7}}>
+                    <div style={{fontWeight:700,fontSize:'12px',color:'#1a1d24'}}>{bankName}</div>
+                    <div>STK: <b>{bankInfo.accountNo}</b></div>
+                    <div style={{color:'#8a909c'}}>{bankInfo.accountName}</div>
+                  </div>
                 </div>
-                <button onClick={()=>downloadCard(r.name)} disabled={downloading!==null} style={{marginTop:'12px',background:'var(--green)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 16px',fontSize:'12px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?.7:1}}>
-                  {downloading===r.name?'⏳ Đang tải...':'⬇️ Tải ảnh này'}
-                </button>
+                {/* Footer */}
+                <div style={{borderTop:'1px solid #f0f0f0',padding:'8px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#fafafa'}}>
+                  <div style={{fontSize:'10px',color:'#aaa',display:'flex',alignItems:'center',gap:'3px'}}>
+                    <span style={{fontWeight:700,color:r.color}}>VietQR</span>
+                    <span>· Phông Bạt 🏓</span>
+                  </div>
+                  <button onClick={()=>downloadCard(r.name)} disabled={downloading!==null} style={{background:r.color,border:'none',borderRadius:'6px',color:'#fff',padding:'5px 12px',fontSize:'11px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?0.7:1}}>
+                    {downloading===r.name?'⏳':'⬇️ Tải ảnh'}
+                  </button>
+                </div>
               </div>
             );
           })}
