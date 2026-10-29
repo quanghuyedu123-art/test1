@@ -24,6 +24,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Quicksand:wght@500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -402,15 +403,45 @@ const VIETQR_BANKS = [
   {code:'970438', name:'BaoVietBank'},
   {code:'422589', name:'MoMo (Ví điện tử)'},
 ];
-// Sinh URL ảnh QR chuyển khoản (qr.tingee.vn) — amount/note tùy chọn, để trống nếu không truyền
-function vietQRImageUrl({bankCode, accountNo, accountName, amount, note}){
+// ── VietQR string chuẩn EMVCo (generate offline, không cần server) ──────────
+function _tlv(tag, value){ return tag + String(value.length).padStart(2,'0') + value; }
+function _crc16(str){
+  let crc=0xFFFF;
+  for(let i=0;i<str.length;i++){
+    crc^=str.charCodeAt(i)<<8;
+    for(let j=0;j<8;j++) crc=(crc&0x8000)?(crc<<1)^0x1021:crc<<1;
+    crc&=0xFFFF;
+  }
+  return crc;
+}
+function buildVietQRString({bankCode, accountNo, accountName, amount, note}){
   if(!bankCode||!accountNo) return null;
-  const params = [`bankBin=${bankCode}`,`accountNumber=${accountNo}`];
-  if(accountName) params.push(`accountName=${encodeURIComponent(accountName)}`);
-  if(amount) params.push(`amount=${Math.max(0,Math.round(amount))}`);
-  if(note) params.push(`description=${encodeURIComponent(note)}`);
-  params.push('theme=qr-logo');
-  return `https://qr.tingee.vn/vietqr?${params.join('&')}`;
+  // Tag 38: Merchant Account Info
+  const inner = _tlv('00',bankCode) + _tlv('01',accountNo) + _tlv('02','QRIBFTTA');
+  const tag38 = _tlv('38', _tlv('00','A000000727') + _tlv('01',inner));
+  let qr = _tlv('00','01') + _tlv('01','12') + tag38 + _tlv('53','704');
+  if(amount && amount>0) qr += _tlv('54', String(Math.round(amount)));
+  qr += _tlv('58','VN');
+  if(accountName) qr += _tlv('59', accountName.substring(0,25).toUpperCase());
+  qr += _tlv('60','Viet Nam');
+  if(note) qr += _tlv('62', _tlv('08', note.substring(0,25)));
+  qr += '6304';
+  qr += _crc16(qr).toString(16).toUpperCase().padStart(4,'0');
+  return qr;
+}
+// Component render QR offline bằng qrcodejs
+function QRCodeView({bankCode, accountNo, accountName, amount, note, size=220}){
+  const ref = React.useRef(null);
+  React.useEffect(()=>{
+    if(!ref.current||!bankCode||!accountNo) return;
+    ref.current.innerHTML='';
+    const data = buildVietQRString({bankCode,accountNo,accountName,amount,note});
+    if(!data||typeof QRCode==='undefined') return;
+    try{ new QRCode(ref.current,{text:data,width:size,height:size,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M}); }
+    catch(e){ ref.current.innerHTML='<div style="color:red;font-size:11px">Lỗi tạo QR</div>'; }
+  },[bankCode,accountNo,accountName,amount,note,size]);
+  if(!bankCode||!accountNo) return null;
+  return <div ref={ref} style={{display:'flex',justifyContent:'center',borderRadius:'10px',overflow:'hidden'}}/>;
 }
 function initials(n){ return n.split(' ').slice(-2).map(w=>w[0]).join('').toUpperCase(); }
 // Kiểm tra tên đã tồn tại chưa (không phân biệt hoa/thường), dùng chung cho cả BXH và Quỹ vì 2 danh sách này đồng bộ tên với nhau
@@ -7018,7 +7049,6 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
 
         {hasBank && combineMode && debtRows.length>0 && (()=>{
           const note = `${clubName||'CLB'} - tra no quy ${debtRows.length} nguoi`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
-          const qrUrl = vietQRImageUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:combinedTotal,note});
           const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
           return (
             <div ref={el=>cardRefs.current['__combined__']=el} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',textAlign:'center',marginBottom:'14px'}}>
@@ -7028,7 +7058,7 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
               </div>
               <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Tổng cần chuyển</div>
               <div style={{fontSize:'26px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(combinedTotal)}</div>
-              {qrUrl && <img src={qrUrl} alt="QR gộp"  style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
+              <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={combinedTotal} note={note}/>
               <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
                 <div><b>{bankName}</b></div>
                 <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
@@ -7045,7 +7075,6 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
           {hasBank && !combineMode && debtRows.map(r=>{
             const matchedPlayer=(players||[]).find(p=>p.name===r.name);
             const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
-            const qrUrl = vietQRImageUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note});
             const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
             return (
               <div key={r.name} ref={el=>cardRefs.current[r.name]=el} style={{background:'#fff',border:'1px solid var(--border)',borderRadius:'14px',padding:'16px',textAlign:'center'}}>
@@ -7057,7 +7086,7 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
                 </div>
                 <div style={{fontSize:'12px',color:'#8a909c',marginBottom:'2px'}}>Còn nợ Hòm Công Đức</div>
                 <div style={{fontSize:'24px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',marginBottom:'12px'}}>{fmt(r.debt)}</div>
-                {qrUrl && <img src={qrUrl} alt={`QR ${r.name}`}  style={{width:'220px',maxWidth:'100%',borderRadius:'10px',border:'1px solid #e3e6ea'}}/>}
+                <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note}/>
                 <div style={{marginTop:'10px',fontSize:'12px',color:'#1a1d24',lineHeight:1.6}}>
                   <div><b>{bankName}</b></div>
                   <div>STK: <b>{bankInfo.accountNo}</b> — {bankInfo.accountName}</div>
