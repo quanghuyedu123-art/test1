@@ -7184,21 +7184,66 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
 
 
   const downloadCard = async(name)=>{
-    const node = cardRefs.current[name];
-    if(!node || !window.html2canvas) return;
+    const r = rows.find(x=>x.name===name);
+    if(!r) return;
     setDownloading(name);
     try{
-      const canvas = await window.html2canvas(node,{backgroundColor:'#1a1d24',scale:2,useCORS:true,allowTaint:true,imageTimeout:3000});
-      try{
-        const link = document.createElement('a');
-        link.download = `no-quy-${name.replace(/\s+/g,'-')}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      }catch(corsErr){
-        // QR image từ vietqr.io bị CORS taint → chụp màn hình thay thế
-        alert('Để lưu ảnh, bạn chụp màn hình (screenshot) nhé! (Ảnh QR từ VietQR không cho phép export tự động)');
+      // Vẽ card bằng Canvas thuần - không bị CORS
+      const S=2, CW=600*S, CH=720*S;
+      const cv=document.createElement('canvas');
+      cv.width=CW; cv.height=CH;
+      const ctx=cv.getContext('2d');
+      // --- Background gradient ---
+      const g=ctx.createLinearGradient(0,0,CW,CH);
+      g.addColorStop(0,'#1a1d24'); g.addColorStop(0.5,'#2d3250'); g.addColorStop(1,'#1a1d24');
+      ctx.fillStyle=g; ctx.fillRect(0,0,CW,CH);
+      // --- Header border ---
+      ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,110*S,CW,1*S);
+      // --- Tên ---
+      ctx.fillStyle='#ffffff'; ctx.font=`bold ${16*S}px sans-serif`;
+      ctx.fillText(name, 18*S, 52*S);
+      ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font=`${10*S}px sans-serif`;
+      ctx.fillText('🙏 Còn nợ Hòm Công Đức', 18*S, 70*S);
+      // --- Badge số tiền ---
+      const amt=fmt(r.debt);
+      const bw=130*S,bh=54*S,bx=CW-bw-16*S,by=16*S;
+      ctx.fillStyle='rgba(239,68,68,0.92)';
+      ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,8*S); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font=`bold ${16*S}px sans-serif`;
+      ctx.textAlign='right'; ctx.fillText(amt, bx+bw-10*S, by+32*S);
+      ctx.font=`${9*S}px sans-serif`; ctx.fillStyle='rgba(255,255,255,0.8)';
+      ctx.fillText('VND', bx+bw-10*S, by+46*S); ctx.textAlign='left';
+      // --- Vẽ QR bằng inline generator ---
+      const noteTxt=`${clubName||'CLB'} - ${name} - tra no quy`.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/gi,'d');
+      const qrData=buildVietQRString({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note:noteTxt});
+      const QRW=400*S, QRX=(CW-QRW)/2, QRY=120*S;
+      // White box QR
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath(); ctx.roundRect(QRX,QRY,QRW,QRW,12*S); ctx.fill();
+      if(qrData && typeof QrCodeGen!=='undefined'){
+        try{
+          const {QrCode,Ecc}=QrCodeGen;
+          const qr=QrCode.encodeText(qrData,Ecc.MEDIUM);
+          const mc=qr.size, pad=16*S;
+          const cs=Math.floor((QRW-pad*2)/mc);
+          const off=Math.round((QRW-cs*mc)/2);
+          ctx.fillStyle='#000000';
+          for(let y=0;y<mc;y++) for(let x=0;x<mc;x++)
+            if(qr.getModule(x,y)) ctx.fillRect(QRX+off+x*cs,QRY+off+y*cs,cs,cs);
+        }catch(e){ console.error('QR draw:',e); }
       }
-    }catch(e){ console.error('html2canvas:',e); }
+      // --- Footer ---
+      const FY=CH-36*S;
+      ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,FY-S,CW,S);
+      ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font=`bold ${10*S}px sans-serif`;
+      ctx.fillText('Phông Bạt 🏓', 16*S, FY+22*S);
+      ctx.textAlign='right'; ctx.fillText('Chuyển khoản ngay!', CW-16*S, FY+22*S); ctx.textAlign='left';
+      // --- Download ---
+      const link=document.createElement('a');
+      link.download=`no-quy-${name.replace(/\s+/g,'-')}.png`;
+      link.href=cv.toDataURL('image/png');
+      link.click();
+    }catch(e){ console.error('download:',e); }
     setDownloading(null);
   };
 
