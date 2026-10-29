@@ -7316,42 +7316,38 @@ function DebtQRModal({members,memberSpent,players,sessions,bankInfo,clubName,onC
           {hasBank && !combineMode && debtRows.map(r=>{
             const note = `${clubName||'CLB'} - ${r.name} - tra no quy`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d');
             const bankName = (VIETQR_BANKS.find(b=>b.code===bankInfo.bankCode)||{}).name||'';
+            const vqrUrl = buildVietQRUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note});
             return (
-              {(()=>{
-                const vqrUrl=buildVietQRUrl({bankCode:bankInfo.bankCode,accountNo:bankInfo.accountNo,accountName:bankInfo.accountName,amount:r.debt,note});
-                return (
-                <div key={r.name} style={{marginBottom:'16px'}}>
-                  {/* Card kiểu VietQR - nền trắng */}
-                  <div ref={el=>cardRefs.current[r.name]=el} style={{borderRadius:'16px',overflow:'hidden',boxShadow:'0 2px 16px #0002',border:'1px solid #e8e8e8',background:'#fff'}}>
-                    {/* Header: logo + tên + số tiền */}
-                    <div style={{padding:'14px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #f0f0f0'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                        <div style={{fontSize:'22px'}}>🏓</div>
-                        <div>
-                          <div style={{fontSize:'15px',fontWeight:800,color:'#1a1d24',fontFamily:'Quicksand,sans-serif'}}>{r.name}</div>
-                          <div style={{fontSize:'10px',color:'#8a909c',marginTop:'1px'}}>Còn nợ Hòm Công Đức</div>
-                        </div>
-                      </div>
-                      <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:'20px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',lineHeight:1}}>{fmt(r.debt)}</div>
-                        <div style={{fontSize:'9px',color:'#aaa',marginTop:'2px'}}>VND</div>
+              <div key={r.name} style={{marginBottom:'16px'}}>
+                {/* Card kiểu VietQR - nền trắng */}
+                <div ref={el=>cardRefs.current[r.name]=el} style={{borderRadius:'16px',overflow:'hidden',boxShadow:'0 2px 16px #0002',border:'1px solid #e8e8e8',background:'#fff'}}>
+                  {/* Header: logo + tên + số tiền */}
+                  <div style={{padding:'14px 16px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #f0f0f0'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                      <div style={{fontSize:'22px'}}>🏓</div>
+                      <div>
+                        <div style={{fontSize:'15px',fontWeight:800,color:'#1a1d24',fontFamily:'Quicksand,sans-serif'}}>{r.name}</div>
+                        <div style={{fontSize:'10px',color:'#8a909c',marginTop:'1px'}}>Còn nợ Hòm Công Đức</div>
                       </div>
                     </div>
-                    {/* Ảnh VietQR compact2 - full card */}
-                    <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note}/>
-                    {/* Footer: thông tin ngân hàng */}
-                    <div style={{padding:'10px 16px 14px',borderTop:'1px solid #f0f0f0'}}>
-                      <div style={{fontSize:'13px',fontWeight:700,color:'#1a1d24'}}>{bankName}</div>
-                      <div style={{fontSize:'11px',color:'#555',marginTop:'2px'}}>STK: {bankInfo.accountNo} — {(bankInfo.accountName||'').toUpperCase()}</div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:'20px',fontWeight:900,color:'#ef4444',fontFamily:'Quicksand,sans-serif',lineHeight:1}}>{fmt(r.debt)}</div>
+                      <div style={{fontSize:'9px',color:'#aaa',marginTop:'2px'}}>VND</div>
                     </div>
                   </div>
-                  {/* Nút tải - tải thẳng ảnh VietQR */}
-                  <button onClick={()=>downloadCard(r.name,vqrUrl)} disabled={downloading!==null} style={{width:'100%',marginTop:'8px',background:'#22c55e',border:'none',borderRadius:'10px',color:'#fff',padding:'11px',fontSize:'13px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?0.7:1}}>
-                    {downloading===r.name?'⏳ Đang tải...':'⬇️ Tải ảnh này'}
-                  </button>
+                  {/* Ảnh VietQR compact2 - full card */}
+                  <QRCodeView bankCode={bankInfo.bankCode} accountNo={bankInfo.accountNo} accountName={bankInfo.accountName} amount={r.debt} note={note}/>
+                  {/* Footer: thông tin ngân hàng */}
+                  <div style={{padding:'10px 16px 14px',borderTop:'1px solid #f0f0f0'}}>
+                    <div style={{fontSize:'13px',fontWeight:700,color:'#1a1d24'}}>{bankName}</div>
+                    <div style={{fontSize:'11px',color:'#555',marginTop:'2px'}}>STK: {bankInfo.accountNo} — {(bankInfo.accountName||'').toUpperCase()}</div>
+                  </div>
                 </div>
-                );
-              })()}
+                {/* Nút tải - tải thẳng ảnh VietQR */}
+                <button onClick={()=>downloadCard(r.name,vqrUrl)} disabled={downloading!==null} style={{width:'100%',marginTop:'8px',background:'#22c55e',border:'none',borderRadius:'10px',color:'#fff',padding:'11px',fontSize:'13px',fontWeight:700,cursor:downloading?'default':'pointer',fontFamily:'Nunito,sans-serif',opacity:downloading?0.7:1}}>
+                  {downloading===r.name?'⏳ Đang tải...':'⬇️ Tải ảnh này'}
+                </button>
+              </div>
             );
           })}
         </div>
