@@ -2928,8 +2928,9 @@ function exportCSV(matches,players){
 /* ─── ELO HISTORY CHART ──────────────────────────────────── */
 /* ─── TRANG RIÊNG: LỊCH SỬ ĐÁNH CHI TIẾT CỦA NGƯỜI CHƠI ──── */
 function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
-  const [typeFilter,setTypeFilter]=useState('Tất cả');
   const [monthFilter,setMonthFilter]=useState('Tất cả');
+  const [teammateFilter,setTeammateFilter]=useState('Tất cả');
+  const [opponentFilter,setOpponentFilter]=useState('Tất cả');
   const [editMatch,setEditMatch]=useState(null);
   const [showFullAvatar,setShowFullAvatar]=useState(false);
   const [cropSrc,setCropSrc]=useState(null);
@@ -2999,15 +3000,24 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
 
   const filteredMatches=useMemo(()=>{
     return [...myMatchesAsc].reverse().filter(m=>{
-      if(typeFilter!=='Tất cả'&&m.type!==typeFilter) return false;
       if(monthFilter!=='Tất cả'){
         const mon=monthFilter.replace('Tháng ','');
         const parts=m.date.split(/[\/\-]/);
         if(parts.length<2||parts[1]!==mon) return false;
       }
+      if(teammateFilter!=='Tất cả'){
+        const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);
+        const myTeam=inT1?(m.team1Players||(m.myTeam?[m.myTeam]:[])):((m.team2Players||(m.oppTeam?[m.oppTeam]:[])));
+        if(!myTeam.includes(teammateFilter)) return false;
+      }
+      if(opponentFilter!=='Tất cả'){
+        const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);
+        const oppTeam=inT1?(m.team2Players||(m.oppTeam?[m.oppTeam]:[])):((m.team1Players||(m.myTeam?[m.myTeam]:[])));
+        if(!oppTeam.includes(opponentFilter)) return false;
+      }
       return true;
     });
-  },[myMatchesAsc,typeFilter,monthFilter]);
+  },[myMatchesAsc,monthFilter,teammateFilter,opponentFilter,player.name]);
 
   const fWins=filteredMatches.filter(m=>{
     const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(player.name);
@@ -3388,18 +3398,29 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
 
       {/* Bộ lọc lịch sử trận */}
       <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'12px 14px',marginBottom:'14px'}}>
-        <div style={{fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.6px',marginBottom:'10px'}}>🔍 Lọc trận</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+          <div style={{fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.6px'}}>🔍 Lọc trận</div>
+          {(monthFilter!=='Tất cả'||teammateFilter!=='Tất cả'||opponentFilter!=='Tất cả')&&(
+            <button onClick={()=>{setMonthFilter('Tất cả');setTeammateFilter('Tất cả');setOpponentFilter('Tất cả');}} style={{background:'none',border:'none',color:'var(--muted)',fontSize:'11px',cursor:'pointer',padding:'0',fontFamily:'Nunito,sans-serif'}}>✕ Xoá bộ lọc</button>
+          )}
+        </div>
         <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
-          <div style={{flex:'1 1 130px'}}>
-            <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>Loại trận</div>
-            <select className="fi" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
-              {['Tất cả','Đơn','Đôi'].map(t=><option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div style={{flex:'1 1 130px'}}>
+          <div style={{flex:'1 1 120px'}}>
             <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>Theo tháng</div>
             <select className="fi" value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
               {months.map(m=><option key={m}>{m}</option>)}
+            </select>
+          </div>
+          <div style={{flex:'1 1 120px'}}>
+            <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>🤝 Đồng đội</div>
+            <select className="fi" value={teammateFilter} onChange={e=>setTeammateFilter(e.target.value)}>
+              {['Tất cả',...players.filter(p=>p.name!==player.name).map(p=>p.name)].map(n=><option key={n}>{n}</option>)}
+            </select>
+          </div>
+          <div style={{flex:'1 1 120px'}}>
+            <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>⚔️ Đối thủ</div>
+            <select className="fi" value={opponentFilter} onChange={e=>setOpponentFilter(e.target.value)}>
+              {['Tất cả',...players.filter(p=>p.name!==player.name).map(p=>p.name)].map(n=><option key={n}>{n}</option>)}
             </select>
           </div>
         </div>
@@ -8053,9 +8074,9 @@ function App(){
   const guardedEditMatch=requireAdmin(editMatch);
   const guardedAddPlayer=requireAdmin(addPlayer);
   const guardedDeletePlayer=requireAdmin(deletePlayer);
-  const guardedUpdateAvatar=requireAdmin(updatePlayerAvatar);
+  const guardedUpdateAvatar=updatePlayerAvatar;
   const guardedResyncStats=requireAdmin(resyncPlayerStats);
-  const guardedRenameEverywhere=requireAdmin(doRenameEverywhere);
+  const guardedRenameEverywhere=doRenameEverywhere;
   const updatePlayerElo=(id,newElo)=>{
     const val=parseInt(newElo);
     if(isNaN(val)||val<0||val>9999) return;
