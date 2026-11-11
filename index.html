@@ -827,9 +827,11 @@ function computeBadges(players, matches){
   if(!players.length) return [];
   const streaks = computeStreaks(players, matches);
   const withStats = players.map(p=>{
-    const total = p.wins + p.losses;
-    const wr = total ? p.wins/total : 0;
-    return {...p, total, wr, streak: streaks[p.name]||{count:0,kind:null}};
+    const w=matches.filter(m=>{const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(p.name);return inT1?m.result==='W':m.result==='L';}).length;
+    const l=matches.filter(m=>{const all=[...(m.team1Players||(m.myTeam?[m.myTeam]:[])), ...(m.team2Players||(m.oppTeam?[m.oppTeam]:[]))];return all.includes(p.name);}).length - w;
+    const total = w + l;
+    const wr = total ? w/total : 0;
+    return {...p, wins:w, losses:l, total, wr, streak: streaks[p.name]||{count:0,kind:null}};
   });
 
   const badges = [];
@@ -1200,7 +1202,7 @@ function computePairStats(matches){
 // 5) Mục tiêu tích phước — người chơi nào đang gần ngưỡng danh hiệu tiếp theo nhất
 function computeMilestones(players){
   const sortedTiers=[...TIERS].filter(t=>t.min>0).sort((a,b)=>a.min-b.min);
-  const list=(players||[]).filter(p=>((p.wins||0)+(p.losses||0))>0).map(p=>{
+  const list=(players||[]).filter(p=>p.elo>0).map(p=>{
     const next=sortedTiers.find(t=>t.min>p.elo);
     if(!next) return null;
     const prevMin=[...sortedTiers].reverse().find(t=>t.min<=p.elo)?.min || 0;
@@ -2913,8 +2915,10 @@ function exportCSV(matches,players){
   // Players sheet
   const pRows=[['Tên','Công Đức','Thắng','Thua','Tỉ lệ thắng']];
   [...players].sort((a,b)=>b.elo-a.elo).forEach(p=>{
-    const total=p.wins+p.losses;
-    pRows.push([p.name,p.elo,p.wins,p.losses,total?Math.round(p.wins/total*100)+'%':'—']);
+    const w=matches.filter(m=>{const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(p.name);return inT1?m.result==='W':m.result==='L';}).length;
+    const l=matches.filter(m=>{const all=[...(m.team1Players||(m.myTeam?[m.myTeam]:[])), ...(m.team2Players||(m.oppTeam?[m.oppTeam]:[]))];return all.includes(p.name);}).length - w;
+    const total=w+l;
+    pRows.push([p.name,p.elo,w,l,total?Math.round(w/total*100)+'%':'—']);
   });
   const toCSV=rows=>rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
   const csv='=== LỊCH SỬ TRẬN ===\n'+toCSV(mRows)+'\n\n=== BXH NGƯỜI CHƠI ===\n'+toCSV(pRows);
@@ -2927,7 +2931,76 @@ function exportCSV(matches,players){
 
 /* ─── ELO HISTORY CHART ──────────────────────────────────── */
 /* ─── TRANG RIÊNG: LỊCH SỬ ĐÁNH CHI TIẾT CỦA NGƯỜI CHƠI ──── */
-function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onResyncStats, onViewHistory}){
+
+/* ─── SEARCHABLE SELECT cho filter người chơi ───────────────── */
+function SearchablePlayerSelect({value, onChange, players, placeholder='Tất cả'}){
+  const [open,setOpen]=useState(false);
+  const [q,setQ]=useState('');
+  const ref=React.useRef(null);
+  const inputRef=React.useRef(null);
+
+  // Đóng khi click ngoài
+  React.useEffect(()=>{
+    const handler=e=>{ if(ref.current&&!ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',handler);
+    return ()=>document.removeEventListener('mousedown',handler);
+  },[]);
+
+  // Focus input khi mở
+  React.useEffect(()=>{ if(open&&inputRef.current) inputRef.current.focus(); },[open]);
+
+  const filtered=players.filter(p=>p.toLowerCase().includes(q.toLowerCase()));
+  const display=value==='Tất cả'?placeholder:value;
+  const isActive=value!=='Tất cả';
+
+  return (
+    <div ref={ref} style={{position:'relative',userSelect:'none'}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{
+        display:'flex',alignItems:'center',justifyContent:'space-between',
+        background:'var(--surface2,var(--surface))',border:`1px solid ${isActive?'var(--green)':'var(--border)'}`,
+        borderRadius:'8px',padding:'7px 10px',cursor:'pointer',fontSize:'13px',
+        color:isActive?'var(--green)':'var(--text)',fontFamily:'Nunito,sans-serif',
+        minHeight:'34px',gap:'6px'
+      }}>
+        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{display}</span>
+        <span style={{fontSize:'10px',color:'var(--muted)',flexShrink:0}}>{open?'▲':'▼'}</span>
+      </div>
+      {open&&(
+        <div style={{
+          position:'absolute',top:'calc(100% + 4px)',left:0,right:0,zIndex:999,
+          background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',
+          boxShadow:'0 8px 24px rgba(0,0,0,.35)',overflow:'hidden',minWidth:'160px'
+        }}>
+          <div style={{padding:'8px 8px 4px'}}>
+            <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
+              placeholder="Tìm tên..." autoComplete="off"
+              style={{width:'100%',boxSizing:'border-box',padding:'6px 10px',borderRadius:'6px',
+                border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',
+                fontSize:'12px',fontFamily:'Nunito,sans-serif',outline:'none'}}/>
+          </div>
+          <div style={{maxHeight:'220px',overflowY:'auto',padding:'4px 0'}}>
+            {['Tất cả',...filtered].map(n=>(
+              <div key={n} onClick={()=>{onChange(n);setOpen(false);setQ('');}}
+                style={{
+                  padding:'8px 12px',cursor:'pointer',fontSize:'13px',fontFamily:'Nunito,sans-serif',
+                  background:value===n?'var(--green-bg)':'transparent',
+                  color:value===n?'var(--green)':'var(--text)',
+                  fontWeight:value===n?700:400,
+                  borderLeft:value===n?'3px solid var(--green)':'3px solid transparent'
+                }}
+                onMouseEnter={e=>{ if(value!==n) e.currentTarget.style.background='var(--surface2,rgba(255,255,255,.05))'; }}
+                onMouseLeave={e=>{ if(value!==n) e.currentTarget.style.background='transparent'; }}
+              >{n==='Tất cả'?'— Tất cả —':n}</div>
+            ))}
+            {filtered.length===0&&<div style={{padding:'10px 12px',color:'var(--muted)',fontSize:'12px'}}>Không tìm thấy</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMatch, onDeleteMatch, onUpdateAvatar, onViewHistory}){
   const [monthFilter,setMonthFilter]=useState('Tất cả');
   const [teammateFilter,setTeammateFilter]=useState('Tất cả');
   const [opponentFilter,setOpponentFilter]=useState('Tất cả');
@@ -2965,8 +3038,7 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
   const realLosses=myMatchesAsc.length-realWins;
   const total=realWins+realLosses;
   const wr=total?Math.round(realWins/total*100):0;
-  // Phát hiện lệch số liệu so với bộ đếm đang lưu trên hồ sơ
-  const statsMismatch = player.wins!==realWins || player.losses!==realLosses;
+  // wins/losses không còn lưu trên player — realWins/realLosses là nguồn duy nhất
 
   const allBadges=useMemo(()=>computeBadges(players||[], matches), [players, matches]);
   const myBadges=allBadges.filter(b=>b.holder&&b.holder.id===player.id);
@@ -3209,7 +3281,7 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
         />
       )}
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:statsMismatch?'8px':'18px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'18px'}}>
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px',textAlign:'center'}}>
           <div style={{fontSize:'10px',color:'var(--muted)',textTransform:'uppercase'}}>Thắng</div>
           <div style={{fontFamily:'Quicksand',fontWeight:700,fontSize:'19px',color:'var(--green)'}}>{realWins}</div>
@@ -3249,16 +3321,6 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
         </div>
       )}
 
-      {statsMismatch && (
-        <div style={{background:'var(--red-bg)',border:'1px solid var(--red)',borderRadius:'10px',padding:'10px 12px',marginBottom:'18px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',flexWrap:'wrap'}}>
-          <div style={{fontSize:'11px',color:'var(--red)',flex:'1 1 200px'}}>
-            ⚠️ Số liệu thắng/thua đã lưu ({player.wins}T/{player.losses}B) đang lệch so với lịch sử trận thật ({realWins}T/{realLosses}B). Bấm để đồng bộ lại cho đúng.
-          </div>
-          {onResyncStats && (
-            <button onClick={()=>onResyncStats(player.id,realWins,realLosses)} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'7px 14px',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',whiteSpace:'nowrap'}}>🔧 Đồng bộ lại số liệu</button>
-          )}
-        </div>
-      )}
 
       {myBadges.length>0 && (
         <>
@@ -3411,17 +3473,23 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
               {months.map(m=><option key={m}>{m}</option>)}
             </select>
           </div>
-          <div style={{flex:'1 1 120px'}}>
+          <div style={{flex:'1 1 140px'}}>
             <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>🤝 Đồng đội</div>
-            <select className="fi" value={teammateFilter} onChange={e=>setTeammateFilter(e.target.value)}>
-              {['Tất cả',...players.filter(p=>p.name!==player.name).map(p=>p.name)].map(n=><option key={n}>{n}</option>)}
-            </select>
+            <SearchablePlayerSelect
+              value={teammateFilter}
+              onChange={setTeammateFilter}
+              players={players.filter(p=>p.name!==player.name).map(p=>p.name)}
+              placeholder="Tất cả"
+            />
           </div>
-          <div style={{flex:'1 1 120px'}}>
+          <div style={{flex:'1 1 140px'}}>
             <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'5px'}}>⚔️ Đối thủ</div>
-            <select className="fi" value={opponentFilter} onChange={e=>setOpponentFilter(e.target.value)}>
-              {['Tất cả',...players.filter(p=>p.name!==player.name).map(p=>p.name)].map(n=><option key={n}>{n}</option>)}
-            </select>
+            <SearchablePlayerSelect
+              value={opponentFilter}
+              onChange={setOpponentFilter}
+              players={players.filter(p=>p.name!==player.name).map(p=>p.name)}
+              placeholder="Tất cả"
+            />
           </div>
         </div>
       </div>
@@ -3763,8 +3831,11 @@ function MembersTab({players,members,matches,sessions,isAdmin,onAddPlayer,onDele
     return list;
   },[players,search,sortBy]);
 
-  const totalMatches=p=>p.wins+p.losses;
-  const winRate=p=>totalMatches(p)>0?Math.round(p.wins/totalMatches(p)*100):0;
+  // wins/losses đếm thực từ matches (không dùng p.wins/p.losses)
+  const playerWins=p=>matches.filter(m=>{const inT1=(m.team1Players||(m.myTeam?[m.myTeam]:[])).includes(p.name);return inT1?m.result==='W':m.result==='L';}).length;
+  const playerLosses=p=>matches.filter(m=>{const all=[...(m.team1Players||(m.myTeam?[m.myTeam]:[])), ...(m.team2Players||(m.oppTeam?[m.oppTeam]:[]))];return all.includes(p.name);}).length - playerWins(p);
+  const totalMatches=p=>{const w=playerWins(p);return w+playerLosses(p);};
+  const winRate=p=>{const t=totalMatches(p);return t>0?Math.round(playerWins(p)/t*100):0;};
   const lastActive=p=>{
     const ms=matches.filter(m=>(m.team1Players||[]).includes(p.name)||(m.team2Players||[]).includes(p.name));
     if(!ms.length) return null;
@@ -3921,11 +3992,11 @@ function MembersTab({players,members,matches,sessions,isAdmin,onAddPlayer,onDele
                     <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Trận</div>
                   </div>
                   <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
-                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--green)'}}>{p.wins}</div>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--green)'}}>{playerWins(p)}</div>
                     <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Thắng</div>
                   </div>
                   <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
-                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--red)'}}>{p.losses}</div>
+                    <div style={{fontSize:'16px',fontWeight:800,fontFamily:'Quicksand,sans-serif',color:'var(--red)'}}>{playerLosses(p)}</div>
                     <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600}}>Thua</div>
                   </div>
                   <div style={{background:'var(--bg3,var(--bg))',borderRadius:'8px',padding:'6px 10px',textAlign:'center',flex:'1 1 60px',minWidth:'54px'}}>
@@ -7996,27 +8067,15 @@ function App(){
     showToast('Đã cập nhật ảnh đại diện');
   };
 
-  // Sửa lỗi lệch số liệu thắng/thua: ghi đè bộ đếm player.wins/losses bằng
-  // đúng số đếm được từ danh sách trận đấu thật (nguồn dữ liệu gốc, luôn đáng tin).
-  const resyncPlayerStats=(id, wins, losses)=>{
-    setPlayers(p=>p.map(x=>x.id===id?{...x, wins, losses}:x));
-    showToast('✅ Đã đồng bộ lại số liệu thắng/thua');
-  };
+  // wins/losses không còn lưu trên player — luôn đếm thực từ matches
 
   const addMatch=m=>{
-    // Apply ELO changes to all involved players
+    // Apply ELO changes to all involved players (wins/losses computed from matches, not stored)
     setPlayers(prev=>{
       const updated=[...prev];
       (m.eloChanges||[]).forEach(({name,delta})=>{
         const idx=updated.findIndex(p=>p.name===name);
-        if(idx>=0){
-          const win=delta>0;
-          updated[idx]={...updated[idx],
-            elo:updated[idx].elo+delta,
-            wins:updated[idx].wins+(win?1:0),
-            losses:updated[idx].losses+(win?0:1)
-          };
-        }
+        if(idx>=0) updated[idx]={...updated[idx], elo:updated[idx].elo+delta};
       });
       return updated;
     });
@@ -8025,19 +8084,17 @@ function App(){
   };
 
   const editMatch=m=>{
-    // Reverse old ELO, apply new ELO
+    // Reverse old ELO, apply new ELO (wins/losses computed from matches, not stored)
     const old=matches.find(x=>x.id===m.id);
     setPlayers(prev=>{
       let updated=[...prev];
-      // hoàn ELO cũ
       (old?.eloChanges||[]).forEach(({name,delta})=>{
         const idx=updated.findIndex(p=>p.name===name);
-        if(idx>=0){const wasWin=delta>0;updated[idx]={...updated[idx],elo:updated[idx].elo-delta,wins:updated[idx].wins-(wasWin?1:0),losses:updated[idx].losses-(wasWin?0:1)};}
+        if(idx>=0) updated[idx]={...updated[idx], elo:updated[idx].elo-delta};
       });
-      // áp ELO mới
       (m.eloChanges||[]).forEach(({name,delta})=>{
         const idx=updated.findIndex(p=>p.name===name);
-        if(idx>=0){const win=delta>0;updated[idx]={...updated[idx],elo:updated[idx].elo+delta,wins:updated[idx].wins+(win?1:0),losses:updated[idx].losses+(win?0:1)};}
+        if(idx>=0) updated[idx]={...updated[idx], elo:updated[idx].elo+delta};
       });
       return updated;
     });
@@ -8049,19 +8106,12 @@ function App(){
     const m=matches.find(x=>x.id===id);
     if(!m) return;
     trashAdd('matches', m);
-    // Reverse ELO changes
+    // Reverse ELO changes (wins/losses computed from matches, not stored)
     setPlayers(prev=>{
       const updated=[...prev];
       (m.eloChanges||[]).forEach(({name,delta})=>{
         const idx=updated.findIndex(p=>p.name===name);
-        if(idx>=0){
-          const wasWin=delta>0;
-          updated[idx]={...updated[idx],
-            elo:updated[idx].elo-delta,
-            wins:updated[idx].wins-(wasWin?1:0),
-            losses:updated[idx].losses-(wasWin?0:1)
-          };
-        }
+        if(idx>=0) updated[idx]={...updated[idx], elo:updated[idx].elo-delta};
       });
       return updated;
     });
@@ -8075,7 +8125,7 @@ function App(){
   const guardedAddPlayer=requireAdmin(addPlayer);
   const guardedDeletePlayer=requireAdmin(deletePlayer);
   const guardedUpdateAvatar=updatePlayerAvatar;
-  const guardedResyncStats=requireAdmin(resyncPlayerStats);
+  // guardedResyncStats removed — wins/losses now computed from matches
   const guardedRenameEverywhere=doRenameEverywhere;
   const updatePlayerElo=(id,newElo)=>{
     const val=parseInt(newElo);
@@ -8183,7 +8233,7 @@ function App(){
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
-          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} sessions={sessions} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onResyncStats={guardedResyncStats} onViewHistory={goToPlayerHistory}/>
+          ? <PlayerHistoryPage player={players.find(p=>p.id===historyPlayerId)} players={players} matches={matches} sessions={sessions} onBack={()=>setTab(prevTab||'bxh')} onEditMatch={guardedEditMatch} onDeleteMatch={guardedDeleteMatch} onUpdateAvatar={guardedUpdateAvatar} onViewHistory={goToPlayerHistory}/>
           : <div style={{textAlign:'center',padding:'40px',color:'var(--muted)'}}>Không tìm thấy người chơi. <button onClick={()=>setTab('bxh')} style={{marginLeft:'8px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'8px',color:'var(--text)',padding:'6px 12px',fontSize:'12px',cursor:'pointer'}}>Về BXH</button></div>
       )}
       {tab==='sokeo'     && <SoKeoTab players={players} matches={matches} sessions={sessions} tournament={tournament} setTournament={setTournament} isAdmin={isAdmin} showToast={showToast} addMatch={addMatch}/>}
