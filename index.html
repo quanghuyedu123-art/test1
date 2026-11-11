@@ -1636,6 +1636,172 @@ function EloCard({myElo}){
 }
 
 /* ─── DASHBOARD ─────────────────────────────────────────── */
+function QuickSoKeoPopup({players,sessions,matches,onClose}){
+  const [mode,setMode]=useState('doi');
+  const [pA,setPa]=useState('');const [pB,setPb]=useState('');
+  const [d1a,setD1a]=useState('');const [d1b,setD1b]=useState('');
+  const [d2a,setD2a]=useState('');const [d2b,setD2b]=useState('');
+
+  const recentPlayers=useMemo(()=>{
+    const sorted=[...(sessions||[])].filter(s=>s.attendees&&Object.values(s.attendees).some(Boolean))
+      .sort((a,b)=>{
+        const pa=a.date.split(/[\/\-]/),pb=b.date.split(/[\/\-]/);
+        const da=pa.length>=3?new Date(pa[2],pa[1]-1,pa[0]):new Date(2024,pa[1]-1,pa[0]);
+        const db=pb.length>=3?new Date(pb[2],pb[1]-1,pb[0]):new Date(2024,pb[1]-1,pb[0]);
+        return db-da||(b.id-a.id);
+      }).slice(0,5);
+    const names=new Set();
+    sorted.forEach(s=>Object.entries(s.attendees||{}).filter(([,v])=>v).forEach(([k])=>names.add(k)));
+    const recent=players.filter(p=>names.has(p.name));
+    return recent.length>=2?recent:players;
+  },[sessions,players]);
+
+  const analysis=useMemo(()=>{
+    if(mode==='don'){
+      const pa=players.find(p=>p.name===pA),pb=players.find(p=>p.name===pB);
+      if(!pa||!pb||pa===pb) return null;
+      const diff=pa.elo-pb.elo;
+      const winPctA=Math.round(1/(1+Math.pow(10,-diff/400))*100);
+      const handicap=Math.round(Math.abs(diff)/60);
+      const h2h=matches.filter(m=>(m.team1Players||[]).includes(pa.name)&&(m.team2Players||[]).includes(pb.name)||(m.team1Players||[]).includes(pb.name)&&(m.team2Players||[]).includes(pa.name));
+      let wA=0,wB=0;
+      h2h.forEach(m=>{const aInT1=(m.team1Players||[]).includes(pa.name);if(aInT1&&m.result==='W')wA++;else if(!aInT1&&m.result==='L')wA++;else wB++;});
+      return {type:'don',pa,pb,diff:Math.abs(diff),winPctA,winPctB:100-winPctA,handicap,h2h,wA,wB,quality:Math.max(0,100-Math.round(Math.abs(diff)/8))};
+    } else {
+      const pa=players.find(p=>p.name===d1a),pb=players.find(p=>p.name===d1b);
+      const pc=players.find(p=>p.name===d2a),pd=players.find(p=>p.name===d2b);
+      if(!pa||!pc) return null;
+      const elo1=Math.round((pa.elo+(pb?.elo||pa.elo))/2);
+      const elo2=Math.round((pc.elo+(pd?.elo||pc.elo))/2);
+      const diff=elo1-elo2;
+      const winPct1=Math.round(1/(1+Math.pow(10,-diff/400))*100);
+      const handicap=Math.round(Math.abs(diff)/60);
+      const t1=[pa,pb].filter(Boolean),t2=[pc,pd].filter(Boolean);
+      const h2h=matches.filter(m=>{
+        const t1p=m.team1Players||[],t2p=m.team2Players||[];
+        return (t1p.includes(d1a)||t1p.includes(d1b||'__'))&&(t2p.includes(d2a)||t2p.includes(d2b||'__'))||(t2p.includes(d1a)||t2p.includes(d1b||'__'))&&(t1p.includes(d2a)||t1p.includes(d2b||'__'));
+      });
+      return {type:'doi',t1,t2,elo1,elo2,diff:Math.abs(diff),winPct1,winPct2:100-winPct1,handicap,h2h,quality:Math.max(0,100-Math.round(Math.abs(diff)/8))};
+    }
+  },[mode,pA,pB,d1a,d1b,d2a,d2b,players,matches]);
+
+  const qColor=q=>q>=75?'var(--green)':q>=50?'#f59e0b':'var(--red)';
+  const sel=(val,set,exclude=[])=>(
+    <select value={val} onChange={e=>set(e.target.value)} style={{flex:1,padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif'}}>
+      <option value="">— Chọn —</option>
+      {recentPlayers.filter(p=>!exclude.includes(p.name)).map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+    </select>
+  );
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'420px'}}>
+        <div className="modal-head">
+          <div className="modal-title">🎯 So kèo nhanh</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{display:'flex',gap:'6px',marginBottom:'14px'}}>
+          {[['don','🧍 Đơn'],['doi','👥 Đôi']].map(([v,lb])=>(
+            <button key={v} onClick={()=>setMode(v)} style={{flex:1,padding:'7px',borderRadius:'8px',border:'1px solid',fontSize:'13px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',
+              borderColor:mode===v?'var(--purple)':'var(--border)',background:mode===v?'var(--purple)':'var(--surface)',color:mode===v?'#fff':'var(--muted)'}}>
+              {lb}
+            </button>
+          ))}
+        </div>
+        {mode==='don'?(
+          <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'14px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'center',fontWeight:700}}>Bên A</span>
+              {sel(pA,setPa,[pB])}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+              <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'center',fontWeight:700}}>Bên B</span>
+              {sel(pB,setPb,[pA])}
+            </div>
+          </div>
+        ):(
+          <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'14px'}}>
+            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:700,marginBottom:'2px'}}>🔵 Đội 1</div>
+            <div style={{display:'flex',gap:'6px'}}>{sel(d1a,setD1a,[d1b,d2a,d2b])}{sel(d1b,setD1b,[d1a,d2a,d2b])}</div>
+            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:700,marginBottom:'2px'}}>🔴 Đội 2</div>
+            <div style={{display:'flex',gap:'6px'}}>{sel(d2a,setD2a,[d1a,d1b,d2b])}{sel(d2b,setD2b,[d1a,d1b,d2a])}</div>
+          </div>
+        )}
+        {analysis&&(
+          <div style={{background:'var(--surface)',borderRadius:'12px',padding:'14px',border:'1px solid var(--border)'}}>
+            {/* Chất lượng kèo */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+              <span style={{fontSize:'12px',color:'var(--muted)',fontWeight:700}}>⚡ Chất lượng kèo</span>
+              <span style={{fontWeight:800,fontSize:'14px',color:qColor(analysis.quality)}}>{analysis.quality}%</span>
+            </div>
+            {/* Thanh xác suất */}
+            <div style={{marginBottom:'10px'}}>
+              {analysis.type==='don'?(
+                <>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',fontWeight:700,marginBottom:'4px'}}>
+                    <span style={{color:'#60a5fa'}}>{analysis.pa.name} {analysis.winPctA}%</span>
+                    <span style={{color:'#f87171'}}>{analysis.winPctB}% {analysis.pb.name}</span>
+                  </div>
+                  <div style={{height:'8px',borderRadius:'4px',background:'var(--border)',overflow:'hidden',display:'flex'}}>
+                    <div style={{width:`${analysis.winPctA}%`,background:'#60a5fa',transition:'width .4s'}}/>
+                    <div style={{flex:1,background:'#f87171'}}/>
+                  </div>
+                </>
+              ):(
+                <>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',fontWeight:700,marginBottom:'4px'}}>
+                    <span style={{color:'#60a5fa'}}>{analysis.t1.map(p=>p.name).join(' & ')} {analysis.winPct1}%</span>
+                    <span style={{color:'#f87171'}}>{analysis.winPct2}% {analysis.t2.map(p=>p.name).join(' & ')}</span>
+                  </div>
+                  <div style={{height:'8px',borderRadius:'4px',background:'var(--border)',overflow:'hidden',display:'flex'}}>
+                    <div style={{width:`${analysis.winPct1}%`,background:'#60a5fa',transition:'width .4s'}}/>
+                    <div style={{flex:1,background:'#f87171'}}/>
+                  </div>
+                </>
+              )}
+            </div>
+            {/* ELO & chấp */}
+            <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+              {analysis.type==='don'?(
+                <>
+                  <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)'}}>ELO chênh</div>
+                    <div style={{fontWeight:800,fontSize:'15px'}}>{analysis.diff}</div>
+                  </div>
+                  <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)'}}>Chấp</div>
+                    <div style={{fontWeight:800,fontSize:'15px'}}>{analysis.handicap>0?`${analysis.handicap} quả`:'Ngang bằng'}</div>
+                  </div>
+                </>
+              ):(
+                <>
+                  <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)'}}>Đội 1 ELO</div>
+                    <div style={{fontWeight:800,fontSize:'14px',color:'#60a5fa'}}>{analysis.elo1}</div>
+                  </div>
+                  <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)'}}>Đội 2 ELO</div>
+                    <div style={{fontWeight:800,fontSize:'14px',color:'#f87171'}}>{analysis.elo2}</div>
+                  </div>
+                  <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                    <div style={{fontSize:'10px',color:'var(--muted)'}}>Chấp</div>
+                    <div style={{fontWeight:800,fontSize:'14px'}}>{analysis.handicap>0?`${analysis.handicap} quả`:'Ngang'}</div>
+                  </div>
+                </>
+              )}
+              <div style={{flex:1,background:'var(--bg)',borderRadius:'8px',padding:'8px',textAlign:'center'}}>
+                <div style={{fontSize:'10px',color:'var(--muted)'}}>Đối đầu</div>
+                <div style={{fontWeight:800,fontSize:'14px'}}>{analysis.h2h.length} trận</div>
+                {analysis.type==='don'&&analysis.h2h.length>0&&<div style={{fontSize:'10px',color:'var(--muted)'}}>{analysis.wA}W–{analysis.wB}L</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund}){
   const [matchSeg,setMatchSeg]=useState('Đôi');
   const segMatches=useMemo(()=>matches.filter(m=>m.type===matchSeg),[matches,matchSeg]);
@@ -1651,28 +1817,27 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
     const totalSpent=(sessions||[]).reduce((a,s)=>a+s.total,0);
     return roundUpFund(totalPaid-totalSpent);
   },[members,sessions]);
-  const totalDebt=useMemo(()=>{
-    return roundUpFund((members||[]).reduce((a,m)=>{
-      const paid=m.paid||0;
-      const fair=(sessions||[]).reduce((s,sess)=>{
-        const att=sess.attendees||{};
-        if(!att[m.name]) return s;
-        const cnt=Object.values(att).filter(Boolean).length;
-        return cnt>0?s+sess.total/cnt:s;
-      },0);
-      return a+Math.max(0,fair-paid);
-    },0));
+  // Dùng personCost() giống FundTab để số khớp nhau
+  const memberSpentMap=useMemo(()=>{
+    const spent={};
+    (members||[]).forEach(m=>{spent[m.name]=0;});
+    (sessions||[]).forEach(s=>{
+      if(s.attendees&&Object.keys(s.attendees).length>0){
+        Object.entries(s.attendees).filter(([,v])=>v).forEach(([name])=>{
+          if(spent[name]!==undefined) spent[name]+=personCost(s,name);
+        });
+      } else {
+        const share=s.players>0?Math.round(s.total/s.players):0;
+        (members||[]).forEach(m=>{spent[m.name]+=share;});
+      }
+    });
+    return spent;
   },[members,sessions]);
-  const debtorsCount=useMemo(()=>(members||[]).filter(m=>{
-    const paid=m.paid||0;
-    const fair=(sessions||[]).reduce((s,sess)=>{
-      const att=sess.attendees||{};
-      if(!att[m.name]) return s;
-      const cnt=Object.values(att).filter(Boolean).length;
-      return cnt>0?s+sess.total/cnt:s;
-    },0);
-    return fair>paid;
-  }).length,[members,sessions]);
+  const totalDebt=useMemo(()=>roundUpFund((members||[]).reduce((a,m)=>{
+    const rem=m.paid-(memberSpentMap[m.name]||0);
+    return rem<0?a+Math.abs(rem):a;
+  },0)),[members,memberSpentMap]);
+  const debtorsCount=useMemo(()=>(members||[]).filter(m=>(m.paid-(memberSpentMap[m.name]||0))<0).length,[members,memberSpentMap]);
 
   const monthSessions=(sessions||[]).filter(s=>{
     const p=s.date.split(/[\/\-]/);
@@ -1693,6 +1858,7 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
 
   const hof = useMemo(()=>computeHallOfFame(players||[], matches), [players, matches]);
   const last = n => n;
+  const [showSoKeo,setShowSoKeo]=useState(false);
 
   return <>
     <div style={{display:'flex',gap:'6px',marginBottom:'16px',marginTop:'4px',width:'fit-content'}}>
@@ -1726,10 +1892,13 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
 
     {/* Nút hành động nhanh */}
     <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}}>
-      <button onClick={onAdd} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+      <button onClick={onAdd} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
         ⚔️ Ghi trận
       </button>
-      <button onClick={()=>onGoFund&&onGoFund()} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+      <button onClick={()=>setShowSoKeo(true)} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'1px solid rgba(96,165,250,.5)',background:'rgba(96,165,250,.1)',color:'#60a5fa',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+        🎯 So kèo
+      </button>
+      <button onClick={()=>onGoFund&&onGoFund()} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
         📋 Tạo buổi
       </button>
       <button onClick={()=>{
@@ -1774,32 +1943,7 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
       </div>
     </div>
 
-    {/* MVP tháng */}
-    {hof.hasData && (hof.topWinner||hof.topLoser||hof.bestPair) && (
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:'10px',marginBottom:'16px'}}>
-        {hof.topWinner && (
-          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.08))',border:'1px solid rgba(16,185,129,.35)'}}>
-            <div className="sc-label" style={{color:'var(--green)'}}>👑 MVP tháng {parseInt(curMonth)}</div>
-            <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topWinner.name}</div>
-            <div className="sc-sub">{hof.topWinner.wins} trận thắng</div>
-          </div>
-        )}
-        {hof.topLoser && (
-          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(239,68,68,.12),rgba(185,28,28,.07))',border:'1px solid rgba(239,68,68,.3)'}}>
-            <div className="sc-label" style={{color:'var(--red)'}}>💀 Gà nhất tháng {parseInt(curMonth)}</div>
-            <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topLoser.name}</div>
-            <div className="sc-sub">{hof.topLoser.losses} trận thua</div>
-          </div>
-        )}
-        {hof.bestPair && (
-          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(139,92,246,.15),rgba(109,40,217,.08))',border:'1px solid rgba(139,92,246,.35)'}}>
-            <div className="sc-label" style={{color:'#a78bfa'}}>🤝 Cặp ăn ý nhất</div>
-            <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.bestPair.names}</div>
-            <div className="sc-sub">{hof.bestPair.w}/{hof.bestPair.total} trận thắng</div>
-          </div>
-        )}
-      </div>
-    )}
+    {showSoKeo && <QuickSoKeoPopup players={players} sessions={sessions} matches={matches} onClose={()=>setShowSoKeo(false)}/>}
 
     {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
