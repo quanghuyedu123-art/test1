@@ -1636,7 +1636,7 @@ function EloCard({myElo}){
 }
 
 /* ─── DASHBOARD ─────────────────────────────────────────── */
-function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch}){
+function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund}){
   const [matchSeg,setMatchSeg]=useState('Đôi');
   const segMatches=useMemo(()=>matches.filter(m=>m.type===matchSeg),[matches,matchSeg]);
   const wins=segMatches.filter(m=>m.result==='W').length;
@@ -1644,6 +1644,35 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
 
   const now=new Date();
   const curMonth=String(now.getMonth()+1).padStart(2,'0');
+
+  // Tính tổng Hòm Công Đức & nợ
+  const fundBalance=useMemo(()=>{
+    const totalPaid=(members||[]).reduce((a,m)=>a+m.paid,0);
+    const totalSpent=(sessions||[]).reduce((a,s)=>a+s.total,0);
+    return roundUpFund(totalPaid-totalSpent);
+  },[members,sessions]);
+  const totalDebt=useMemo(()=>{
+    return roundUpFund((members||[]).reduce((a,m)=>{
+      const paid=m.paid||0;
+      const fair=(sessions||[]).reduce((s,sess)=>{
+        const att=sess.attendees||{};
+        if(!att[m.name]) return s;
+        const cnt=Object.values(att).filter(Boolean).length;
+        return cnt>0?s+sess.total/cnt:s;
+      },0);
+      return a+Math.max(0,fair-paid);
+    },0));
+  },[members,sessions]);
+  const debtorsCount=useMemo(()=>(members||[]).filter(m=>{
+    const paid=m.paid||0;
+    const fair=(sessions||[]).reduce((s,sess)=>{
+      const att=sess.attendees||{};
+      if(!att[m.name]) return s;
+      const cnt=Object.values(att).filter(Boolean).length;
+      return cnt>0?s+sess.total/cnt:s;
+    },0);
+    return fair>paid;
+  }).length,[members,sessions]);
 
   const monthSessions=(sessions||[]).filter(s=>{
     const p=s.date.split(/[\/\-]/);
@@ -1676,6 +1705,52 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
         </button>
       ))}
     </div>
+    {/* 3 cards tổng quan */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'12px'}}>
+      <div className="stat-card sc-green" style={{textAlign:'center'}}>
+        <div className="sc-label">🏦 Hòm Công Đức</div>
+        <div className="sc-val" style={{fontSize:'16px',color:fundBalance>=0?'var(--green)':'var(--red)'}}>{fmt(fundBalance)}</div>
+        <div className="sc-sub">{fundBalance>=0?'còn lại':'âm quỹ'}</div>
+      </div>
+      <div className="stat-card sc-red" style={{textAlign:'center',cursor:'pointer'}} onClick={()=>onGoBadges&&onGoBadges('fund')}>
+        <div className="sc-label">💸 Tiền Còn Nợ</div>
+        <div className="sc-val" style={{fontSize:'16px',color:totalDebt>0?'var(--red)':'var(--muted)'}}>{fmt(totalDebt)}</div>
+        <div className="sc-sub">{debtorsCount>0?`${debtorsCount} người nợ`:'sạch nợ 🎉'}</div>
+      </div>
+      <div className="stat-card" style={{textAlign:'center',background:'linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.08))',border:'1px solid rgba(16,185,129,.35)'}}>
+        <div className="sc-label" style={{color:'var(--green)'}}>👑 MVP tháng {parseInt(curMonth)}</div>
+        <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topWinner?hof.topWinner.name:'—'}</div>
+        <div className="sc-sub">{hof.topWinner?`${hof.topWinner.wins} trận thắng`:''}</div>
+      </div>
+    </div>
+
+    {/* Nút hành động nhanh */}
+    <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}}>
+      <button onClick={onAdd} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+        ⚔️ Ghi trận
+      </button>
+      <button onClick={()=>onGoFund&&onGoFund()} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+        📋 Tạo buổi
+      </button>
+      <button onClick={()=>{
+        const today=new Date();
+        const dd=String(today.getDate()).padStart(2,'0');
+        const mm=String(today.getMonth()+1).padStart(2,'0');
+        const ms=matches.filter(m=>m.date===`${dd}/${mm}`||m.date===`${String(today.getFullYear())}-${mm}-${dd}`);
+        if(!ms.length){alert('Chưa có trận nào hôm nay!');return;}
+        const lines=ms.map((m,i)=>{
+          const side=m.result==='W'?'✅ Thắng':'❌ Thua';
+          const p=m.partners?m.partners.join(' & '):'—';
+          const o=m.opponents?m.opponents.join(' vs '):'—';
+          return `${i+1}. ${side} | 🤝${p} vs ⚔️${o} | ${m.score||''}`;
+        }).join('\n');
+        const txt=`🏸 Kết quả buổi ${dd}/${mm}:\n${lines}\n\nChia sẻ từ Phông Bạt Pickleball 🎉`;
+        if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>alert('Đã copy! Paste vào Zalo nha 📱')).catch(()=>{});}
+      }} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+        📢 Báo Zalo
+      </button>
+    </div>
+
     <div className="stats-grid">
       <div className="stat-card sc-green">
         <div className="sc-label">Đã đóng tháng {parseInt(curMonth)}</div>
@@ -1699,7 +1774,34 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
       </div>
     </div>
 
-    {tournament && (()=>{
+    {/* MVP tháng */}
+    {hof.hasData && (hof.topWinner||hof.topLoser||hof.bestPair) && (
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:'10px',marginBottom:'16px'}}>
+        {hof.topWinner && (
+          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.08))',border:'1px solid rgba(16,185,129,.35)'}}>
+            <div className="sc-label" style={{color:'var(--green)'}}>👑 MVP tháng {parseInt(curMonth)}</div>
+            <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topWinner.name}</div>
+            <div className="sc-sub">{hof.topWinner.wins} trận thắng</div>
+          </div>
+        )}
+        {hof.topLoser && (
+          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(239,68,68,.12),rgba(185,28,28,.07))',border:'1px solid rgba(239,68,68,.3)'}}>
+            <div className="sc-label" style={{color:'var(--red)'}}>💀 Gà nhất tháng {parseInt(curMonth)}</div>
+            <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topLoser.name}</div>
+            <div className="sc-sub">{hof.topLoser.losses} trận thua</div>
+          </div>
+        )}
+        {hof.bestPair && (
+          <div className="stat-card" style={{background:'linear-gradient(135deg,rgba(139,92,246,.15),rgba(109,40,217,.08))',border:'1px solid rgba(139,92,246,.35)'}}>
+            <div className="sc-label" style={{color:'#a78bfa'}}>🤝 Cặp ăn ý nhất</div>
+            <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.bestPair.names}</div>
+            <div className="sc-sub">{hof.bestPair.w}/{hof.bestPair.total} trận thắng</div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
       const total=isRR?(tournament.rrMatches||[]).length:((tournament.rounds||[]).reduce((s,r)=>s+r.matches.length,0));
       const done=isRR?(tournament.rrMatches||[]).filter(m=>m.scoreA!==''&&m.scoreB!=='').length:((tournament.rounds||[]).reduce((s,r)=>s+r.matches.filter(m=>m.scoreA!==''||m.scoreB!=='').length,0));
@@ -5290,7 +5392,8 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
 
   const resetTournament=()=>{
     setTournament(null);
-    fbSet('tournament',null);
+    // Ghi {deleted:true} thay vì null để tránh race condition khi poll
+    fbSet('tournament',{deleted:true,_deletedAt:Date.now()});
     setConfirmReset(false);
     showToast&&showToast('Đã xoá giải đấu.');
   };
@@ -5308,7 +5411,7 @@ function TournamentTab({players, tournament, setTournament, isAdmin, showToast, 
       {tournamentBroken && (
         <div style={{textAlign:'center',padding:'14px',marginBottom:'14px',color:'var(--red)',background:'var(--red-bg)',borderRadius:'10px',border:'1px solid var(--red)',fontSize:'12.5px'}}>
           ⚠️ Dữ liệu sơ đồ giải đấu bị lỗi/thiếu, không hiển thị được. {isAdmin?'Bấm "Xoá giải" bên dưới rồi tạo lại giúp mình nhé.':'Nhờ admin kiểm tra lại giúp nhé.'}
-          {isAdmin && <div style={{marginTop:'8px'}}><button onClick={()=>{setTournament(null);fbSet('tournament',null);showToast&&showToast('Đã xoá giải đấu lỗi.');}} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải đấu lỗi</button></div>}
+          {isAdmin && <div style={{marginTop:'8px'}}><button onClick={()=>{setTournament(null);fbSet('tournament',{deleted:true,_deletedAt:Date.now()});showToast&&showToast('Đã xoá giải đấu lỗi.');}} style={{background:'var(--red)',border:'none',borderRadius:'8px',color:'#fff',padding:'6px 14px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🗑 Xoá giải đấu lỗi</button></div>}
         </div>
       )}
       {!creating && (
@@ -7863,7 +7966,7 @@ function App(){
       setTrash(normalizeTrash(tr.data));
     }
     if(bi.ok&&bi.data&&typeof bi.data==='object') setBankInfo(prev=>({...prev,...bi.data}));
-    if(tn.ok) setTournament(tn.data&&typeof tn.data==='object'?tn.data:null);
+    if(tn.ok) setTournament(tn.data&&typeof tn.data==='object'&&!tn.data.deleted?tn.data:null);
     // Chỉ mở khoá ghi (dbReady) khi 4 nguồn dữ liệu cốt lõi đều tải thành công.
     const coreOk = p.ok && m.ok && s.ok && mb.ok;
     if(coreOk){ setDbReady(true); setLoadError(false); }
@@ -7890,7 +7993,7 @@ function App(){
       }
       if(tr.ok&&tr.data&&typeof tr.data==='object'&&!_fbSaving['trash']) setTrash(normalizeTrash(tr.data));
       if(bi.ok&&bi.data&&typeof bi.data==='object'&&!_fbSaving['bankInfo']) setBankInfo(prev=>({...prev,...bi.data}));
-      if(tn.ok&&!_fbSaving['tournament']) setTournament(tn.data&&typeof tn.data==='object'?tn.data:null);
+      if(tn.ok&&!_fbSaving['tournament']) setTournament(tn.data&&typeof tn.data==='object'&&!tn.data.deleted?tn.data:null);
     },30000);
     return ()=>clearInterval(id);
   },[loadAll,normalizeTrash]);
@@ -8295,7 +8398,7 @@ function App(){
     />
 
     <div className="main">
-      {tab==='dashboard' && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch}/>}
+      {tab==='dashboard' && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')}/>}
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
