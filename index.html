@@ -3492,6 +3492,32 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
             />
           </div>
         </div>
+
+        {/* Win rate badge khi đang lọc theo đồng đội hoặc đối thủ */}
+        {(teammateFilter!=='Tất cả'||opponentFilter!=='Tất cả')&&(
+          <div style={{marginTop:'10px',padding:'10px 14px',background:'var(--surface)',borderRadius:'10px',border:'1px solid var(--border)',display:'flex',flexWrap:'wrap',gap:'16px',alignItems:'center'}}>
+            {teammateFilter!=='Tất cả'&&(
+              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                <span style={{fontSize:'12px',color:'var(--muted)'}}>🤝 Cùng {teammateFilter}:</span>
+                <span style={{fontWeight:700,fontSize:'13px'}}>{filteredMatches.length} trận</span>
+                <span style={{fontSize:'13px',color:fWins/filteredMatches.length>=0.5?'var(--green)':'var(--red)',fontWeight:700}}>
+                  {filteredMatches.length>0?Math.round(fWins/filteredMatches.length*100):0}% thắng
+                </span>
+                <span style={{fontSize:'12px',color:'var(--muted)'}}>({fWins}W – {fLosses}L)</span>
+              </div>
+            )}
+            {opponentFilter!=='Tất cả'&&(
+              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                <span style={{fontSize:'12px',color:'var(--muted)'}}>⚔️ Gặp {opponentFilter}:</span>
+                <span style={{fontWeight:700,fontSize:'13px'}}>{filteredMatches.length} trận</span>
+                <span style={{fontSize:'13px',color:fWins/filteredMatches.length>=0.5?'var(--green)':'var(--red)',fontWeight:700}}>
+                  {filteredMatches.length>0?Math.round(fWins/filteredMatches.length*100):0}% thắng
+                </span>
+                <span style={{fontSize:'12px',color:'var(--muted)'}}>({fWins}W – {fLosses}L)</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'6px'}}>
@@ -3531,10 +3557,31 @@ function ShareSessionModal({matches, players, onClose}){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   },[]);
 
-  // Lọc trận hôm nay — hỗ trợ cả DD/MM, DD/MM/YYYY (trận thường) lẫn YYYY-MM-DD (giải đấu)
-  const todayMatches = useMemo(()=>
-    matches.filter(m=>m.date===todayStr||m.date===todayStr.slice(0,5)||m.date===todayISO)
-  ,[matches, todayStr, todayISO]);
+  // Danh sách ngày có trận (mới nhất trước)
+  const availableDates = useMemo(()=>{
+    const set = new Set();
+    matches.forEach(m=>{ if(m.date) set.add(m.date); });
+    const normalize = d => {
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d)){
+        const [y,mo,dd]=d.split('-'); return `${dd}/${mo}/${y}`;
+      }
+      return d;
+    };
+    return [...set].sort((a,b)=>b.localeCompare(a)).map(d=>({raw:d, display:normalize(d)}));
+  },[matches]);
+
+  const [selectedDate, setSelectedDate] = useState(null); // null = hôm nay
+
+  // Ngày hiển thị đang chọn
+  const activeDisplay = selectedDate ? (availableDates.find(x=>x.raw===selectedDate)?.display||selectedDate) : todayStr;
+
+  // Lọc trận theo ngày được chọn
+  const todayMatches = useMemo(()=>{
+    if(!selectedDate){
+      return matches.filter(m=>m.date===todayStr||m.date===todayStr.slice(0,5)||m.date===todayISO);
+    }
+    return matches.filter(m=>m.date===selectedDate);
+  },[matches, todayStr, todayISO, selectedDate]);
 
   // Tổng hợp ELO thay đổi hôm nay theo từng người
   const eloSummary = useMemo(()=>{
@@ -3590,7 +3637,7 @@ function ShareSessionModal({matches, players, onClose}){
   // Tạo text chia sẻ Zalo
   const shareText = useMemo(()=>{
     if(todayMatches.length===0) return '';
-    const date = todayStr;
+    const date = activeDisplay;
     const lines = [
       `🏓 KẾT QUẢ PHÔNG BẠT — ${date}`,
       `━━━━━━━━━━━━━━━━━━━━`,
@@ -3639,14 +3686,33 @@ function ShareSessionModal({matches, players, onClose}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:480}}>
         <div className="modal-head">
-          <div className="modal-title">📤 Chia sẻ kết quả hôm nay</div>
+          <div className="modal-title">📤 Chia sẻ kết quả buổi chơi</div>
           <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Chọn ngày */}
+        <div style={{marginBottom:'14px'}}>
+          <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.5px',fontWeight:700}}>Chọn buổi</div>
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+            <button onClick={()=>setSelectedDate(null)}
+              style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid var(--border)',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                background:selectedDate===null?'var(--green)':'var(--surface)',color:selectedDate===null?'#fff':'var(--text)'}}>
+              Hôm nay
+            </button>
+            {availableDates.filter(d=>d.raw!==todayStr&&d.raw!==todayISO&&d.raw!==todayStr.slice(0,5)).slice(0,7).map(d=>(
+              <button key={d.raw} onClick={()=>setSelectedDate(d.raw)}
+                style={{padding:'5px 12px',borderRadius:'20px',border:'1px solid var(--border)',fontSize:'12px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                  background:selectedDate===d.raw?'var(--green)':'var(--surface)',color:selectedDate===d.raw?'#fff':'var(--text)'}}>
+                {d.display}
+              </button>
+            ))}
+          </div>
         </div>
 
         {!hasData ? (
           <div style={{textAlign:'center',padding:'32px 0',color:'var(--muted)'}}>
             <div style={{fontSize:'32px',marginBottom:'12px'}}>📭</div>
-            <div style={{fontWeight:700}}>Chưa có trận nào hôm nay</div>
+            <div style={{fontWeight:700}}>Chưa có trận nào {selectedDate?`ngày ${activeDisplay}`:'hôm nay'}</div>
             <div style={{fontSize:'13px',marginTop:'6px'}}>Ghi trận xong rồi chia sẻ nhé!</div>
           </div>
         ) : (<>
