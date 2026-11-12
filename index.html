@@ -2226,6 +2226,39 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
   },[mode,pA,pB,d1a,d1b,d2a,d2b,players,matches]);
 
   const qColor=q=>q>=75?'var(--green)':q>=50?'#f59e0b':'var(--red)';
+  // Chip-based player picker (replace dropdown selects)
+  // For don mode: tap chip = toggle pA/pB (first pick = A, second = B)
+  // For doi mode: tap chip = cycle d1a/d1b/d2a/d2b slots in order
+  const chipColor=(slot)=>({
+    'A':'var(--green)','B':'var(--red)',
+    'd1a':'#60a5fa','d1b':'#60a5fa','d2a':'#f87171','d2b':'#f87171'
+  }[slot]||'var(--muted)');
+
+  const getSlot=(name)=>{
+    if(mode==='don') return pA===name?'A':pB===name?'B':null;
+    return d1a===name?'d1a':d1b===name?'d1b':d2a===name?'d2a':d2b===name?'d2b':null;
+  };
+
+  const toggleChip=(name)=>{
+    if(mode==='don'){
+      if(pA===name){setPa('');return;}
+      if(pB===name){setPb('');return;}
+      if(!pA){setPa(name);}
+      else if(!pB&&name!==pA){setPb(name);}
+    } else {
+      if(d1a===name){setD1a('');return;}
+      if(d1b===name){setD1b('');return;}
+      if(d2a===name){setD2a('');return;}
+      if(d2b===name){setD2b('');return;}
+      if(!d1a){setD1a(name);}
+      else if(!d1b&&name!==d1a){setD1b(name);}
+      else if(!d2a&&name!==d1a&&name!==d1b){setD2a(name);}
+      else if(!d2b&&name!==d1a&&name!==d1b&&name!==d2a){setD2b(name);}
+    }
+  };
+
+  const clearAll=()=>{setPa('');setPb('');setD1a('');setD1b('');setD2a('');setD2b('');};
+
   const sel=(val,set,exclude=[])=>(
     <select value={val} onChange={e=>set(e.target.value)} style={{flex:1,padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif'}}>
       <option value="">— Chọn —</option>
@@ -2248,24 +2281,64 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
             </button>
           ))}
         </div>
+        {/* Slot display */}
         {mode==='don'?(
-          <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'14px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-              <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'center',fontWeight:700}}>Bên A</span>
-              {sel(pA,setPa,[pB])}
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'center',marginBottom:'10px'}}>
+            <div style={{background:'rgba(74,222,128,.12)',border:'1px solid #4ade80',borderRadius:'10px',padding:'8px',textAlign:'center'}}>
+              <div style={{fontSize:'10px',fontWeight:700,color:'var(--green)',marginBottom:'4px'}}>⚡ BÊN A</div>
+              <div style={{minHeight:'26px',fontWeight:700,fontSize:'13px',color:pA?'var(--green)':'var(--muted)'}}>{pA?pA.split(' ').slice(-2).join(' '):'—'}</div>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-              <span style={{fontSize:'12px',color:'var(--muted)',width:'40px',textAlign:'center',fontWeight:700}}>Bên B</span>
-              {sel(pB,setPb,[pA])}
+            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'13px'}}>VS</div>
+            <div style={{background:'rgba(248,113,113,.12)',border:'1px solid #f87171',borderRadius:'10px',padding:'8px',textAlign:'center'}}>
+              <div style={{fontSize:'10px',fontWeight:700,color:'var(--red)',marginBottom:'4px'}}>🔥 BÊN B</div>
+              <div style={{minHeight:'26px',fontWeight:700,fontSize:'13px',color:pB?'var(--red)':'var(--muted)'}}>{pB?pB.split(' ').slice(-2).join(' '):'—'}</div>
             </div>
           </div>
         ):(
-          <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'14px'}}>
-            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:700,marginBottom:'2px'}}>🔵 Đội 1</div>
-            <div style={{display:'flex',gap:'6px'}}>{sel(d1a,setD1a,[d1b,d2a,d2b])}{sel(d1b,setD1b,[d1a,d2a,d2b])}</div>
-            <div style={{fontSize:'12px',color:'var(--muted)',fontWeight:700,marginBottom:'2px'}}>🔴 Đội 2</div>
-            <div style={{display:'flex',gap:'6px'}}>{sel(d2a,setD2a,[d1a,d1b,d2b])}{sel(d2b,setD2b,[d1a,d1b,d2a])}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'8px',alignItems:'start',marginBottom:'10px'}}>
+            <div style={{background:'rgba(96,165,250,.12)',border:'1px solid #60a5fa',borderRadius:'10px',padding:'8px'}}>
+              <div style={{fontSize:'10px',fontWeight:700,color:'#60a5fa',marginBottom:'5px',textAlign:'center'}}>🔵 ĐỘI 1</div>
+              {[d1a,d1b].map((v,i)=>(
+                <div key={i} style={{background:v?'#60a5fa':'rgba(0,0,0,.05)',borderRadius:'7px',padding:'4px 6px',fontSize:'12px',fontWeight:700,color:v?'#fff':'var(--muted)',textAlign:'center',marginBottom:i===0?'4px':0,minHeight:'24px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {v?v.split(' ').slice(-2).join(' '):'—'}
+                </div>
+              ))}
+            </div>
+            <div style={{textAlign:'center',fontFamily:'Quicksand',fontWeight:800,color:'var(--muted)',fontSize:'13px',paddingTop:'28px'}}>VS</div>
+            <div style={{background:'rgba(248,113,113,.12)',border:'1px solid #f87171',borderRadius:'10px',padding:'8px'}}>
+              <div style={{fontSize:'10px',fontWeight:700,color:'#f87171',marginBottom:'5px',textAlign:'center'}}>🔴 ĐỘI 2</div>
+              {[d2a,d2b].map((v,i)=>(
+                <div key={i} style={{background:v?'#f87171':'rgba(0,0,0,.05)',borderRadius:'7px',padding:'4px 6px',fontSize:'12px',fontWeight:700,color:v?'#fff':'var(--muted)',textAlign:'center',marginBottom:i===0?'4px':0,minHeight:'24px',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {v?v.split(' ').slice(-2).join(' '):'—'}
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+        {/* Chip picker */}
+        <div style={{fontSize:'11px',color:'var(--muted)',marginBottom:'6px'}}>
+          {mode==='don'?<>👇 Bấm chọn · <span style={{color:'var(--green)'}}>1 lần = A</span> · <span style={{color:'var(--red)'}}>2 lần = B</span></>
+          :<>👇 Bấm lần lượt → <span style={{color:'#60a5fa'}}>Đội 1</span> · <span style={{color:'#f87171'}}>Đội 2</span></>}
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'10px'}}>
+          {recentPlayers.map(p=>{
+            const slot=getSlot(p.name);
+            const color=slot?chipColor(slot):'var(--border)';
+            const bg=slot?chipColor(slot):'var(--surface2)';
+            const label=slot?({'A':'A','B':'B','d1a':'1A','d1b':'1B','d2a':'2A','d2b':'2B'}[slot]+' · '):'';
+            return (
+              <button key={p.name} onClick={()=>toggleChip(p.name)} style={{
+                padding:'7px 11px',borderRadius:'20px',border:`2px solid ${color}`,fontSize:'13px',
+                cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700,transition:'.12s',
+                background:slot?bg:'var(--surface2)',
+                color:slot?'#fff':'var(--muted)'}}>
+                {label}{p.name.split(' ').slice(-2).join(' ')}
+              </button>
+            );
+          })}
+        </div>
+        {(pA||pB||d1a||d1b||d2a||d2b)&&(
+          <button onClick={clearAll} style={{fontSize:'11px',color:'var(--red)',background:'transparent',border:'none',cursor:'pointer',fontFamily:'Nunito,sans-serif',marginBottom:'6px'}}>✕ Xoá chọn</button>
         )}
         {analysis&&(
           <div style={{background:'var(--surface)',borderRadius:'12px',padding:'14px',border:'1px solid var(--border)'}}>
@@ -2342,7 +2415,7 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
   );
 }
 
-function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund,onAddSession}){
+function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund,onAddSession,isAdmin}){
   const [matchSeg,setMatchSeg]=useState('Đôi');
   const segMatches=useMemo(()=>matches.filter(m=>m.type===matchSeg),[matches,matchSeg]);
   const wins=segMatches.filter(m=>m.result==='W').length;
@@ -2485,11 +2558,121 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
     {showSoKeo && <QuickSoKeoPopup players={players} sessions={sessions} matches={matches} onClose={()=>setShowSoKeo(false)}/>}
     {showAddSession && <AddSessionModal members={members} sessions={sessions} onSave={s=>{onAddSession&&onAddSession(s);}} onClose={()=>setShowAddSession(false)}/>}
 
-    {hof.topWinner && <div className="court-mvp" onClick={()=>onGoBadges&&onGoBadges()} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter') onGoBadges&&onGoBadges();}}>
-      <div className="court-mvp-medal">★</div>
-      <div className="court-mvp-content"><div className="court-mvp-label">GƯƠNG MẶT NỔI BẬT · THÁNG {parseInt(curMonth)}</div><strong>{hof.topWinner.name}</strong><p>{hof.topWinner.wins} trận thắng trong tháng. Xem bảng xếp hạng để khám phá thêm.</p></div>
-      <div className="court-mvp-next">↗</div>
-    </div>}
+    {hof.topWinner && (()=>{
+      const initials=hof.topWinner.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      const wins=hof.topWinner.wins;
+      const lossesInMonth=hof.monthMatches.reduce((acc,m)=>{
+        const changed=(m.eloChanges||[]).find(e=>e.name===hof.topWinner.name&&e.delta<0);
+        return changed?acc+1:acc;
+      },0);
+      const totalGames=wins+lossesInMonth;
+      const winRate=totalGames>0?Math.round(wins/totalGames*100):0;
+      const mvpPlayer=(players||[]).find(p=>p.name===hof.topWinner.name);
+      const currentElo=mvpPlayer?Math.round(mvpPlayer.elo):null;
+      const eloGainThisMonth=hof.topGainer&&hof.topGainer.name===hof.topWinner.name?hof.topGainer.gain:null;
+      const funnyLines=[
+        {min:90,text:'🤖 Nghi ngờ dùng AI để chơi pickleball'},
+        {min:75,text:'🧲 Tay có nam châm hút cầu, chân có lò xo'},
+        {min:60,text:'☕ Uống cà phê buổi sáng, bắt đầu gánh team'},
+        {min:50,text:'⚖️ Thắng thua cân bằng như Thanos muốn'},
+        {min:0, text:'📈 Đang trong giai đoạn "học từ thất bại"'},
+      ];
+      const funnyLine=funnyLines.find(f=>winRate>=f.min).text;
+      const sparkles=[
+        {top:'8%',left:'12%',delay:'0s',size:'6px'},
+        {top:'18%',left:'88%',delay:'.4s',size:'5px'},
+        {top:'72%',left:'5%',delay:'.8s',size:'7px'},
+        {top:'80%',left:'92%',delay:'1.2s',size:'5px'},
+        {top:'40%',left:'96%',delay:'.2s',size:'6px'},
+        {top:'55%',left:'2%',delay:'.6s',size:'4px'},
+        {top:'10%',left:'50%',delay:'1s',size:'5px'},
+        {top:'88%',left:'45%',delay:'.3s',size:'6px'},
+        {top:'30%',left:'8%',delay:'.7s',size:'4px'},
+        {top:'65%',left:'87%',delay:'1.4s',size:'5px'},
+        {top:'20%',left:'72%',delay:'.9s',size:'4px'},
+        {top:'75%',left:'28%',delay:'.5s',size:'6px'},
+      ];
+      return (
+        <div style={{position:'relative',marginBottom:'18px',overflow:'hidden',borderRadius:'18px',
+          background:'linear-gradient(135deg,#b91c1c 0%,#991b1b 40%,#7f1d1d 70%,#78350f 100%)',
+          boxShadow:'0 8px 32px rgba(185,28,28,.35)',cursor:'pointer'}}
+          onClick={()=>onGoBadges&&onGoBadges()}>
+          <style>{`@keyframes mvpSparkle{0%,100%{opacity:0;transform:scale(.4) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(180deg)}}@keyframes mvpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes mvpGlow{0%,100%{opacity:.85}50%{opacity:1;filter:drop-shadow(0 0 8px rgba(245,208,96,.7))}}@keyframes mvpPulseRing{0%{box-shadow:0 0 0 0 rgba(200,155,32,.6),0 0 0 3px rgba(200,155,32,.3)}70%{box-shadow:0 0 0 10px rgba(200,155,32,0),0 0 0 3px rgba(200,155,32,.3)}100%{box-shadow:0 0 0 0 rgba(200,155,32,0),0 0 0 3px rgba(200,155,32,.3)}}`}</style>
+          {/* Sparkles */}
+          {sparkles.map((sp,i)=>(
+            <div key={i} style={{position:'absolute',top:sp.top,left:sp.left,width:sp.size,height:sp.size,
+              borderRadius:'50%',background:'#fde68a',animation:`mvpSparkle 2s ${sp.delay} infinite ease-in-out`,pointerEvents:'none'}}/>
+          ))}
+          {/* Nội dung chính */}
+          <div style={{position:'relative',padding:'18px 16px',display:'flex',alignItems:'center',gap:'14px',animation:'mvpFloat 3s ease-in-out infinite'}}>
+            {/* Avatar */}
+            <div style={{position:'relative',flexShrink:0}}>
+              <div style={{width:'64px',height:'64px',borderRadius:'50%',
+                background:'linear-gradient(135deg,#c89b20,#f5d060)',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'22px',color:'#7f1d1d',
+                animation:'mvpPulseRing 2s infinite',
+                overflow:'hidden',flexShrink:0}}>
+                {mvpPlayer?.avatar
+                  ?<img src={mvpPlayer.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  :<span>{initials}</span>}
+              </div>
+              <div style={{position:'absolute',bottom:'-4px',right:'-4px',
+                background:'#fbbf24',borderRadius:'50%',width:'22px',height:'22px',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                fontSize:'12px',boxShadow:'0 2px 6px rgba(0,0,0,.3)',fontWeight:700}}>👑</div>
+            </div>
+            {/* Info */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:'10px',color:'rgba(253,230,138,.8)',fontWeight:700,letterSpacing:'.8px',textTransform:'uppercase',marginBottom:'2px'}}>
+                🏆 MVP THÁNG {parseInt(curMonth)}
+              </div>
+              <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'18px',color:'#fef3c7',
+                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:'4px'}}>
+                {hof.topWinner.name}
+              </div>
+              <div style={{fontSize:'11px',color:'rgba(253,230,138,.85)',fontStyle:'italic',marginBottom:'6px'}}>
+                {funnyLine}
+              </div>
+              {/* Thanh win rate */}
+              <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                <div style={{flex:1,height:'5px',borderRadius:'3px',background:'rgba(255,255,255,.2)',overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${winRate}%`,
+                    background:'linear-gradient(90deg,#fbbf24,#fde68a)',
+                    borderRadius:'3px',transition:'width .6s ease'}}/>
+                </div>
+                <span style={{fontSize:'11px',fontWeight:800,color:'#fde68a',fontFamily:'Quicksand,sans-serif'}}>{winRate}%</span>
+              </div>
+            </div>
+            {/* Stats */}
+            <div style={{display:'flex',flexDirection:'column',gap:'6px',flexShrink:0,alignItems:'flex-end'}}>
+              <div style={{textAlign:'center',background:'rgba(0,0,0,.2)',borderRadius:'10px',padding:'6px 10px',minWidth:'56px'}}>
+                <div style={{fontSize:'9px',color:'rgba(253,230,138,.7)',textTransform:'uppercase',letterSpacing:'.5px'}}>Thắng</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'18px',color:'#fde68a'}}>{wins}</div>
+              </div>
+              {currentElo&&<div style={{textAlign:'center',background:'rgba(0,0,0,.2)',borderRadius:'10px',padding:'4px 8px',minWidth:'56px'}}>
+                <div style={{fontSize:'9px',color:'rgba(253,230,138,.7)',textTransform:'uppercase',letterSpacing:'.5px'}}>Công Đức</div>
+                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'14px',color:'#f5d060'}}>
+                  {currentElo}{eloGainThisMonth?<span style={{fontSize:'10px',color:'#86efac'}}> +{eloGainThisMonth}</span>:null}
+                </div>
+              </div>}
+            </div>
+          </div>
+          {/* Laurel SVG */}
+          <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',pointerEvents:'none',opacity:.06,animation:'mvpGlow 3s ease-in-out infinite'}}>
+            <svg width="200" height="80" viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M30 40 C20 30 10 20 15 10 C20 0 35 5 40 20 C45 35 40 50 30 40Z" fill="#fde68a"/>
+              <path d="M25 45 C12 38 5 25 10 15 C15 5 28 10 32 25 C36 40 30 50 25 45Z" fill="#fde68a"/>
+              <path d="M22 52 C8 48 2 32 8 20 C14 8 28 15 30 32 C32 48 25 55 22 52Z" fill="#fde68a"/>
+              <path d="M170 40 C180 30 190 20 185 10 C180 0 165 5 160 20 C155 35 160 50 170 40Z" fill="#fde68a"/>
+              <path d="M175 45 C188 38 195 25 190 15 C185 5 172 10 168 25 C164 40 170 50 175 45Z" fill="#fde68a"/>
+              <path d="M178 52 C192 48 198 32 192 20 C186 8 172 15 170 32 C168 48 175 55 178 52Z" fill="#fde68a"/>
+              <path d="M50 70 Q100 80 150 70" stroke="#fde68a" strokeWidth="2" fill="none"/>
+            </svg>
+          </div>
+        </div>
+      );
+    })()}
 
     {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
@@ -2602,12 +2785,12 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
 
     <MilestoneCountdown players={players}/>
 
-    <MatchHistorySection matches={matches} players={players} onDelete={onDelete} onEditMatch={onEditMatch}/>
+    <MatchHistorySection matches={matches} players={players} onDelete={onDelete} onEditMatch={onEditMatch} isAdmin={isAdmin}/>
   </>;
 }
 
 /* ─── MATCH HISTORY SECTION (embedded in Dashboard) ─────── */
-function MatchHistorySection({matches,players,onDelete,onEditMatch}){
+function MatchHistorySection({matches,players,onDelete,onEditMatch,isAdmin}){
   const [typeF,setTypeF]=useState('Tất cả');
   const [monthF,setMonthF]=useState('Tất cả');
   const [playerF,setPlayerF]=useState('Tất cả');
@@ -2678,7 +2861,7 @@ function MatchHistorySection({matches,players,onDelete,onEditMatch}){
         <button onClick={()=>setShowShare(true)} style={{background:'rgba(99,102,241,.15)',border:'1px solid rgba(99,102,241,.4)',borderRadius:'8px',color:'#818cf8',padding:'6px 10px',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700}}>📤 Chia sẻ</button>
       </div>
     </div>
-    <MatchList matches={filtered.slice(0,showLimit)} showDel={!!onDelete} onDelete={onDelete} players={players} onEdit={m=>setEditMatch(m)} perspective={playerF!=='Tất cả'?playerF:null}/>
+    <MatchList matches={filtered.slice(0,showLimit)} showDel={!!(isAdmin&&onDelete)} onDelete={isAdmin?onDelete:undefined} players={players} onEdit={isAdmin?(m=>setEditMatch(m)):undefined} perspective={playerF!=='Tất cả'?playerF:null}/>
     {/* Pagination */}
     {filtered.length > showLimit && (
       <div style={{display:'flex',gap:'6px',justifyContent:'center',marginTop:'12px',flexWrap:'wrap'}}>
@@ -3357,16 +3540,28 @@ function AddMatchModal({players,sessions,onClose,onSave}){
           )}
         </div>
 
-        {/* Score */}
+        {/* Score với nút tăng/giảm nhanh */}
         <div className="score-row">
           <div className="score-team">
-            <div className="score-lbl" style={{color:'var(--green)'}}>Đội A</div>
-            <input className="score-num" type="number" min="0" max="99" value={score1} onChange={e=>setScore1(e.target.value)} placeholder="0"/>
+            <div className="score-lbl" style={{color: hasScore && win ? 'var(--green)' : hasScore ? 'var(--red)' : 'var(--green)'}}>
+              {hasScore ? (win ? '🏆 Đội A' : '😢 Đội A') : 'Đội A'}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+              <button onClick={()=>setScore1(v=>(Math.max(0,(parseInt(v)||0)-1)).toString())} style={{width:'30px',height:'30px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',fontSize:'16px',fontWeight:700,color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>−</button>
+              <input className="score-num" type="number" min="0" max="99" value={score1} onChange={e=>setScore1(e.target.value)} placeholder="0" style={{textAlign:'center'}}/>
+              <button onClick={()=>setScore1(v=>((parseInt(v)||0)+1).toString())} style={{width:'30px',height:'30px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',fontSize:'16px',fontWeight:700,color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>
+            </div>
           </div>
           <div className="score-vs">VS</div>
           <div className="score-team">
-            <div className="score-lbl" style={{color:'var(--red)'}}>Đội B</div>
-            <input className="score-num" type="number" min="0" max="99" value={score2} onChange={e=>setScore2(e.target.value)} placeholder="0"/>
+            <div className="score-lbl" style={{color: hasScore && !win ? 'var(--green)' : hasScore ? 'var(--red)' : 'var(--red)'}}>
+              {hasScore ? (!win ? '🏆 Đội B' : '😢 Đội B') : 'Đội B'}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+              <button onClick={()=>setScore2(v=>(Math.max(0,(parseInt(v)||0)-1)).toString())} style={{width:'30px',height:'30px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',fontSize:'16px',fontWeight:700,color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>−</button>
+              <input className="score-num" type="number" min="0" max="99" value={score2} onChange={e=>setScore2(e.target.value)} placeholder="0" style={{textAlign:'center'}}/>
+              <button onClick={()=>setScore2(v=>((parseInt(v)||0)+1).toString())} style={{width:'30px',height:'30px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--surface2)',cursor:'pointer',fontSize:'16px',fontWeight:700,color:'var(--muted)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>+</button>
+            </div>
           </div>
         </div>
 
@@ -4547,7 +4742,7 @@ function ShareSessionModal({matches, players, onClose}){
 }
 
 /* ─── MATCHES TAB ─────────────────────────────────────────── */
-function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
+function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch,isAdmin}){
   const [typeFilter,setTypeFilter]=useState('Tất cả');
   const [monthFilter,setMonthFilter]=useState('Tất cả');
   const [playerFilter,setPlayerFilter]=useState('Tất cả');
@@ -4654,7 +4849,7 @@ function MatchesTab({matches,players,myElo,onAdd,onDelete,onEditMatch}){
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
       <span style={{fontSize:'13px',color:'var(--muted)'}}>{filtered.length} trận · {wins}W {losses}L</span>
     </div>
-    <MatchList matches={filtered} showDel={true} onDelete={onDelete} players={players} onEdit={m=>setEditMatch(m)} perspective={playerFilter!=='Tất cả'?playerFilter:null}/>
+    <MatchList matches={filtered} showDel={!!isAdmin} onDelete={isAdmin?onDelete:undefined} players={players} onEdit={isAdmin?(m=>setEditMatch(m)):undefined} perspective={playerFilter!=='Tất cả'?playerFilter:null}/>
     {editMatch&&<EditMatchModal match={editMatch} players={players} onClose={()=>setEditMatch(null)} onSave={m=>{onEditMatch(m);setEditMatch(null);}}/>}
   </>;
 }
@@ -9108,7 +9303,7 @@ function App(){
         </div>
         <span className="workspace-pill">{dbReady?'Đã kết nối dữ liệu':syncing?'Đang đồng bộ':'Chưa kết nối'}</span>
       </div>
-      {tab==='dashboard'  && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')} onAddSession={newS=>{const updated=[...sessions,newS];setSessions(updated);fbSet('sessions',updated);showToast('Đã thêm buổi chơi!');}}/>}
+      {tab==='dashboard'  && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')} isAdmin={isAdmin} onAddSession={newS=>{const updated=[...sessions,newS];setSessions(updated);fbSet('sessions',updated);showToast('Đã thêm buổi chơi!');}}/>}
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
