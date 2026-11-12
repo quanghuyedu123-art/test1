@@ -1,14 +1,419 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style id="court-os-redesign">
+/* COURT OS / complete presentation-layer redesign. Existing state, logic & Firebase unchanged. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+:root{--bg:#f5f7fb;--bg2:#fff;--bg3:#f0f4f9;--surface:#fff;--surface2:#f3f7fc;--border:#e4eaf2;--border2:#cfd9e6;--text:#16243a;--muted:#718198;--muted2:#9aa7b7;--green:#10a97c;--green2:#078b68;--green-bg:#e4f8ef;--purple:#6c58e9;--purple2:#5541d0;--purple-bg:#eeebff;--orange:#ed8a43;--orange-bg:#fff1e5;--red:#e15b66;--red-bg:#fff0f1;--blue:#3776d6;--blue-bg:#eaf2ff;--yellow:#e4ae35;--yellow-bg:#fff6dc;--navy:#12213a}
+*{scrollbar-color:#cfd9e6 transparent}
+html,body{background:var(--bg)!important;color:var(--text);color-scheme:light}
+body{font-family:'DM Sans',sans-serif!important;font-size:14px;line-height:1.5;padding-top:0!important;letter-spacing:-.12px}
+button,input,select,textarea{font-family:'DM Sans',sans-serif!important}
+button{transition:background .16s,transform .16s,box-shadow .16s}button:active{transform:scale(.985)}
+h1,h2,h3,.section-title,.modal-title,.logo-text,.sc-val,.hl-name,.hl-pts,.elo-val,.m-score,.rank-num,.player-name,.badge-title,.hof-caption{font-family:'Outfit',sans-serif!important;letter-spacing:-.4px}
+/* New application rail */
+.topbar{position:fixed!important;inset:0 auto 0 0!important;width:250px!important;height:100vh!important;overflow-y:auto!important;overflow-x:hidden!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;padding:28px 14px 20px!important;gap:30px!important;background:#12213a!important;border:0!important;border-right:1px solid rgba(255,255,255,.06)!important;backdrop-filter:none!important;box-shadow:8px 0 32px rgba(22,36,58,.06)}
+.topbar .logo{margin:0!important;padding:0 12px!important;min-height:54px;gap:11px}
+.logo-icon{width:43px!important;height:43px!important;border-radius:13px!important;box-shadow:0 5px 20px #07172e55}
+.logo-icon img{border-radius:13px!important}
+.topbar .logo-text{color:#fff!important;font-size:16px!important;font-weight:800!important}
+.logo-sub{font-size:10px!important;color:#93a8c7!important;letter-spacing:1.25px!important;margin-top:3px!important}
+.topbar .nav-tabs{flex:none!important;display:flex!important;flex-direction:column!important;gap:7px!important;overflow:visible!important;padding:0 0!important}
+.topbar .nav-tab{width:100%!important;text-align:left!important;border-radius:12px!important;padding:15px 16px!important;color:#9fb1cd!important;font-size:13px!important;font-weight:700!important;min-height:48px}
+.topbar .nav-tab:nth-child(1)::before{content:'◫';margin-right:13px;font-size:18px;vertical-align:-1px}
+.topbar .nav-tab:nth-child(2)::before{content:'♛';margin-right:13px;font-size:18px;vertical-align:-1px}
+.topbar .nav-tab:nth-child(3)::before{content:'◈';margin-right:13px;font-size:18px;vertical-align:-1px}
+.topbar .nav-tab:nth-child(4)::before{content:'▤';margin-right:13px;font-size:18px;vertical-align:-1px}
+.topbar .nav-tab:hover{background:#213553!important;color:#fff!important}
+.topbar .nav-tab.active{background:#d9f8b3!important;color:#173b2c!important;box-shadow:0 8px 22px #07142b33!important}
+.topbar .nav-right{margin:auto 0 0!important;display:flex!important;flex-direction:column-reverse!important;align-items:stretch!important;gap:13px!important;padding:0 4px 8px;border-top:1px solid #2b3a54;padding-top:20px!important}
+.topbar .btn-ghi{width:100%;justify-content:center;padding:14px 12px!important;background:#d9f8b3!important;color:#153725!important;border-radius:12px!important;font-size:14px!important;font-weight:800!important;box-shadow:none}
+/* Main workspace */
+.banner{margin-left:250px!important;width:calc(100% - 250px)!important;min-height:180px!important;height:200px!important;max-height:200px!important;aspect-ratio:auto!important;background:linear-gradient(115deg,#183757,#255780 60%,#166d70)!important;border-radius:0!important;justify-content:flex-start!important;padding:0 5.2%!important}
+.banner::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,27,49,.7),rgba(10,27,49,.2) 70%);pointer-events:none}
+.banner-img{object-fit:cover!important;opacity:.76}
+.banner-text{z-index:3!important;text-align:left!important;max-width:700px}
+.banner-title{color:#fff!important;font-size:clamp(26px,3vw,40px)!important;font-weight:800!important;line-height:1.1}
+.banner-sub{color:#d5e8f2!important;font-size:13px!important;margin-top:10px!important}
+.main{margin:0 0 0 250px!important;width:calc(100% - 250px)!important;max-width:none!important;padding:0 clamp(22px,3.5vw,56px) 80px!important;min-height:calc(100vh - 200px)}
+.workspace-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:34px 0 22px}
+.workspace-eyebrow{font-size:11px;letter-spacing:2px;color:#6e8a9a;font-weight:800;text-transform:uppercase;margin-bottom:6px}
+.workspace-title{font-family:'Outfit',sans-serif;font-size:clamp(24px,2.5vw,34px);line-height:1.12;font-weight:800;letter-spacing:-1px;color:#1a2a45}
+.workspace-desc{font-size:13px;color:#7b899b;margin-top:7px}
+.workspace-pill{padding:9px 14px;background:#e5f8ed;color:#08785d;font-size:12px;font-weight:800;border-radius:100px;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.workspace-pill:before{content:'';width:7px;height:7px;border-radius:50%;background:#1aad7b;box-shadow:0 0 0 4px #c8efda}
+/* Clean cards */
+.highlights{gap:14px!important;margin-bottom:24px!important}
+.hl-card{background:#fff!important;border:1px solid var(--border)!important;box-shadow:0 7px 24px rgba(30,54,89,.045)!important;border-radius:18px!important;padding:22px!important;min-height:140px}
+.hl-card.purple{background:#f0edff!important;border-color:#ded9fe!important}.hl-card.green{background:#e7f8ec!important;border-color:#cff0db!important}.hl-card.dark{background:#fff!important}
+.hl-card.purple,.hl-card.green,.hl-card.dark{color:#21314b!important}
+.hl-card .hl-pts,.hl-card .hl-name{color:#1d2e49!important}
+.hl-card .hl-label,.hl-card .hl-icon{color:#718198!important;opacity:1!important}
+.hl-card .hl-pts.neg{color:var(--red)!important}
+.hl-bg-icon{opacity:.12!important}
+.stats-grid{gap:14px!important}.stat-card,.bxh-card,.match-item,.elo-info,.fund-member,.fund-sessions,.badge-card,.hof-card{background:#fff!important;border:1px solid var(--border)!important;border-radius:17px!important;box-shadow:0 6px 22px rgba(30,54,89,.04)!important}
+.stat-card{padding:20px!important;min-height:108px}.stat-card::before{top:0;left:18px;right:18px;height:3px;border-radius:0 0 9px 9px}
+.sc-label{font-size:11px!important;color:#718198!important;font-weight:800!important;letter-spacing:.3px!important}.sc-val{font-size:30px!important;font-weight:800!important;color:#233451}.sc-sub{color:#8897a8!important}
+.section-title{font-size:19px!important;font-weight:800!important;color:#20304b!important;margin-bottom:14px}
+.bxh-card{overflow:hidden!important}.bxh-header-row{background:#f2f5fa!important;color:#7b8da3!important;border-color:var(--border)!important}.bxh-row{border-color:#edf1f5!important;min-height:63px}.bxh-row:hover,.match-item:hover,.fund-member:hover{background:#f8fbfe!important}
+.rank-num{font-weight:800!important}.player-name{color:#20314a!important;font-weight:700!important}.player-sub{color:#8493a6!important}.elo-val{color:#0c9775!important}.elo-bar{background:linear-gradient(90deg,#66d6ac,#0d9874)!important}
+.match-item{padding:15px 17px!important;gap:12px!important}.result-badge{border-radius:11px!important}.m-vs{color:#253551!important}.m-meta{color:#8a97a8!important}
+.month-sel,.fi{background:#fff!important;border:1px solid #dce4ed!important;border-radius:11px!important;color:#20324b!important;min-height:40px}.fi:focus{border-color:#2dbb91!important;box-shadow:0 0 0 3px #dff7ee!important}
+.btn-expand,.add-session-btn,.btn-expand-flat,.btn-cancel{background:#f3f6fa!important;color:#506580!important;border:1px solid var(--border)!important;border-radius:11px!important}
+.btn-ghi,.btn-save{background:#0b9976!important;color:#fff!important;border-radius:11px!important;font-weight:800!important;box-shadow:0 6px 15px #0b997622}
+.seg{background:#eaf0f6!important;border-radius:12px!important}.seg-btn{color:#677f96!important;font-weight:700!important}.seg-btn.active{background:#fff!important;color:#162c46!important;box-shadow:0 2px 8px #19334d16!important}
+.fund-member{padding:18px!important}.fm-name{font-family:'Outfit',sans-serif!important;font-size:15px!important;font-weight:800!important}.fm-row{border-color:#edf1f7!important}.fs-header{background:#f1f5f9!important;color:#7b8da3!important}.fs-row{border-color:#eef2f6!important}
+.badge-card.empty{opacity:.65}.badge-card.won{background:#f4f6ff!important;border-color:#e0e2ff!important}.hof-card{background:linear-gradient(125deg,#343968,#5363a7)!important;color:#fff!important}
+.elo-case{background:#f3f6fb!important}.elo-case-label,.elo-case-sub{color:#7b8ea4!important}
+/* Modals remain high contrast and accessible */
+.overlay,.badge-popup-overlay,.history-drawer-overlay{background:rgba(12,27,46,.58)!important;backdrop-filter:blur(6px)}
+.modal,.badge-popup,.history-drawer{background:#fff!important;color:#20324c!important;border:1px solid #e1e7ee!important;box-shadow:0 30px 80px #10243d30!important;border-radius:22px!important}
+.modal-title,.badge-popup-title{color:#1b2f47!important}.modal-close{background:#f0f3f8!important;color:#65788d!important}.form-actions{background:#fff!important;border-color:#e9eef4!important}.score-num,.elo-preview,.badge-popup-holder,.badge-popup-cond{background:#f4f7fa!important;color:#20324c!important;border-color:#e0e7ef!important}.score-vs,.score-lbl,.fl,.confirm-msg{color:#72849a!important}
+.toast{background:#1c304a!important;color:#fff!important;border-color:#29415e!important}
+@media(min-width:1200px){.main{padding-left:clamp(36px,4vw,76px)!important;padding-right:clamp(36px,4vw,76px)!important}.main > *{max-width:1380px;margin-left:auto;margin-right:auto}}
+@media(max-width:768px){
+ body{padding-bottom:84px!important}
+ .topbar{display:none!important}
+ .mobile-header{display:flex!important;position:sticky!important;top:0!important;z-index:220!important;background:rgba(255,255,255,.96)!important;border-bottom:1px solid #e5ebf2!important;padding:11px 16px!important;min-height:68px;box-shadow:0 3px 18px #11253a07}
+ .mobile-header .logo-icon{width:38px!important;height:38px!important;border-radius:12px!important}
+ .mobile-header .logo-text{font-size:14px!important;color:#182b43!important;font-weight:800!important}
+ .mobile-header .logo-sub{color:#8a9aae!important;font-size:9px!important}
+ .mobile-header .btn-ghi{background:#d9f8b3!important;color:#1d5337!important;padding:10px 12px!important;font-size:12px!important;white-space:nowrap!important;border-radius:10px!important;box-shadow:none!important}
+ .banner{margin:0!important;width:100%!important;height:160px!important;min-height:160px!important;max-height:160px!important;aspect-ratio:auto!important;padding:0 22px!important}
+ .banner-title{font-size:25px!important}.banner-sub{font-size:11px!important}
+ .main{margin:0!important;width:100%!important;padding:0 15px 92px!important;min-height:70vh}
+ .workspace-intro{padding:25px 3px 20px!important}.workspace-title{font-size:27px}.workspace-desc{font-size:12px}.workspace-pill{display:none}
+ .highlights{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+ .hl-card{min-height:122px!important;padding:16px!important}.hl-card:first-child{grid-column:1/-1;min-height:110px!important}.hl-pts{font-size:27px!important}.hl-name{font-size:19px!important}
+ .stats-grid{gap:10px!important}.stat-card{padding:15px!important;min-height:99px}.sc-val{font-size:25px!important}
+ .mobile-nav{display:flex!important;position:fixed!important;bottom:0!important;left:0!important;right:0!important;height:72px!important;background:rgba(255,255,255,.97)!important;box-shadow:0 -8px 40px #233e5c12!important;border-top:1px solid #e7edf3!important;z-index:400!important;padding-bottom:env(safe-area-inset-bottom,0px)}
+ .mobile-nav-tab{color:#8292a7!important;font-size:10px!important;font-weight:700!important}.mobile-nav-tab.active{color:#0a9a79!important}.mobile-nav-tab.active .mni{filter:none!important}.mobile-nav-tab .mni{font-size:22px!important}.mobile-nav-fab{background:#d9f8b3!important;color:#16412d!important;border:5px solid #f5f7fb!important;box-shadow:0 4px 18px #10294028!important;top:-25px!important;width:62px!important;height:62px!important}
+ .section-title{font-size:17px!important}.match-item{padding:12px!important}.bxh-row{padding:11px 8px!important}
+ .modal{padding:20px!important}.form-actions{margin-left:-20px!important;margin-right:-20px!important;padding-left:20px!important;padding-right:20px!important}
+}
+@media(max-width:360px){.mobile-header .logo-text{font-size:12px!important}.mobile-header .btn-ghi{font-size:11px!important;padding:8px!important}.workspace-title{font-size:24px}.main{padding-left:11px!important;padding-right:11px!important}}
+</style>
+<style id="court-playbook-v2">
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+:root{--bg:#f6f8f7;--bg2:#fff;--bg3:#f2f5f4;--surface:#fff;--surface2:#f1f6f4;--border:#e5ebe8;--border2:#d6e3dd;--text:#172a25;--muted:#71837c;--green:#117e59;--green2:#0c6949;--green-bg:#e8f5ed;--purple:#4654b2;--purple-bg:#ecefff;--orange:#c7773a;--orange-bg:#fff3e6;--red:#d04e4c;--red-bg:#fff0ed;--blue:#3b75aa;--blue-bg:#e9f3fb;--yellow:#bb8740;--yellow-bg:#fff6e4;--navy:#102d27}
+html,body{background:#f6f8f7!important;color:#172a25!important}body{font-family:'Be Vietnam Pro',sans-serif!important;font-size:13px!important;letter-spacing:0!important}
+button,input,textarea,select{font-family:'Be Vietnam Pro',sans-serif!important}button{cursor:pointer}button:focus-visible,[role=button]:focus-visible{outline:3px solid #8ed4a3;outline-offset:3px}
+.topbar{width:244px!important;background:#102c26!important;border-right:0!important;padding:30px 16px 16px!important;gap:0!important}
+.topbar .logo{padding:0 8px 28px!important;min-height:64px}.topbar .logo-text{font-family:'Plus Jakarta Sans',sans-serif!important;font-size:15px!important;font-weight:800!important}.logo-sub{letter-spacing:2px!important;color:#93b6a8!important}
+.topbar .logo-icon{background:#d6f58c!important;width:45px!important;height:45px!important;border-radius:14px!important}
+.court-nav-caption{color:#78978b;font-size:10px;font-weight:800;letter-spacing:1.3px;padding:0 14px 12px}
+.topbar .nav-tabs{gap:5px!important}.topbar .nav-tab{font-size:13px!important;font-weight:600!important;color:#a5bcb2!important;border-radius:12px!important;min-height:48px!important;padding:14px 13px!important;display:flex;align-items:center}
+.topbar .nav-tab:nth-child(1)::before{content:'⌂';font-size:22px}.topbar .nav-tab:nth-child(2)::before{content:'♛';font-size:18px}.topbar .nav-tab:nth-child(3)::before{content:'◇';font-size:23px}.topbar .nav-tab:nth-child(4)::before{content:'▤';font-size:19px}
+.topbar .nav-tab.active{background:#ddf797!important;color:#17352b!important;box-shadow:none!important}.topbar .nav-tab:hover:not(.active){background:#1c4438!important}
+.court-side-foot{font-size:10px;font-weight:700;color:#b1c5b7;line-height:1.8;margin-top:auto;padding:18px 14px 8px;border-top:1px solid #315044}.court-side-foot span{display:block;font-size:9px;color:#6e998a;letter-spacing:1px}
+.topbar .nav-right{margin:0!important;padding:12px 4px 10px!important;border-top:0!important;gap:14px!important}.topbar .btn-ghi{background:#d8f398!important;color:#19392a!important;font-weight:800!important;min-height:46px}.topbar .nav-right > *{max-width:100%}
+.banner,.court-original-banner{display:none!important}
+.main{margin-left:244px!important;width:calc(100% - 244px)!important;padding:0 clamp(25px,3.6vw,60px) 90px!important;max-width:none!important}
+.main > *{max-width:1280px;margin-left:auto;margin-right:auto}
+.workspace-intro{padding:35px 0 27px!important;align-items:flex-start!important}.workspace-intro.is-home{padding:20px 0 0!important;height:0;overflow:hidden!important;visibility:hidden!important}.workspace-eyebrow{font-size:10px!important;color:#759389!important;letter-spacing:1.4px!important}.workspace-title{font-family:'Plus Jakarta Sans',sans-serif!important;font-size:30px!important;font-weight:800!important;color:#1d332b!important}.workspace-desc{font-size:12px!important;color:#73877d!important}.workspace-pill{background:#e7f5e7!important;color:#287750!important;font-size:11px!important}
+.court-welcome{border-radius:24px;min-height:260px;background:#143c32;display:flex;position:relative;overflow:hidden;margin:24px 0 24px;padding:36px 42px;color:#fff;box-shadow:0 14px 36px rgba(17,63,45,.1)}
+.court-welcome-copy{position:relative;z-index:2;max-width:500px}.court-eyebrow{font-size:10px;font-weight:800;letter-spacing:2px;color:#b8ddc2;display:flex;align-items:center;gap:12px}.court-live-dot{width:7px;height:7px;background:#ddf78f;border-radius:50%;box-shadow:0 0 0 4px #ffffff17}
+.court-welcome h2{font-family:'Plus Jakarta Sans',sans-serif!important;font-weight:800;font-size:clamp(27px,3vw,40px);letter-spacing:-1.5px;line-height:1.14;margin:14px 0 10px}.court-welcome h2 em{font-style:normal;color:#d5f18d}.court-welcome p{font-size:12px;line-height:1.7;color:#bcd2c6;max-width:350px}
+.court-welcome-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:24px}.court-primary,.court-secondary{border:0;border-radius:10px;padding:13px 17px;font-size:12px;font-weight:800;min-height:44px}.court-primary{background:#ddf798;color:#21382a}.court-secondary{background:#ffffff17;color:#fff;border:1px solid #ffffff40}
+.court-art-ring{position:absolute;border:1px solid #e2fda52b;border-radius:50%;height:400px;width:400px;right:-42px;top:-82px}.ring-two{height:310px;width:310px;right:3px;top:-39px;border-width:28px;border-color:#ffffff09}.court-art-ball{position:absolute;right:95px;top:28px;width:88px;height:88px;border-radius:50%;background:radial-gradient(circle at 31% 26%,#ebffa4,#bde56a 65%,#95c453);box-shadow:inset -14px -13px 18px #4e8f372a,0 15px 40px #0002}.court-art-ball:after{content:'';position:absolute;inset:15px;border-radius:50%;border:2px dashed #53853c55}.court-art-paddle{position:absolute;right:185px;top:82px;width:125px;height:160px;background:linear-gradient(145deg,#eff4e3,#9fceac);border:9px solid #e1ebd8;border-radius:48% 48% 44% 44%;transform:rotate(-24deg);box-shadow:10px 15px 25px #0004}.court-art-paddle:before{content:'';position:absolute;width:31px;height:116px;top:130px;left:38px;border-radius:0 0 10px 10px;background:repeating-linear-gradient(0deg,#253f36 0 9px,#344a42 9px 12px)}.court-art-holes{position:absolute;inset:12px;background-image:radial-gradient(#3a806b 2px,transparent 3px);background-size:14px 14px;opacity:.6}
+.court-overview-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px!important}.court-overview-head span:first-child{font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:800}.court-overview-head span:last-child{font-size:10px;color:#8b9c91}
+.court-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px!important}.court-metric{border:1px solid #e5ebe8;background:#fff;border-radius:16px;padding:18px;box-shadow:0 6px 18px #163f2707}.court-metric-top{display:flex;align-items:center;justify-content:space-between;gap:5px}.court-metric-top span{font-size:11px;font-weight:650;color:#7c8d82}.court-metric-icon{font-size:20px;color:#6e9b70;font-weight:500}.court-metric strong{display:block;font-size:29px;line-height:1.3;letter-spacing:-1.3px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;margin:11px 0 2px}.court-metric small{font-size:10px;color:#99a79f}
+/* Prioritize use: quick actions and finance cards are compact, easy to scan */
+.court-overview-grid + div[style*="grid-template-columns"]{gap:12px!important}.court-overview-grid + div > div{padding:19px!important;border:1px solid #e0e9e3!important;background:#fff!important;border-radius:16px!important}
+.court-overview-grid + div > div:first-child{background:#eaf6ee!important}.court-overview-grid + div > div:last-child{background:#fff5ed!important}
+.court-overview-grid + div > div div[style*="font-size:24px"]{color:#1d3a2e!important}
+.court-mvp{display:flex;align-items:center;gap:17px;padding:17px 20px;border:1px solid #e9e5d9;background:#fffcf4;border-radius:16px;margin:8px 0 25px;cursor:pointer}.court-mvp-medal{flex-shrink:0;width:48px;height:48px;border-radius:14px;background:#f6e7be;color:#a77a28;display:grid;place-items:center;font-size:24px}.court-mvp-content{flex:1;min-width:0}.court-mvp-label{font-size:9px;letter-spacing:1.2px;font-weight:800;color:#aa8b51}.court-mvp strong{font-size:15px;font-weight:800;color:#2d352b}.court-mvp p{font-size:11px;color:#8b8d78;line-height:1.5;margin-top:4px}.court-mvp-next{font-size:21px;color:#a98b60}
+.fun-section-title,.section-title{font-family:'Plus Jakarta Sans',sans-serif!important;font-size:16px!important;font-weight:800!important;color:#20382e!important;margin-top:26px!important;margin-bottom:14px!important;letter-spacing:-.5px!important}
+.bxh-card,.stat-card,.match-item,.elo-info,.fund-member,.fund-sessions,.badge-card{border:1px solid #e5ebe8!important;border-radius:15px!important;box-shadow:0 3px 14px rgba(28,66,48,.035)!important;background:#fff!important}
+.bxh-header-row{background:#f5f8f5!important;border-color:#ebf0ec!important}.bxh-row:hover,.match-item:hover{background:#f6fbf7!important}.player-name{font-size:13px!important}.elo-val{color:#177c55!important}.elo-bar{background:#45ad7f!important}.sc-val{color:#20382e!important}
+.fi,.month-sel{min-height:43px!important;background:#fff!important;border:1px solid #dbe6de!important;border-radius:11px!important;color:#284136!important}.fi:focus{border-color:#6db992!important;box-shadow:0 0 0 3px #e3f5ea!important}
+.btn-save,.btn-ghi{background:#117f59!important;color:#fff!important;border-radius:11px!important}.btn-save{min-height:43px}.btn-cancel{min-height:43px}.modal,.badge-popup,.history-drawer{border-radius:20px!important;background:#fff!important}.overlay{background:rgba(13,31,25,.65)!important}
+.mobile-nav{display:none!important}
+@media(max-width:1000px){.court-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.court-welcome{padding:30px 27px}.court-art-paddle{right:100px;opacity:.5}.court-art-ball{right:30px;opacity:.8}}
+@media(max-width:768px){
+ body{padding-bottom:85px!important;background:#f6f8f7!important}.topbar{display:none!important}.mobile-header{display:flex!important;background:rgba(255,255,255,.97)!important;border-bottom:1px solid #e6ede8!important;min-height:62px!important;position:sticky!important;z-index:300!important;padding:9px 16px!important}.mobile-header .logo-icon{width:38px!important;height:38px!important}.mobile-header .logo-text{color:#22372f!important;font-size:13px!important}.mobile-header .logo-sub{color:#80948a!important}.mobile-header .btn-ghi{background:#137c56!important;color:#fff!important;padding:10px 13px!important}
+ .main{margin-left:0!important;width:100%!important;padding:0 15px 90px!important}.workspace-intro{padding:24px 0 18px!important}.workspace-title{font-size:25px!important}.workspace-desc{line-height:1.65!important}.workspace-intro.is-home{padding:0!important}.workspace-pill{display:none!important}
+ .court-welcome{min-height:245px;margin:14px 0 23px!important;padding:27px 23px;border-radius:20px}.court-welcome h2{font-size:29px!important;position:relative;z-index:2}.court-welcome p{font-size:11px;max-width:235px}.court-eyebrow{font-size:9px}.court-welcome-actions{margin-top:20px;max-width:250px}.court-primary,.court-secondary{font-size:11px;padding:11px 12px}.court-art-paddle{right:-25px;top:65px;opacity:.2;transform:rotate(-25deg) scale(.8)}.court-art-ball{right:-12px;top:17px;opacity:.45}.court-art-ring{right:-180px}
+ .court-overview-grid{gap:9px;margin-bottom:17px!important}.court-overview-head{margin-bottom:10px!important}.court-overview-head span:first-child{font-size:15px}.court-overview-head span:last-child{max-width:130px;text-align:right;font-size:9px}.court-metric{padding:13px;border-radius:13px}.court-metric strong{font-size:25px;margin:6px 0 2px}.court-metric-top span{font-size:10px}.court-metric small{font-size:9px}
+ .court-mvp{padding:13px;gap:10px}.court-mvp-medal{width:41px;height:41px;font-size:21px}.court-mvp strong{font-size:13px}.court-mvp p{font-size:10px}.court-mvp-label{font-size:8px}
+ .mobile-nav{display:flex!important;position:fixed!important;bottom:0!important;left:0!important;right:0!important;background:rgba(255,255,255,.97)!important;border-top:1px solid #e0ebe4!important;box-shadow:0 -6px 26px #13392112!important;padding-bottom:env(safe-area-inset-bottom,0px);height:70px!important;z-index:400!important}.mobile-nav-tab{color:#83948a!important;font-size:10px!important;font-weight:650!important}.mobile-nav-tab.active{color:#137b56!important}.mobile-nav-tab.active .mni{filter:none!important;transform:none!important}.mobile-nav-tab .mni{font-size:23px!important;font-weight:700}.mobile-nav-fab{background:#d9f392!important;color:#173c2b!important;border:5px solid #f6f8f7!important;width:62px!important;height:62px!important;top:-25px!important;font-size:29px!important;box-shadow:0 5px 17px #174b2928!important}
+ .fund-members{grid-template-columns:repeat(2,minmax(0,1fr))!important}.match-item{padding:12px!important}
+}
+@media(max-width:390px){.mobile-header .logo-text{font-size:12px!important}.court-welcome{padding:25px 18px}.court-welcome h2{font-size:27px!important}.court-welcome-actions{max-width:225px}.court-primary,.court-secondary{padding:10px;font-size:10px}.main{padding-left:11px!important;padding-right:11px!important}.fund-members{grid-template-columns:1fr!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<style id="court-banner-opt-in">
+.court-banner-toggle{width:100%;border:1px solid #456759;color:#c9e4d1;background:transparent;border-radius:11px;padding:10px 13px;text-align:left;font-size:11px;font-weight:650;margin-top:12px}
+.court-mobile-banner-toggle{background:#edf5eb;color:#2b7654;border:0;border-radius:9px;width:34px;height:34px;display:grid;place-items:center;font-size:20px}
+.court-original-banner.is-visible{display:block!important}
+.court-original-banner.is-visible .banner{display:flex!important;margin-left:244px!important;width:calc(100% - 244px)!important;height:260px!important;max-height:260px!important;min-height:260px!important;aspect-ratio:auto!important}
+@media(max-width:768px){.court-original-banner.is-visible .banner{margin-left:0!important;width:100%!important;height:180px!important;min-height:180px!important;max-height:180px!important}}
+</style>
+<style id="mobile-ux-v3">
+/* ===== V3 mobile-first UX refinement ===== */
+:root{
+  --bg:#f6f8fb !important;
+  --bg2:#ffffff !important;
+  --bg3:#f1f5f9 !important;
+  --surface:#ffffff !important;
+  --surface2:#f6f9fc !important;
+  --border:#e4ebf2 !important;
+  --border2:#cfdae6 !important;
+  --text:#18324a !important;
+  --muted:#708398 !important;
+  --muted2:#9ba9b8 !important;
+  --green:#0ea37a !important;
+  --green2:#0b8d69 !important;
+  --green-bg:#e8f8f1 !important;
+  --purple:#6c58e9 !important;
+  --purple-bg:#f2efff !important;
+  --orange:#ef8a3e !important;
+  --orange-bg:#fff4e8 !important;
+  --red:#df5e67 !important;
+  --red-bg:#fff1f3 !important;
+  --blue:#3b73db !important;
+  --blue-bg:#edf4ff !important;
+  --yellow:#e3ad37 !important;
+  --yellow-bg:#fff7de !important;
+  --navy:#17344d !important;
+}
+html,body,#root{background:var(--bg)!important;color:var(--text)!important}
+body{padding-top:0!important;padding-bottom:0!important}
+.topbar{background:linear-gradient(180deg,#fafffd,#f2fbf7)!important;border-right:1px solid #e5efe9!important;box-shadow:8px 0 28px rgba(17,36,53,.04)!important}
+.topbar .logo-text,.topbar .court-side-foot,.topbar .nav-tab{color:#1e3a4f!important}
+.topbar .logo-sub,.topbar .court-nav-caption{color:#7a8e96!important}
+.topbar .nav-tab{background:transparent!important}
+.topbar .nav-tab:hover{background:#eef7f3!important;color:#12384a!important}
+.topbar .nav-tab.active{background:#dff4c1!important;color:#123e30!important;box-shadow:none!important}
+.topbar .btn-ghi{background:#dff4c1!important;color:#173d31!important;box-shadow:none!important}
+.topbar .nav-right [title],.topbar .nav-right span{border-color:#e5ecef!important}
+.court-side-foot{color:#355362!important}
+.banner{background:linear-gradient(120deg,#edf9f5,#dff3ec 55%,#dfefff)!important}
+.banner::after{background:linear-gradient(90deg,rgba(255,255,255,.26),rgba(255,255,255,.08) 70%)!important}
+.banner-img{opacity:.9!important}
+.banner-title{color:#17344d!important;text-shadow:none!important}
+.banner-sub{color:#4a6a7c!important;text-shadow:none!important}
+.workspace-eyebrow{color:#7e909b!important}
+.workspace-title{color:#1d344c!important}
+.workspace-desc{color:#6f8496!important;max-width:680px}
+.workspace-pill{background:#eaf8f1!important;color:#0b835e!important}
+.workspace-pill:before{background:#17b680!important;box-shadow:0 0 0 4px #d7f2e6!important}
+.main,.banner{scroll-margin-top:80px}
+
+/* unify cards to white */
+.hl-card,.stat-card,.bxh-card,.elo-info,.fund-member,.fund-sessions,.badge-card,.hof-card,.court-metric,
+.match-item,.modal,.badge-popup,.history-drawer,.toast,.add-session-btn,.btn-expand,.btn-expand-flat,
+.elo-case,.court-overview-grid + div > div,.court-overview-grid + div > button,
+.fund-sessions,.court-sheet,.court-card,
+ div[style*="background:var(--surface)"],
+ div[style*="background: var(--surface)"]{
+  background:var(--surface)!important;
+  color:var(--text)!important;
+  border-color:var(--border)!important;
+}
+.hl-card,.stat-card,.bxh-card,.elo-info,.fund-member,.fund-sessions,.badge-card,.hof-card,.court-metric,.match-item,
+div[style*="background:var(--surface)"],
+div[style*="background: var(--surface)"]{
+  box-shadow:0 10px 30px rgba(19,42,66,.06)!important;
+}
+.bxh-header-row,.fs-header{background:#f7fafc!important;color:#72859a!important;border-bottom:1px solid #ebf0f5!important}
+.bxh-row,.fs-row,.fm-row{border-color:#edf1f5!important}
+.bxh-row:hover,.fs-row:hover,.match-item:hover,.fund-member:hover,.stat-card:hover{background:#fbfdff!important}
+.hof-card{background:linear-gradient(135deg,#ffffff,#f6fbff)!important;border-color:#e4ebf3!important}
+.hof-month{color:#6a8196!important}
+.hof-caption,.hof-caption b{color:#1b3249!important}
+.hof-sub{color:#73889a!important;border-top:1px solid #ebf1f6!important}
+.elo-case{background:#f8fbfd!important}
+.score-num,.fi,.elo-preview,.badge-popup-holder,.badge-popup-cond,.month-sel{background:#f8fbfd!important;color:var(--text)!important;border-color:#dfe7ef!important}
+.score-vs,.score-lbl,.fl,.confirm-msg,.fm-lbl,.player-sub,.m-meta,.sc-sub,.sc-label,.hl-label,.section-title+.sub,
+.badge-desc,.elo-title,.elo-case-label,.elo-case-sub{color:#74879b!important}
+.fi:focus,.score-num:focus,.month-sel:focus{border-color:#82cdb3!important;box-shadow:0 0 0 4px rgba(16,169,124,.12)!important}
+.btn-save,.btn-ghi,.mobile-header .btn-ghi{background:linear-gradient(135deg,#dff4c1,#d6f0a9)!important;color:#143f30!important;box-shadow:none!important}
+.btn-cancel{background:#f3f7fa!important;color:#51657b!important;border-color:#e0e8ef!important}
+.result-badge,.rb-W,.rb-L{border-radius:12px!important}
+.mobile-nav-fab{background:#dff4c1!important;color:#143d30!important}
+.toast{background:#18324a!important;color:#fff!important;border-color:#18324a!important}
+.overlay,.badge-popup-overlay,.history-drawer-overlay{background:rgba(15,28,42,.42)!important}
+
+/* tables and player rows readability */
+.player-name,.fm-name,.badge-title,.section-title,.modal-title,.logo-text{color:#1a334a!important}
+.rank-num{color:#8d9dad!important}
+.rank-num.r1{color:#d39a17!important}.rank-num.r2{color:#8294a8!important}.rank-num.r3{color:#b77535!important}
+.m-score,.elo-val,.sc-val,.hl-name,.hl-pts{color:#18324a!important}
+.hl-card.purple,.hl-card.green,.hl-card.dark{background:#fff!important;color:var(--text)!important;border:1px solid var(--border)!important}
+.hl-card .hl-icon,.hl-card .hl-label{color:#6f8496!important}.hl-bg-icon{opacity:.06!important}
+
+/* inputs and buttons larger */
+button,.nav-tab,.mobile-nav-tab,.btn-save,.btn-cancel,.btn-ghi,.btn-expand,.btn-expand-flat,.add-session-btn{min-height:44px}
+.fi, .month-sel{min-height:44px}
+.score-num{min-height:54px}
+.del-btn{background:#fff4f5!important;border:1px solid #ffd8dc!important;color:#d95e68!important;opacity:1!important}
+
+/* mobile-first layout */
+@media(max-width:1024px){
+  body{padding-bottom:94px!important}
+  .topbar{display:none!important}
+  .banner,.main{margin-left:0!important;width:100%!important}
+  .banner{height:auto!important;min-height:132px!important;max-height:none!important;padding:16px 16px 14px!important;border-bottom:1px solid #e8eef2!important}
+  .banner .banner-text{max-width:none!important}
+  .mobile-header{display:flex!important;position:sticky!important;top:0!important;z-index:250!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(16px)!important;border-bottom:1px solid #e8eef2!important;padding:10px 14px calc(10px + env(safe-area-inset-top,0px))!important;min-height:66px!important;box-shadow:0 3px 20px rgba(16,36,57,.05)!important}
+  .mobile-header .logo{gap:10px!important}.mobile-header .logo-icon{width:40px!important;height:40px!important;border-radius:13px!important;box-shadow:0 6px 18px rgba(17,54,73,.10)!important}
+  .mobile-header .logo-text{font-size:14px!important;font-weight:800!important}
+  .mobile-header .logo-sub{font-size:9px!important;color:#8799ab!important}
+  .court-mobile-banner-toggle{width:40px!important;height:40px!important;border-radius:12px!important;border:1px solid #e0e8ef!important;background:#f8fbfd!important;color:#496378!important}
+  .main{padding:0 14px 110px!important;min-height:72vh!important}
+  .workspace-intro{padding:18px 2px 14px!important;gap:10px!important;align-items:flex-start!important}
+  .workspace-title{font-size:24px!important;line-height:1.14!important}
+  .workspace-desc{font-size:13px!important;margin-top:4px!important}
+  .workspace-pill{font-size:11px!important;padding:8px 11px!important}
+  .court-original-banner{display:none!important}
+  .court-original-banner.is-visible{display:block!important;margin-bottom:12px!important}
+  .highlights{grid-template-columns:1fr!important;gap:12px!important;margin-bottom:18px!important}
+  .hl-card{padding:18px!important;min-height:auto!important;border-radius:18px!important}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important}
+  .stat-card{padding:15px!important;border-radius:16px!important}
+  .sc-val{font-size:24px!important}
+  .bxh-card,.elo-info,.fund-sessions,.fund-member,.match-item,.hof-card,.badge-card{border-radius:18px!important}
+  .bxh-header-row,.bxh-row{grid-template-columns:28px minmax(0,1fr) 54px 54px 42px!important;gap:6px!important;padding-left:10px!important;padding-right:10px!important}
+  .player-cell{gap:8px!important}.av{width:34px!important;height:34px!important}
+  .player-name{font-size:14px!important}.player-sub{font-size:11px!important}
+  .match-list{gap:10px!important}.match-item{grid-template-columns:36px minmax(0,1fr) auto 32px!important;padding:12px!important}
+  .m-vs{white-space:normal!important;line-height:1.35!important}
+  .fund-members{grid-template-columns:1fr!important;gap:10px!important}
+  .fs-header,.fs-row{grid-template-columns:68px 1fr 74px 74px 28px!important}
+  .modal{width:min(100%,520px)!important;max-width:100%!important;max-height:92vh!important;border-radius:22px 22px 0 0!important;padding:18px!important}
+  .overlay{padding:0!important;align-items:flex-end!important}
+  .form-grid{grid-template-columns:1fr!important}
+  .form-actions{position:sticky!important;bottom:0!important;margin-left:-18px!important;margin-right:-18px!important;padding:12px 18px calc(10px + env(safe-area-inset-bottom,0px))!important;border-top:1px solid #e9eef4!important;box-shadow:0 -8px 24px rgba(16,36,57,.06)!important}
+  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 76px 1fr 1fr!important;align-items:center!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:78px!important;padding:0 8px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.98)!important;backdrop-filter:blur(16px)!important;border-top:1px solid #e5edf3!important;box-shadow:0 -10px 30px rgba(20,44,67,.08)!important;z-index:400!important}
+  .mobile-nav-tab{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:3px!important;border:none!important;background:transparent!important;color:#7a8e9f!important;border-radius:14px!important;padding:8px 4px!important;min-height:60px!important}
+  .mobile-nav-tab .mni{font-size:20px!important;line-height:1!important}
+  .mobile-nav-tab span:last-child{font-size:10px!important;font-weight:700!important;letter-spacing:-.1px}
+  .mobile-nav-tab.active{color:#0e9c74!important;background:#f3fbf7!important}
+  .mobile-nav-tab.active .mni{transform:none!important;filter:none!important}
+  .mobile-nav-fab{width:60px!important;height:60px!important;top:-18px!important;border-radius:18px!important;border:5px solid #f6f8fb!important;box-shadow:0 10px 24px rgba(29,77,54,.18)!important;font-size:28px!important}
+}
+@media(max-width:420px){
+  .workspace-title{font-size:22px!important}
+  .banner{padding:14px!important;min-height:122px!important}
+  .banner-title{font-size:23px!important}
+  .banner-sub{font-size:11px!important}
+  .stats-grid{grid-template-columns:1fr 1fr!important}
+  .hl-pts{font-size:24px!important}.hl-name{font-size:18px!important}
+  .bxh-header-row,.bxh-row{grid-template-columns:24px minmax(0,1fr) 46px 46px 34px!important;gap:4px!important}
+  .mobile-header{padding-left:12px!important;padding-right:12px!important}
+  .main{padding-left:12px!important;padding-right:12px!important}
+}
+</style>
+
+
+<style id="v3_1_compact_home">
+@media(max-width:1024px){
+  .court-welcome{margin-bottom:12px!important}
+}
+</style>
+<style id="playbook-v4-premium">
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
+:root{--bg:#f8fafc!important;--bg2:#ffffff!important;--bg3:#f1f5f9!important;--surface:#ffffff!important;--surface2:#f5f8fb!important;--border:#e4eaf1!important;--border2:#d1dce7!important;--text:#17283d!important;--muted:#718396!important;--muted2:#9babba!important;--green:#078b6e!important;--green2:#08795e!important;--green-bg:#e7f7ef!important;--purple:#6858c5!important;--purple-bg:#efedff!important;--orange:#cc854e!important;--orange-bg:#fff3e6!important;--red:#d94f5c!important;--red-bg:#fff1f2!important;--blue:#4179c7!important;--blue-bg:#edf4ff!important;--yellow:#b98739!important;--yellow-bg:#fff6e5!important;--navy:#16334a!important}
+html,body,#root{background:#f8fafc!important;color:#17283d!important;color-scheme:light!important}
+body,button,input,select,textarea{font-family:'Be Vietnam Pro',system-ui,sans-serif!important}
+button{ -webkit-tap-highlight-color:transparent;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #85d7bf!important;outline-offset:2px!important}
+.main{max-width:none!important;min-width:0!important}
+.workspace-eyebrow{font-size:10px!important;letter-spacing:1.1px!important;color:#8497a5!important}
+.workspace-title{font-family:'Manrope',sans-serif!important;letter-spacing:-1.1px!important;font-weight:800!important}
+.workspace-desc{font-size:12px!important;line-height:1.65!important}
+/* White sidebar on desktop; brand character from teal selection */
+.topbar{background:#ffffff!important;border-right:1px solid #e6edf3!important;box-shadow:4px 0 30px #1b35500a!important}
+.topbar .logo-text,.topbar .nav-tab,.court-side-foot{color:#1d3447!important}
+.topbar .nav-tab.active{background:#e1f8eb!important;color:#087c60!important}
+.topbar .nav-tab:hover:not(.active){background:#f5faf8!important;color:#126a58!important}
+.topbar .court-nav-caption,.court-nav-caption{color:#91a0ad!important}
+.topbar .logo-sub{color:#8a9da9!important}
+.topbar .nav-right{border-top:1px solid #edf2f6!important}
+.topbar .btn-ghi{background:#087e64!important;color:#fff!important}
+.court-side-foot{color:#576b7b!important;border-top:1px solid #edf2f6!important}.court-side-foot span{color:#8d9ba5!important}
+/* hero */
+.v4-hero{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(122deg,#133a3b 0%,#145a55 68%,#1c7769 100%);border-radius:25px;padding:28px 32px;margin:18px 0 20px;min-height:252px;box-shadow:0 16px 36px #134e4b1d;color:#fff}
+.v4-hero-inner{position:relative;z-index:2}.v4-hero-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.v4-hero-live{font-weight:800;color:#d8f3d6;font-size:9px;letter-spacing:1.2px;display:flex;align-items:center;gap:8px}.v4-hero-live span{width:7px;height:7px;border-radius:50%;background:#c7f67b;box-shadow:0 0 0 4px #c7f67b22}.v4-hero-court{font-size:9px;letter-spacing:1.6px;color:#a2cec4}
+.v4-hero h2{font-family:'Manrope',sans-serif!important;font-size:clamp(26px,2.6vw,37px);font-weight:800;line-height:1.19;letter-spacing:-1.2px;margin:16px 0 9px;color:#fff}.v4-hero h2 em{font-style:normal;color:#d8fb97}.v4-hero p{font-size:12px;max-width:360px;color:#c4dfd7;line-height:1.7;margin:0}
+.v4-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:23px}.v4-hero-actions button{min-height:44px;padding:11px 15px;font-size:12px;font-weight:800;border-radius:12px;border:1px solid transparent}.v4-hero-primary{background:#d7fa9d;color:#164535}.v4-hero-primary span{font-size:20px;line-height:10px;vertical-align:-1px;margin-right:4px}.v4-hero-secondary{background:#ffffff1b;border-color:#ffffff42!important;color:#fff}.v4-hero-secondary span{margin-left:5px}
+.v4-hero-decor{position:absolute;right:0;top:0;width:40%;height:100%;pointer-events:none}.v4-orbit{position:absolute;right:-25px;top:-75px;border-radius:50%;width:330px;height:330px;border:1px solid #e6ffdc33}.orbit-two{right:28px;top:-22px;width:226px;height:226px;border:30px solid #ffffff0d}.v4-ball{width:125px;height:125px;border-radius:50%;position:absolute;top:50px;right:75px;background:radial-gradient(circle at 34% 26%,#e8ffa7,#b8e873 65%,#87bb5f);box-shadow:inset -13px -14px 24px #427d4552,0 18px 38px #061d2033}.v4-ball:after{content:'';position:absolute;inset:13px;border-radius:50%;background-image:radial-gradient(#487e4d77 3px,transparent 4px);background-size:25px 25px;opacity:.75}
+/* Wallet summary */
+.v4-wallet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.v4-wallet-item{position:relative;min-width:0;padding:19px 21px!important;border:1px solid #e6edf3!important;border-radius:20px!important;box-shadow:0 7px 24px #15325108;background:#fff!important;overflow:hidden}
+.v4-wallet-item:before{content:'';position:absolute;right:-20px;bottom:-40px;width:100px;height:100px;background:#0c966514;border-radius:50%}.v4-wallet-alert:before{background:#f59e0b0e}
+.v4-wallet-item>div:first-child{font-size:11px!important;color:#7b8b9b!important;letter-spacing:0!important;text-transform:none!important;font-weight:700!important;margin-bottom:12px!important}
+.v4-wallet-item>div:nth-child(2){font-size:29px!important;line-height:1.05!important;letter-spacing:-1.2px!important;color:#153548!important;font-family:'Manrope',sans-serif!important;font-weight:800!important;overflow-wrap:anywhere}
+.v4-wallet-item>div:last-child{color:#8495a6!important;font-size:11px!important;margin-top:8px!important}
+.v4-wallet-green{background:linear-gradient(125deg,#fff,#f4fff9)!important}.v4-wallet-alert{background:linear-gradient(125deg,#fff,#fffaf5)!important}
+.v4-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:24px 0 13px}.v4-mini-label{display:block;font-size:9px;font-weight:800;letter-spacing:1.5px;color:#87a29a;margin-bottom:3px}.v4-section-heading h3{font-family:'Manrope',sans-serif;color:#193348;font-weight:800;font-size:18px;letter-spacing:-.6px;margin:0}.v4-section-hint{font-size:10px;color:#99a8b5;white-space:nowrap;padding-bottom:3px}
+.v4-action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.v4-action{display:flex;align-items:flex-start;flex-direction:column;gap:2px;padding:17px!important;min-height:128px;border-radius:19px!important;border:1px solid #e7edf3!important;background:#fff!important;color:#1b3549!important;text-align:left;box-shadow:0 7px 23px #16375109;transition:transform .15s ease,box-shadow .15s ease}
+.v4-action:active{transform:scale(.97)}.v4-action:hover{box-shadow:0 9px 26px #15375114}.v4-action-icon{display:flex;align-items:center;justify-content:center;width:43px;height:43px;border-radius:14px;font-size:23px;margin-bottom:9px}.v4-action-mint .v4-action-icon{background:#e4f8ee}.v4-action-sky .v4-action-icon{background:#e9f4ff;color:#427ec7}.v4-action-lilac .v4-action-icon{background:#f1edff}.v4-action-peach .v4-action-icon{background:#fff1e5;color:#c57837;font-size:26px}
+.v4-action strong{font-weight:800;font-size:12px;line-height:1.3}.v4-action small{font-size:10px;color:#96a5b2;line-height:1.5}
+.v4-month-heading{margin-top:25px}.v4-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.v4-stat{border:1px solid #e6edf3;background:#fff;border-radius:18px;padding:18px 17px;min-height:132px;box-shadow:0 8px 23px #18375308;min-width:0}.v4-stat-line{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:700;color:#6f8192;white-space:nowrap}.v4-stat-icon{width:29px;height:29px;border-radius:10px;display:grid;place-items:center;background:#e7f7ef;color:#087c60;font-size:17px;flex-shrink:0}.v4-stat-expense .v4-stat-icon{background:#fff1ee;color:#e17063}.v4-stat-sessions .v4-stat-icon{background:#efefff;color:#6962cd}.v4-stat-all .v4-stat-icon{background:#fff4e6;color:#c88736}
+.v4-stat strong{display:block;font-family:'Manrope',sans-serif;font-size:25px;line-height:1.1;letter-spacing:-1.2px;color:#173349;font-weight:800;margin:14px 0 5px;overflow-wrap:anywhere}.v4-stat small{display:block;color:#99a8b7;font-size:10px}
+/* app surface and data readability */
+.bxh-card,.fund-member,.fund-sessions,.stat-card,.match-item,.elo-info,.badge-card,.court-mvp{background:#fff!important;border:1px solid #e6edf3!important;box-shadow:0 5px 20px #142f4a09!important;border-radius:18px!important;color:#17283d!important}
+.bxh-header-row,.fs-header{background:#f6f9fc!important;color:#7b8d9f!important}.bxh-row,.fs-row,.fm-row{border-color:#ebf0f5!important}.bxh-row:hover,.fs-row:hover{background:#f8fcfb!important}
+.player-name,.fm-name,.fun-section-title,.section-title{color:#1c3449!important}.player-sub,.fm-lbl,.m-meta,.sc-label,.sc-sub{color:#8899a8!important}
+/* eliminate dark inline panels from tournament & fortune widgets without modifying calculation */
+div[style*="background:'linear-gradient(135deg,#1e1b4b"],div[style*="background:linear-gradient(135deg,#1e1b4b"],div[style*="background:linear-gradient(135deg, #1e1b4b"],div[style*="background:var(--surface)"],div[style*="background: var(--surface)"]{color:#17283d}
+.hof-card{background:#fffdf6!important;border:1px solid #f0e7ca!important;color:#23384b!important}.hof-month{color:#a38a50!important}.hof-caption,.hof-caption b{color:#253b50!important}.hof-sub{color:#8b91a0!important}
+/* form and overlay */
+.fi,.month-sel,.score-num{border-radius:12px!important;min-height:47px!important;background:#f7fafc!important;border:1px solid #dfe7ef!important;color:#183449!important}
+.modal{border-radius:24px!important;max-width:560px!important;border:1px solid #e3eaf1!important;box-shadow:0 24px 80px #0a24372c!important}
+.modal-title{font-family:'Manrope',sans-serif!important;font-size:19px!important;font-weight:800!important;color:#1a3448!important}.modal-close{border-radius:12px!important;min-width:40px!important;min-height:40px!important}
+.score-num{height:68px!important;font-size:32px!important;max-width:104px!important;border-radius:15px!important}.score-team{background:#f7fafc;border-radius:16px;padding:12px 4px}.score-row{gap:9px!important}.score-vs{font-family:'Manrope',sans-serif!important;font-weight:800!important;color:#9cacb9!important}
+.btn-save{background:#087e64!important;color:#fff!important;border-radius:12px!important;font-weight:800!important;min-height:47px!important}.btn-cancel{border-radius:12px!important;background:#f4f7fa!important;color:#66798a!important;min-height:47px!important}
+.badge-popup,.history-drawer{background:#fff!important}
+/* mobile */
+@media(max-width:1024px){
+  .topbar{display:none!important}.mobile-header{display:flex!important}.main{margin-left:0!important;width:100%!important}
+  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 74px 1fr 1fr!important;align-items:center!important;gap:0!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:calc(76px + env(safe-area-inset-bottom,0px))!important;padding:0 6px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.97)!important;backdrop-filter:blur(18px)!important;border-top:1px solid #e6edf2!important;box-shadow:0 -10px 30px #183b5512!important;z-index:410!important}
+  .mobile-nav-tab{height:66px!important;min-height:0!important;padding:8px 0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;border-radius:13px!important;color:#8b9dac!important}
+  .mobile-nav-tab .mni{font-size:21px!important;line-height:1!important}.mobile-nav-tab span:last-child{font-size:10px!important;font-weight:700!important;white-space:nowrap}
+  .mobile-nav-tab.active{background:#f0fbf6!important;color:#087e64!important}.mobile-nav-tab.active .mni{filter:none!important;transform:none!important}
+  .mobile-nav-fab{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:0!important;position:relative!important;top:-15px!important;height:66px!important;width:66px!important;border:5px solid #f8fafc!important;border-radius:19px!important;background:#0a8769!important;color:white!important;box-shadow:0 7px 20px #0a876947!important;min-height:0!important;font-size:20px!important}
+  .v4-fab-plus{font-family:'Manrope',sans-serif!important;font-size:30px!important;line-height:28px!important;font-weight:500!important}.v4-fab-label{font-size:9px!important;font-weight:800!important;white-space:nowrap!important}
+  .mobile-header{position:sticky!important;top:0!important;z-index:350!important;background:#fffffff5!important;border-bottom:1px solid #e5edf3!important;backdrop-filter:blur(18px)!important;min-height:65px!important;padding:10px 15px!important;box-shadow:0 2px 18px #1c3d5608!important}
+  .mobile-header .logo-text{color:#1e3447!important;font-weight:800!important;font-size:13px!important}.mobile-header .logo-sub{color:#8a9da8!important}
+  .mobile-header .btn-ghi{display:none!important}
+  .main{padding:0 15px 116px!important}.workspace-intro{padding:21px 2px 15px!important}.workspace-title{font-size:24px!important}.workspace-eyebrow{font-size:9px!important}.workspace-desc{font-size:12px!important}.workspace-pill{display:none!important}
+  .workspace-intro.is-home{height:0!important;padding:0!important;margin:0!important;overflow:hidden!important;visibility:hidden!important}
+  .v4-hero{border-radius:21px!important;margin:15px 0 17px!important;min-height:238px!important;padding:23px!important}.v4-hero-top{gap:8px}.v4-hero-live{font-size:9px}.v4-hero-court{font-size:8px}.v4-hero h2{font-size:27px!important;margin-top:16px!important;max-width:280px!important}.v4-hero p{max-width:265px!important;font-size:10.5px!important}.v4-hero-actions{gap:8px!important;margin-top:21px!important}.v4-hero-actions button{font-size:11px!important;padding:10px 12px!important;min-height:42px!important}.v4-hero-decor{width:48%;opacity:.58}.v4-ball{width:85px;height:85px;right:-8px;top:48px}.v4-orbit{right:-160px!important;top:-60px!important}
+  .v4-wallet-grid{gap:10px!important;margin-bottom:19px!important}.v4-wallet-item{padding:15px!important;border-radius:17px!important}.v4-wallet-item>div:first-child{font-size:10px!important;margin-bottom:10px!important}.v4-wallet-item>div:nth-child(2){font-size:23px!important}.v4-wallet-item>div:last-child{font-size:10px!important}
+  .v4-section-heading{margin:21px 0 12px}.v4-section-heading h3{font-size:17px!important}.v4-section-hint{font-size:9px!important}
+  .v4-action-grid{gap:9px!important}.v4-action{min-height:111px!important;padding:11px 8px!important;border-radius:16px!important;align-items:center!important;text-align:center!important}.v4-action-icon{width:39px;height:39px;border-radius:12px;font-size:22px;margin-bottom:5px}.v4-action strong{font-size:10.5px!important}.v4-action small{font-size:8px!important}
+  .v4-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.v4-stat{padding:14px!important;min-height:116px!important;border-radius:16px!important}.v4-stat-line{font-size:10px!important;gap:7px!important}.v4-stat-icon{height:25px;width:25px;border-radius:8px;font-size:14px}.v4-stat strong{font-size:23px!important;margin:10px 0 4px!important}.v4-stat small{font-size:9px!important}
+  .overlay{align-items:flex-end!important;padding:0!important}.modal{border-radius:24px 24px 0 0!important;max-height:92dvh!important;width:100%!important;overflow-y:auto!important;margin:0!important;padding:21px 17px!important}.modal-head{position:sticky;top:-21px;padding:9px 0 14px;background:#fff;z-index:2}.form-actions{margin-left:-17px!important;margin-right:-17px!important;padding:14px 17px calc(12px + env(safe-area-inset-bottom,0px))!important;background:white!important}
+  body{padding-bottom:calc(85px + env(safe-area-inset-bottom,0px))!important}
+  .court-original-banner{display:none!important}
+}
+@media(max-width:380px){.main{padding-left:11px!important;padding-right:11px!important}.v4-hero{padding:19px!important}.v4-hero h2{font-size:24px!important}.v4-wallet-item>div:nth-child(2){font-size:20px!important}.v4-action-grid{gap:6px!important}.v4-action{padding:10px 4px!important}.v4-action strong{font-size:10px!important}.mobile-nav{grid-template-columns:1fr 1fr 67px 1fr 1fr!important}.mobile-nav-fab{width:61px!important;height:64px!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+</style>
+
+<style id="v4-hotfix-avatar-fab">
+/* Profile avatar: do not apply small leaderboard avatar dimensions here. */
+@media(max-width:1024px){
+  .profile-header-avatar.av{width:88px!important;height:88px!important;min-width:88px!important;min-height:88px!important;max-width:88px!important;max-height:88px!important;font-size:27px!important;flex-shrink:0!important}
+  .profile-header-avatar.av img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+  .mobile-nav-fab{pointer-events:auto!important;cursor:pointer!important;touch-action:manipulation!important;opacity:1!important;z-index:3!important}
+  .mobile-nav-tab{touch-action:manipulation!important}
+}
+@media(min-width:1025px){.profile-header-avatar.av{width:96px!important;height:96px!important;min-width:96px!important;min-height:96px!important;font-size:28px!important}}
+</style>
+</head><body>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<title>Pích Cờ Bôn Phông Bạt</title>
+<title>Pích Cờ Bôn • Playbook V4</title>
 
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json"/>
-<meta name="theme-color" content="#22c55e"/>
+<meta name="theme-color" content="#f8fafc"/>
 <link rel="icon" href="/icon-192.png"/>
 
 <!-- iOS: cho phép "Thêm vào MH chính" chạy full màn hình -->
@@ -2006,145 +2411,40 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
 
   return <>
 
-    {/* ── MVP VINH DANH ── */}
-    {hof.topWinner && <div style={{
-      position:'relative',overflow:'hidden',borderRadius:'20px',
-      marginBottom:'10px',padding:'0 0 16px',
-      background:'linear-gradient(160deg,#5a0a0a 0%,#2d0303 40%,#1a0505 100%)',
-      border:'1px solid rgba(212,160,30,.4)',
-      boxShadow:'0 0 32px rgba(212,160,30,.15), inset 0 1px 0 rgba(255,255,255,.06)'
-    }}>
-      {/* sparkle canvas */}
-      <canvas id="mvp-sparkle" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}} ref={el=>{
-        if(!el||el._init) return; el._init=true;
-        const ctx=el.getContext('2d');
-        const W=()=>{el.width=el.offsetWidth;el.height=el.offsetHeight;};
-        W(); window.addEventListener('resize',W);
-        const stars=Array.from({length:55},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.6+.4,a:Math.random(),da:(Math.random()-.5)*.02}));
-        const tick=()=>{
-          if(!el.isConnected){return;}
-          ctx.clearRect(0,0,el.width,el.height);
-          stars.forEach(s=>{
-            s.a=Math.max(0,Math.min(1,s.a+s.da));
-            if(s.a<=0||s.a>=1) s.da*=-1;
-            ctx.beginPath();
-            ctx.arc(s.x*el.width,s.y*el.height,s.r,0,Math.PI*2);
-            ctx.fillStyle=`rgba(255,220,100,${s.a*0.7})`;
-            ctx.fill();
-          });
-          requestAnimationFrame(tick);
-        };
-        tick();
-      }}/>
-
-      {/* header label */}
-      <div style={{textAlign:'center',paddingTop:'18px',marginBottom:'10px'}}>
-        <div style={{
-          display:'inline-block',padding:'3px 16px',borderRadius:'20px',
-          background:'linear-gradient(90deg,#c89b20,#f5d060,#c89b20)',
-          fontSize:'10px',fontWeight:800,color:'#3d1f00',letterSpacing:'1.5px',textTransform:'uppercase'
-        }}>⭐ MVP Tháng {parseInt(curMonth)} ⭐</div>
-      </div>
-
-      {/* avatar vòng nguyệt quế */}
-      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',padding:'0 20px'}}>
-        <div style={{position:'relative'}}>
-          {/* laurel wreath SVG */}
-          <svg width="130" height="130" viewBox="0 0 130 130" style={{position:'absolute',top:'-10px',left:'-10px',pointerEvents:'none'}}>
-            <defs>
-              <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#c89b20"/>
-                <stop offset="50%" stopColor="#f5d060"/>
-                <stop offset="100%" stopColor="#c89b20"/>
-              </linearGradient>
-            </defs>
-            {/* left branch */}
-            {[0,12,24,36,48,60].map(a=>{
-              const r=Math.PI/180;
-              const cx=65+Math.cos((210+a)*r)*42;
-              const cy=65+Math.sin((210+a)*r)*42;
-              return <ellipse key={a} cx={cx} cy={cy} rx="8" ry="5"
-                transform={`rotate(${210+a+90} ${cx} ${cy})`}
-                fill="url(#lg1)" opacity=".9"/>;
-            })}
-            {/* right branch */}
-            {[0,12,24,36,48,60].map(a=>{
-              const r=Math.PI/180;
-              const cx=65+Math.cos((-30-a)*r)*42;
-              const cy=65+Math.sin((-30-a)*r)*42;
-              return <ellipse key={a} cx={cx} cy={cy} rx="8" ry="5"
-                transform={`rotate(${-30-a+90} ${cx} ${cy})`}
-                fill="url(#lg1)" opacity=".9"/>;
-            })}
-            {/* bottom knot */}
-            <circle cx="65" cy="108" r="5" fill="url(#lg1)"/>
-          </svg>
-          {/* avatar circle */}
-          <div style={{
-            width:'90px',height:'90px',borderRadius:'50%',
-            background:`linear-gradient(135deg,#8b2fc9,#5b1a8a)`,
-            border:'3px solid #c89b20',
-            boxShadow:'0 0 0 3px rgba(200,155,32,.3), 0 8px 24px rgba(0,0,0,.5)',
-            display:'flex',alignItems:'center',justifyContent:'center',
-            fontSize:'32px',fontWeight:900,color:'#fff',zIndex:1,position:'relative'
-          }}>
-            {hof.topWinner.name.charAt(0).toUpperCase()}
-          </div>
-        </div>
-
-        {/* tên */}
-        <div style={{textAlign:'center',marginTop:'4px'}}>
-          <div style={{
-            fontSize:'18px',fontWeight:900,letterSpacing:'1px',textTransform:'uppercase',
-            background:'linear-gradient(90deg,#f5d060,#fff9d0,#f5d060)',
-            WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
-            textShadow:'none'
-          }}>{hof.topWinner.name}</div>
-          <div style={{fontSize:'11px',color:'rgba(245,208,96,.7)',fontWeight:600,marginTop:'2px',letterSpacing:'.5px'}}>
-            Nhân Viên Xuất Sắc · {hof.topWinner.wins} trận thắng
-          </div>
-        </div>
-
-        {/* quote */}
-        <div style={{
-          marginTop:'6px',padding:'10px 14px',
-          background:'rgba(0,0,0,.35)',borderRadius:'12px',
-          border:'1px solid rgba(212,160,30,.2)',width:'100%'
-        }}>
-          <div style={{fontSize:'18px',color:'#f5d060',lineHeight:.8,marginBottom:'4px'}}>"</div>
-          <div style={{fontSize:'11px',color:'rgba(255,255,255,.8)',lineHeight:1.55,fontStyle:'italic'}}>
-            Xuất sắc nhất tháng {parseInt(curMonth)} với {hof.topWinner.wins} trận thắng.
-            Tinh thần chiến đấu đáng ngưỡng mộ, giữ vững phong độ suốt cả tháng!
-          </div>
+    {/* Trang chủ ưu tiên điều hành buổi chơi, không che nội dung chính bằng màn vinh danh */}
+    <section className="v4-hero" aria-label="Trung tâm CLB">
+      <div className="v4-hero-inner">
+        <div className="v4-hero-top"><span className="v4-hero-live"><span/>PÍCH CỜ BÔN PHÔNG BẠT</span><span className="v4-hero-court">PICKLEBALL CLUB</span></div>
+        <h2>Ra sân là vui.<br/><em>Ghi điểm là chất.</em></h2>
+        <p>Quản lý buổi chơi, trận đấu và quỹ — tất cả ngay trong tay.</p>
+        <div className="v4-hero-actions">
+          <button type="button" className="v4-hero-primary" onClick={onAdd}><span>＋</span> Ghi trận mới</button>
+          <button type="button" className="v4-hero-secondary" onClick={()=>setShowAddSession(true)}>Tạo buổi chơi <span>↗</span></button>
         </div>
       </div>
-    </div>}
-
+      <div className="v4-hero-decor" aria-hidden="true"><div className="v4-orbit orbit-one"/><div className="v4-orbit orbit-two"/><div className="v4-ball"/></div>
+    </section>
     {/* ── BENTO: quỹ + nợ ── (khi không có MVP thì vẫn hiện) */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
-      <div style={bentoFund}>
+    <div className="v4-wallet-grid">
+      <div className="v4-wallet-item v4-wallet-green" style={bentoFund}>
         <div style={tileLbl}>🏦 Hòm Công Đức</div>
         <div style={{...tileNum,color:fundBalance>=0?'var(--green)':'var(--red)'}}>{fmt(fundBalance)}</div>
         <div style={tileSub}>{fundBalance>=0?'còn lại trong quỹ':'⚠️ âm quỹ'}</div>
       </div>
-      <div style={bentoDebt} onClick={()=>onGoBadges&&onGoBadges('fund')}>
+      <div className="v4-wallet-item v4-wallet-alert" style={bentoDebt} onClick={()=>onGoFund&&onGoFund()}>
         <div style={tileLbl}>💸 Tiền còn nợ</div>
         <div style={{...tileNum,color:totalDebt>0?'#f87171':'var(--muted)'}}>{fmt(totalDebt)}</div>
         <div style={tileSub}>{debtorsCount>0?`${debtorsCount} người → xem`:'✅ sạch nợ'}</div>
       </div>
     </div>
 
-    {/* ── ACTIONS: 4 pill icon buttons ── */}
-    <div style={{fontSize:'10px',fontWeight:700,color:'var(--muted)',letterSpacing:'.7px',textTransform:'uppercase',marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
-      Hành động nhanh
-      <span style={{flex:1,height:'1px',background:'var(--border)',display:'block'}}/>
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'14px'}}>
+    <div className="v4-section-heading"><div><span className="v4-mini-label">LỐI TẮT</span><h3>Thao tác nhanh</h3></div><span className="v4-section-hint">Dành cho host</span></div>
+    <div className="v4-action-grid">
       {[
-        {icon:'⚔️',label:'Ghi trận',bg:'rgba(168,85,247,.15)',color:'var(--purple)',border:'rgba(168,85,247,.3)',fn:onAdd},
-        {icon:'🎯',label:'So kèo',bg:'rgba(96,165,250,.12)',color:'#60a5fa',border:'rgba(96,165,250,.25)',fn:()=>setShowSoKeo(true)},
-        {icon:'📋',label:'Tạo buổi',bg:'rgba(251,191,36,.12)',color:'var(--yellow)',border:'rgba(251,191,36,.25)',fn:()=>setShowAddSession(true)},
-        {icon:'📢',label:'Báo Zalo',bg:'rgba(251,113,133,.1)',color:'#fb7185',border:'rgba(251,113,133,.25)',fn:()=>{
+        {icon:'🏓',label:'Ghi trận',sub:'Lưu tỷ số',tone:'mint',fn:onAdd},
+        {icon:'⚡',label:'So kèo',sub:'Ghép đội',tone:'sky',fn:()=>setShowSoKeo(true)},
+        {icon:'📅',label:'Tạo buổi',sub:'Quản lý sân',tone:'lilac',fn:()=>setShowAddSession(true)},
+        {icon:'↗',label:'Báo Zalo',sub:'Chia sẻ nhanh',tone:'peach',fn:()=>{
           const today=new Date();
           const dd=String(today.getDate()).padStart(2,'0');
           const mm=String(today.getMonth()+1).padStart(2,'0');
@@ -2157,56 +2457,39 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
             return `${i+1}. ${side} | 🤝${p} vs ⚔️${o} | ${m.score||''}`;
           }).join('\n');
           const txt=`🏸 Kết quả buổi ${dd}/${mm}:\n${lines}\n\nChia sẻ từ Phông Bạt Pickleball 🎉`;
-          if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>alert('Đã copy! Paste vào Zalo nha 📱')).catch(()=>{});}
+          if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>alert('Đã copy! Paste vào Zalo nha 📱')).catch(()=>alert('Không copy được. Vui lòng kiểm tra quyền clipboard.'));}
+          else alert('Trình duyệt hiện không hỗ trợ sao chép tự động.');
         }}
-      ].map(({icon,label,bg,color,border,fn})=>(
-        <button key={label} onClick={fn} style={{
-          display:'flex',flexDirection:'column',alignItems:'center',gap:'5px',
-          padding:'12px 4px',borderRadius:'16px',border:`1px solid ${border}`,
-          background:bg,color,fontFamily:'Nunito,sans-serif',fontSize:'10px',
-          fontWeight:700,cursor:'pointer',lineHeight:1.2
-        }}>
-          <span style={{fontSize:'22px'}}>{icon}</span>
-          {label}
+      ].map(({icon,label,sub,tone,fn})=>(
+        <button key={label} type="button" className={`v4-action v4-action-${tone}`} onClick={fn}>
+          <span className="v4-action-icon">{icon}</span><strong>{label}</strong><small>{sub}</small>
         </button>
       ))}
     </div>
 
-    {/* ── Thống kê tháng: header + segment tabs ── */}
-    <div style={{fontSize:'10px',fontWeight:700,color:'var(--muted)',letterSpacing:'.7px',textTransform:'uppercase',marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
-      Thống kê tháng {parseInt(curMonth)}
-      <span style={{flex:1,height:'1px',background:'var(--border)',display:'block'}}/>
-      {[['Đôi','👥'],['Đơn','🧍']].map(([val,ic])=>(
-        <button key={val} onClick={()=>setMatchSeg(val)} style={{
-          padding:'3px 10px',borderRadius:'20px',border:'1px solid',fontSize:'10px',
-          cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700,
-          borderColor:matchSeg===val?'var(--purple)':'var(--border)',
-          background:matchSeg===val?'var(--purple)':'transparent',
-          color:matchSeg===val?'#fff':'var(--muted)'
-        }}>{ic} {val}</button>
-      ))}
-    </div>
-
-    {/* ── 4 stats: icon + số inline ── */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+    <div className="v4-section-heading v4-month-heading"><div><span className="v4-mini-label">BÁO CÁO</span><h3>Tháng {parseInt(curMonth)} này</h3></div><span className="v4-section-hint">Tự động cập nhật</span></div>
+    <div className="v4-stats-grid">
       {[
-        {icon:'💵',val:fmt(monthPaid),lbl:'Đã đóng',color:'var(--green)'},
-        {icon:'🏸',val:fmt(monthSpent),lbl:`Đã chi · ${monthSessionCount} buổi`,color:'#f87171'},
-        {icon:'📅',val:String(monthSessionCount),lbl:'Buổi đã đi',color:'var(--purple)'},
-        {icon:'🏆',val:`${wins}W·${losses}L`,lbl:`Trận ${matchSeg} · ${segMatches.length}`,color:'var(--yellow)'},
-      ].map(({icon,val,lbl,color})=>(
-        <div key={lbl} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'13px',display:'flex',alignItems:'center',gap:'10px'}}>
-          <span style={{fontSize:'20px'}}>{icon}</span>
-          <div>
-            <div style={{fontSize:'17px',fontWeight:900,color,fontVariantNumeric:'tabular-nums',lineHeight:1.1}}>{val}</div>
-            <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600,marginTop:'2px'}}>{lbl}</div>
-          </div>
+        {icon:'↙',val:fmt(monthPaid),lbl:'Đã đóng',note:'Trong tháng',tone:'income'},
+        {icon:'↗',val:fmt(monthSpent),lbl:'Đã chi',note:`${monthSessionCount} buổi chơi`,tone:'expense'},
+        {icon:'◷',val:String(monthSessionCount),lbl:'Buổi trong tháng',note:'Đã tổ chức',tone:'sessions'},
+        {icon:'▤',val:String(sessions.length),lbl:'Số buổi đã ghi',note:'Tổng từ trước đến nay',tone:'all'},
+      ].map(({icon,val,lbl,note,tone})=>(
+        <div key={lbl} className={`v4-stat v4-stat-${tone}`}>
+          <div className="v4-stat-line"><span className="v4-stat-icon">{icon}</span><span>{lbl}</span></div>
+          <strong>{val}</strong><small>{note}</small>
         </div>
       ))}
     </div>
 
     {showSoKeo && <QuickSoKeoPopup players={players} sessions={sessions} matches={matches} onClose={()=>setShowSoKeo(false)}/>}
     {showAddSession && <AddSessionModal members={members} sessions={sessions} onSave={s=>{onAddSession&&onAddSession(s);}} onClose={()=>setShowAddSession(false)}/>}
+
+    {hof.topWinner && <div className="court-mvp" onClick={()=>onGoBadges&&onGoBadges()} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter') onGoBadges&&onGoBadges();}}>
+      <div className="court-mvp-medal">★</div>
+      <div className="court-mvp-content"><div className="court-mvp-label">GƯƠNG MẶT NỔI BẬT · THÁNG {parseInt(curMonth)}</div><strong>{hof.topWinner.name}</strong><p>{hof.topWinner.wins} trận thắng trong tháng. Xem bảng xếp hạng để khám phá thêm.</p></div>
+      <div className="court-mvp-next">↗</div>
+    </div>}
 
     {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
@@ -2986,7 +3269,7 @@ function AddMatchModal({players,sessions,onClose,onSave}){
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
-          <div className="modal-title">🏓 Ghi trận đấu</div>
+          <div className="modal-title">🏓 Ghi kết quả trận</div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -3733,7 +4016,7 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
       <div style={{display:'flex',alignItems:'center',gap:'16px',marginBottom:'18px',flexWrap:'wrap'}}>
         <div style={{position:'relative',flexShrink:0}}>
           <div
-            className="av"
+            className="av profile-header-avatar"
             onClick={()=>player.avatar&&setShowFullAvatar(true)}
             style={{
               width:96,height:96,borderRadius:'50%',
@@ -8301,6 +8584,7 @@ function AdminMenu({isAdmin, trashCount, onOpenTrash, onToggleLock, onBackup, on
 /* ─── APP ────────────────────────────────────────────────── */
 function App(){
   const [tab,setTab]=useState('dashboard');
+  const [showClubBanner,setShowClubBanner]=useState(false);
   const [prevTab,setPrevTab]=useState('bxh');
   const [historyPlayerId,setHistoryPlayerId]=useState(null);
   const goToPlayerHistory=p=>{ setHistoryPlayerId(p.id); setPrevTab(tab==='playerHistory'?prevTab:tab); setTab('playerHistory'); window.scrollTo({top:0,behavior:'smooth'}); };
@@ -8481,7 +8765,14 @@ function App(){
     }
   };
   const showToast=msg=>setToast(msg);
-  const openAdd=()=>setShowAdd(true);
+  const openAdd=()=>{
+    if(!dbReady){
+      showToast('⚠️ Chưa tải được dữ liệu CLB. Đang thử kết nối lại, vui lòng kiểm tra mạng.');
+      loadAll();
+      return;
+    }
+    setShowAdd(true);
+  };
   const openFund=()=>setTab('fund');
 
   // Derive "myElo" as the first player's ELO, or 1500
@@ -8745,10 +9036,10 @@ function App(){
   },[players,matches,dbReady]);
 
   const TABS=[
-    {id:'dashboard',label:'Tổng Quan',icon:'📊'},
-    {id:'bxh',      label:'BXH',icon:'🏆'},
-    {id:'sokeo',    label:'Công Cụ',icon:'🎮'},
-    {id:'fund',     label:'Hòm Công Đức',icon:'🙏'},
+    {id:'dashboard',label:'Tổng quan',icon:'⌂'},
+    {id:'bxh',      label:'BXH',icon:'♛'},
+    {id:'sokeo',    label:'Thi đấu',icon:'◇'},
+    {id:'fund',     label:'Quỹ',icon:'▤'},
   ];
 
   return <>
@@ -8766,11 +9057,14 @@ function App(){
           <span className="logo-sub">Phông Bạt</span>
         </div>
       </div>
+      <div className="court-nav-caption">KHÔNG GIAN LÀM VIỆC</div>
       <div className="nav-tabs">
         {TABS.map(t=>(
           <button key={t.id} className={`nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>{t.label}</button>
         ))}
       </div>
+      {isAdmin && <button className="court-banner-toggle" onClick={()=>setShowClubBanner(v=>!v)}>{showClubBanner?'Ẩn ảnh bìa':'▧ Chỉnh ảnh bìa CLB'}</button>}
+      <div className="court-side-foot">PÍCH CỜ BÔN PHÔNG BẠT <span>· COURT EDITION</span></div>
       <div className="nav-right" style={{display:'flex',alignItems:'center',gap:'8px'}}>
         {syncing&&<span title="Đang đồng bộ..." style={{fontSize:'11px',color:'var(--muted)',background:'var(--surface)',borderRadius:'20px',padding:'3px 8px',border:'1px solid var(--border)'}}>⏳</span>}
         {FB_URL.includes('YOUR_PROJECT')&&<span style={{fontSize:'10px',color:'var(--orange)',background:'var(--orange-bg)',borderRadius:'20px',padding:'3px 8px',cursor:'pointer'}} title="Chưa cấu hình Firebase">⚠️</span>}
@@ -8790,11 +9084,12 @@ function App(){
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
         <AdminMenu isAdmin={isAdmin} trashCount={trashCount} onOpenTrash={()=>setShowTrash(true)} onToggleLock={toggleLock} onBackup={()=>setShowBackup(true)} onResetElo={resetAllElo} onMergePerson={()=>setShowMerge(true)}/>
+        {isAdmin&&<button className="court-mobile-banner-toggle" title="Ảnh bìa CLB" onClick={()=>setShowClubBanner(v=>!v)}>▧</button>}
         <button className="btn-ghi" onClick={openAdd} disabled={!dbReady} style={!dbReady?{opacity:.5,cursor:'not-allowed'}:undefined}>+ Ghi Trận</button>
       </div>
     </div>
 
-    <Banner
+    <div className={`court-original-banner${showClubBanner?' is-visible':''}`}><Banner
       bannerImg={bannerImg}
       bannerTitle={bannerTitle}
       bannerSub={bannerSub}
@@ -8802,10 +9097,18 @@ function App(){
       bannerBrightness={bannerBrightness}
       editable={isAdmin}
       onUpdate={guardedBannerUpdate}
-    />
+    /></div>
 
     <div className="main">
-      {tab==='dashboard' && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')} onAddSession={newS=>{const updated=[...sessions,newS];setSessions(updated);fbSet('sessions',updated);showToast('Đã thêm buổi chơi!');}}/>}
+      <div className={`workspace-intro ${tab==='dashboard'?'is-home':''}`}>
+        <div>
+          <div className="workspace-eyebrow">PICKLEBALL · TEAM MANAGER</div>
+          <div className="workspace-title">{{dashboard:'Trung tâm điều hành',bxh:'Bảng xếp hạng',playerHistory:'Hồ sơ vận động viên',sokeo:'Công cụ thi đấu',fund:'Quản lý quỹ CLB'}[tab]||'CLB của bạn'}</div>
+          <div className="workspace-desc">{tab==='dashboard'?'Mọi hoạt động của đội, trong một góc nhìn.':tab==='bxh'?'Thành tích, ELO và phong độ của từng thành viên.':tab==='fund'?'Theo dõi thu chi, công nợ và những buổi chơi.':tab==='sokeo'?'Lên kèo, tổ chức giải và quản lý trận đấu.':'Chi tiết thành tích và lịch sử thi đấu.'}</div>
+        </div>
+        <span className="workspace-pill">{dbReady?'Đã kết nối dữ liệu':syncing?'Đang đồng bộ':'Chưa kết nối'}</span>
+      </div>
+      {tab==='dashboard'  && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')} onAddSession={newS=>{const updated=[...sessions,newS];setSessions(updated);fbSet('sessions',updated);showToast('Đã thêm buổi chơi!');}}/>}
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
@@ -8886,10 +9189,10 @@ function App(){
     {/* Mobile bottom nav — 2 tabs · FAB · 2 tabs (chỉ 4 tab thường dùng nhất) */}
     {(()=>{
       const MOBILE_TABS=[
-        {id:'dashboard',label:'Tổng Quan',icon:'📊'},
-        {id:'bxh',      label:'BXH',icon:'🏆'},
-        {id:'sokeo',    label:'Công Cụ',icon:'🎮'},
-        {id:'fund',     label:'Hòm Công Đức',icon:'🙏'},
+        {id:'dashboard',label:'Tổng quan',icon:'⌂'},
+        {id:'bxh',      label:'BXH',icon:'♛'},
+        {id:'sokeo',    label:'Thi đấu',icon:'◇'},
+        {id:'fund',     label:'Quỹ',icon:'▤'},
       ];
       return (
         <nav className="mobile-nav">
@@ -8899,8 +9202,8 @@ function App(){
               <span>{t.label}</span>
             </button>
           ))}
-          <button className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu" disabled={!dbReady} style={!dbReady?{opacity:.5}:undefined}>
-            <span>+</span>
+          <button type="button" className="mobile-nav-fab" onClick={openAdd} title="Ghi trận đấu" aria-label="Ghi trận mới">
+            <span className="v4-fab-plus">+</span><span className="v4-fab-label">Ghi trận</span>
           </button>
           {MOBILE_TABS.slice(2).map(t=>(
             <button key={t.id} className={`mobile-nav-tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
