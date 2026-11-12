@@ -282,7 +282,7 @@ button,.nav-tab,.mobile-nav-tab,.btn-save,.btn-cancel,.btn-ghi,.btn-expand,.btn-
   .overlay{padding:0!important;align-items:flex-end!important}
   .form-grid{grid-template-columns:1fr!important}
   .form-actions{position:sticky!important;bottom:0!important;margin-left:-18px!important;margin-right:-18px!important;padding:12px 18px calc(10px + env(safe-area-inset-bottom,0px))!important;border-top:1px solid #e9eef4!important;box-shadow:0 -8px 24px rgba(16,36,57,.06)!important}
-  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 76px 1fr 1fr!important;align-items:center!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:78px!important;padding:0 8px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.98)!important;backdrop-filter:blur(16px)!important;border-top:1px solid #e5edf3!important;box-shadow:0 -10px 30px rgba(20,44,67,.08)!important;z-index:400!important}
+  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 76px 1fr 1fr!important;align-items:center!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:78px!important;padding:0 8px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.98)!important;backdrop-filter:blur(16px)!important;border-top:1px solid #e5edf3!important;box-shadow:0 -10px 30px rgba(20,44,67,.08)!important;z-index:400!important;overflow:visible!important}
   .mobile-nav-tab{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:3px!important;border:none!important;background:transparent!important;color:#7a8e9f!important;border-radius:14px!important;padding:8px 4px!important;min-height:60px!important}
   .mobile-nav-tab .mni{font-size:20px!important;line-height:1!important}
   .mobile-nav-tab span:last-child{font-size:10px!important;font-weight:700!important;letter-spacing:-.1px}
@@ -369,7 +369,7 @@ div[style*="background:'linear-gradient(135deg,#1e1b4b"],div[style*="background:
 /* mobile */
 @media(max-width:1024px){
   .topbar{display:none!important}.mobile-header{display:flex!important}.main{margin-left:0!important;width:100%!important}
-  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 74px 1fr 1fr!important;align-items:center!important;gap:0!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:calc(76px + env(safe-area-inset-bottom,0px))!important;padding:0 6px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.97)!important;backdrop-filter:blur(18px)!important;border-top:1px solid #e6edf2!important;box-shadow:0 -10px 30px #183b5512!important;z-index:410!important}
+  .mobile-nav{display:grid!important;grid-template-columns:1fr 1fr 74px 1fr 1fr!important;align-items:center!important;gap:0!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;height:calc(76px + env(safe-area-inset-bottom,0px))!important;padding:0 6px env(safe-area-inset-bottom,0px)!important;background:rgba(255,255,255,.97)!important;backdrop-filter:blur(18px)!important;border-top:1px solid #e6edf2!important;box-shadow:0 -10px 30px #183b5512!important;z-index:410!important;overflow:visible!important}
   .mobile-nav-tab{height:66px!important;min-height:0!important;padding:8px 0!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;border-radius:13px!important;color:#8b9dac!important}
   .mobile-nav-tab .mni{font-size:21px!important;line-height:1!important}.mobile-nav-tab span:last-child{font-size:10px!important;font-weight:700!important;white-space:nowrap}
   .mobile-nav-tab.active{background:#f0fbf6!important;color:#087e64!important}.mobile-nav-tab.active .mni{filter:none!important;transform:none!important}
@@ -405,6 +405,27 @@ div[style*="background:'linear-gradient(135deg,#1e1b4b"],div[style*="background:
 </style>
 <style id="force-mobile-layout">
 /* Force mobile-only layout on ALL screen sizes */
+
+/* Fix: body overflow-x:hidden clips nav children — phải unset để FAB nhô lên được */
+body {
+  overflow-x: unset !important;
+  overflow: visible !important;
+}
+html {
+  overflow-x: clip !important;  /* clip thay vì hidden — không tạo containing block */
+}
+
+/* Force font on all screen sizes */
+body, body * {
+  font-family: 'Be Vietnam Pro', 'DM Sans', system-ui, sans-serif !important;
+}
+body h1, body h2, body h3,
+body .section-title, body .workspace-title,
+body .court-metric strong, body .v4-wallet-item > div:nth-child(2),
+body .v4-hero h2 {
+  font-family: 'Manrope', 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif !important;
+}
+body .v4-fab-plus { font-family: 'Manrope', system-ui, sans-serif !important; }
 
 /* Hide desktop sidebar */
 body .topbar { display: none !important; }
@@ -454,8 +475,31 @@ body .mobile-header {
   right: 0 !important;
   width: 100% !important;
 }
+/* backdrop-filter tạo stacking context, clip FAB — phải bỏ */
 body .mobile-nav {
   overflow: visible !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255,255,255,0.99) !important;
+}
+/* FAB layout: flex-column, font đúng */
+body .mobile-nav-fab {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1px !important;
+}
+body .v4-fab-plus {
+  font-size: 24px !important;
+  line-height: 1 !important;
+  font-weight: 400 !important;
+}
+body .v4-fab-label {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
 }
 @media (min-width: 481px) {
   body .mobile-nav {
@@ -767,8 +811,8 @@ window.QrCodeGen={QrCode:QrCode,Ecc:Ecc};
   --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.13);
   --navy:#080d18;
 }
-html{overflow-x:hidden;max-width:100%}
-body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;overflow-x:hidden;max-width:100%;padding-top:52px;color-scheme:dark}
+html{overflow-x:clip;max-width:100%}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;min-height:100vh;overflow-x:clip;max-width:100%;padding-top:52px;color-scheme:dark}
 @media(max-width:768px){body{padding-top:0}}
 
 /* NAV */
