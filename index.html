@@ -1636,6 +1636,141 @@ function EloCard({myElo}){
 }
 
 /* ─── DASHBOARD ─────────────────────────────────────────── */
+function AddSessionModal({members,sessions,onSave,onClose}){
+  const today=new Date();
+  const todayStr=`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}`;
+  const [f,setF]=useState({date:todayStr,courtFee:'',shuttleFee:'',waterFee:'',otherFee:'',attendees:{},waterDrinkers:{},xeVeCount:'',note:''});
+  const sf=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+  const fFeeTotal=(parseInt(f.courtFee)||0)+(parseInt(f.shuttleFee)||0)+(parseInt(f.waterFee)||0)+(parseInt(f.otherFee)||0);
+  const toggleAtt=name=>setF(p=>({...p,attendees:{...p.attendees,[name]:!p.attendees[name]}}));
+
+  const save=()=>{
+    if(!f.date||fFeeTotal<=0) return;
+    const att=f.attendees;
+    const attending=Object.entries(att).filter(([,v])=>v).map(([k])=>k);
+    const waterFeeNum=parseInt(f.waterFee)||0;
+    let finalWaterDrinkers;
+    if(waterFeeNum>0){
+      finalWaterDrinkers={};
+      attending.forEach(n=>{finalWaterDrinkers[n]=f.waterDrinkers[n]!==false;});
+    }
+    const newSession={id:Date.now(),date:f.date,players:attending.length,
+      courtFee:parseInt(f.courtFee)||0,shuttleFee:parseInt(f.shuttleFee)||0,waterFee:waterFeeNum,otherFee:parseInt(f.otherFee)||0,
+      total:fFeeTotal,attendees:{...att},xeVeCount:att['Xé Vé']?(parseInt(f.xeVeCount)||1):0,note:f.note||'',
+      waterDrinkers:finalWaterDrinkers};
+    onSave(newSession);
+    onClose();
+  };
+
+  const lastWithAtt=[...(sessions||[])].reverse().find(s=>s.attendees&&Object.values(s.attendees).some(Boolean));
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:'460px',maxHeight:'88vh',overflowY:'auto'}}>
+        <div className="modal-head">
+          <div className="modal-title">📋 Thêm buổi chơi</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="fg" style={{marginBottom:'12px'}}>
+          <label className="fl">📅 Ngày</label>
+          <DateInput value={f.date} onChange={v=>setF(p=>({...p,date:v}))}/>
+        </div>
+
+        <div className="fg" style={{marginBottom:'6px'}}>
+          <label className="fl">💰 Chi tiết khoản chi (VNĐ)</label>
+        </div>
+        <div className="form-grid" style={{marginBottom:'6px'}}>
+          <div className="fg"><label className="fl">🎾 Tiền sân</label><MoneyInput value={f.courtFee} onChange={v=>setF(p=>({...p,courtFee:v}))} placeholder="200,000"/></div>
+          <div className="fg"><label className="fl">🏸 Tiền cầu/bóng</label><MoneyInput value={f.shuttleFee} onChange={v=>setF(p=>({...p,shuttleFee:v}))} placeholder="150,000"/></div>
+          <div className="fg"><label className="fl">💧 Tiền nước</label><MoneyInput value={f.waterFee} onChange={v=>setF(p=>({...p,waterFee:v}))} placeholder="30,000"/></div>
+          <div className="fg"><label className="fl">🔖 Khác</label><MoneyInput value={f.otherFee} onChange={v=>setF(p=>({...p,otherFee:v}))} placeholder="0"/></div>
+        </div>
+        <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'12px'}}>
+          Điền hết vào ô <b>Khác</b> nếu không muốn chia nhỏ. Tổng: <b style={{color:'var(--yellow)'}}>{fmt(fFeeTotal)}</b>
+        </div>
+
+        <div style={{marginBottom:'10px'}}>
+          <div className="fl" style={{marginBottom:'6px'}}>Ai đi buổi này? ({Object.entries(f.attendees).filter(([,v])=>v).length} người)</div>
+          <div style={{display:'flex',gap:'5px',marginBottom:'8px',flexWrap:'wrap'}}>
+            <button type="button" onClick={()=>{const a={};(members||[]).forEach(m=>{a[m.name]=true;});setF(p=>({...p,attendees:a}));}}
+              style={{padding:'3px 10px',borderRadius:'20px',border:'1px solid var(--green)',background:'var(--green-bg)',color:'var(--green)',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>✅ Tất cả</button>
+            <button type="button" onClick={()=>{const a={};(members||[]).forEach(m=>{a[m.name]=false;});setF(p=>({...p,attendees:a}));}}
+              style={{padding:'3px 10px',borderRadius:'20px',border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>❌ Bỏ hết</button>
+            {lastWithAtt&&(
+              <button type="button" onClick={()=>{const a={};(members||[]).forEach(m=>{a[m.name]=!!(lastWithAtt.attendees||{})[m.name];});setF(p=>({...p,attendees:a}));}}
+                style={{padding:'3px 10px',borderRadius:'20px',border:'1px solid var(--purple)',background:'var(--purple-bg)',color:'var(--purple)',fontSize:'11px',fontWeight:700,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>
+                📋 Copy {lastWithAtt.date} ({Object.values(lastWithAtt.attendees||{}).filter(Boolean).length})
+              </button>
+            )}
+            <button type="button" onClick={()=>setF(p=>({...p,attendees:{...p.attendees,'Xé Vé':!p.attendees['Xé Vé']}}))}
+              style={{padding:'3px 10px',borderRadius:'20px',border:'1px solid var(--yellow)',background:'var(--yellow-bg)',color:'#92400e',fontSize:'11px',fontWeight:600,cursor:'pointer',fontFamily:'Nunito,sans-serif'}}>🎫 Xé Vé</button>
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+            {(members||[]).map(m=>{
+              const on=!!f.attendees[m.name];
+              return (
+                <button key={m.name} onClick={()=>toggleAtt(m.name)} style={{
+                  padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',transition:'.15s',
+                  borderColor:on?m.color:'var(--border)',background:on?m.color+'33':'transparent',
+                  color:on?m.color:'var(--muted)',fontWeight:on?600:400
+                }}>{m.name}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        {!!f.attendees['Xé Vé']&&(
+          <div style={{background:'var(--bg3)',borderRadius:'10px',padding:'10px 12px',marginBottom:'10px',border:'1px solid var(--yellow)'}}>
+            <div style={{fontSize:'12px',color:'var(--yellow)',fontWeight:600,marginBottom:'8px'}}>🎫 Số người xé vé (khách lạ)</div>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <input className="fi" type="number" min="1" value={f.xeVeCount||''} onChange={e=>setF(p=>({...p,xeVeCount:e.target.value}))} placeholder="2" style={{width:'70px',padding:'5px 8px',fontSize:'13px'}}/>
+            </div>
+          </div>
+        )}
+
+        {fFeeTotal>0&&Object.values(f.attendees).filter(Boolean).length>0&&(()=>{
+          const attending=Object.entries(f.attendees).filter(([,v])=>v).map(([k])=>k);
+          const xeVeOn=attending.includes('Xé Vé');
+          const xeVeCnt=xeVeOn?Math.max(1,parseInt(f.xeVeCount)||1):0;
+          const others=attending.filter(n=>n!=='Xé Vé').length;
+          const shares=others+xeVeCnt;
+          const per=shares>0?Math.round(fFeeTotal/shares):0;
+          return <div style={{marginBottom:'10px',fontSize:'12px',color:'var(--green)',fontWeight:600}}>Mỗi thành viên CLB: {fmt(per)}</div>;
+        })()}
+
+        {(parseInt(f.waterFee)||0)>0&&Object.values(f.attendees).filter(Boolean).length>0&&(
+          <div style={{marginBottom:'10px'}}>
+            <div className="fl" style={{marginBottom:'8px'}}>💧 Ai uống nước?</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+              {Object.entries(f.attendees).filter(([,v])=>v).map(([name])=>{
+                const on=f.waterDrinkers[name]!==false;
+                return (
+                  <button key={name} onClick={()=>setF(p=>({...p,waterDrinkers:{...p.waterDrinkers,[name]:!on}}))} style={{
+                    padding:'5px 12px',borderRadius:'20px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:'Nunito,sans-serif',
+                    borderColor:on?'var(--blue)':'var(--border)',background:on?'var(--blue-bg)':'transparent',
+                    color:on?'var(--blue)':'var(--muted)',fontWeight:on?600:400
+                  }}>{on?'💧 ':'🚱 '}{name}</button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="fg" style={{marginBottom:'16px'}}>
+          <label className="fl">📝 Ghi chú</label>
+          <input className="fi" value={f.note||''} onChange={sf('note')} placeholder="VD: Sân Hoàng Anh, 19h..."/>
+        </div>
+
+        <div className="form-actions">
+          <button className="btn-cancel" onClick={onClose}>Hủy</button>
+          <button className="btn-save" onClick={save} disabled={!f.date||fFeeTotal<=0}>Thêm buổi</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function QuickSoKeoPopup({players,sessions,matches,onClose}){
   const [mode,setMode]=useState('doi');
   const [pA,setPa]=useState('');const [pB,setPb]=useState('');
@@ -1802,7 +1937,7 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
   );
 }
 
-function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund}){
+function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOpenPlayer,tournament,onGoTournament,onDelete,onEditMatch,onGoFund,onAddSession}){
   const [matchSeg,setMatchSeg]=useState('Đôi');
   const segMatches=useMemo(()=>matches.filter(m=>m.type===matchSeg),[matches,matchSeg]);
   const wins=segMatches.filter(m=>m.result==='W').length;
@@ -1859,91 +1994,219 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
   const hof = useMemo(()=>computeHallOfFame(players||[], matches), [players, matches]);
   const last = n => n;
   const [showSoKeo,setShowSoKeo]=useState(false);
+  const [showAddSession,setShowAddSession]=useState(false);
+
+  const bentoTileBase={borderRadius:'18px',padding:'16px',position:'relative',overflow:'hidden'};
+  const bentoFund={...bentoTileBase,background:'linear-gradient(135deg,rgba(16,212,114,.16) 0%,rgba(10,184,94,.06) 100%)',border:'1px solid rgba(16,212,114,.22)'};
+  const bentoDebt={...bentoTileBase,background:'linear-gradient(135deg,rgba(248,113,113,.14) 0%,rgba(239,68,68,.05) 100%)',border:'1px solid rgba(248,113,113,.22)',cursor:'pointer'};
+  const bentoMVP={...bentoTileBase,background:'var(--surface)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'};
+  const tileLbl={fontSize:'10px',fontWeight:700,color:'var(--muted)',letterSpacing:'.7px',textTransform:'uppercase',marginBottom:'8px'};
+  const tileNum={fontSize:'24px',fontWeight:900,letterSpacing:'-1px',fontVariantNumeric:'tabular-nums'};
+  const tileSub={fontSize:'11px',color:'var(--muted)',marginTop:'4px'};
 
   return <>
-    <div style={{display:'flex',gap:'6px',marginBottom:'16px',marginTop:'4px',width:'fit-content'}}>
-      {[['Đôi','👥 Đánh Đôi'],['Đơn','🧍 Đánh Đơn']].map(([val,lb])=>(
-        <button key={val} onClick={()=>setMatchSeg(val)} style={{padding:'7px 18px',borderRadius:'20px',border:'1px solid',fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:600,transition:'.15s',
-          borderColor:matchSeg===val?'var(--purple)':'var(--border)',
-          background:matchSeg===val?'var(--purple)':'var(--surface)',
-          color:matchSeg===val?'#fff':'var(--muted)'}}>
-          {lb}
+
+    {/* ── MVP VINH DANH ── */}
+    {hof.topWinner && <div style={{
+      position:'relative',overflow:'hidden',borderRadius:'20px',
+      marginBottom:'10px',padding:'0 0 16px',
+      background:'linear-gradient(160deg,#5a0a0a 0%,#2d0303 40%,#1a0505 100%)',
+      border:'1px solid rgba(212,160,30,.4)',
+      boxShadow:'0 0 32px rgba(212,160,30,.15), inset 0 1px 0 rgba(255,255,255,.06)'
+    }}>
+      {/* sparkle canvas */}
+      <canvas id="mvp-sparkle" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}} ref={el=>{
+        if(!el||el._init) return; el._init=true;
+        const ctx=el.getContext('2d');
+        const W=()=>{el.width=el.offsetWidth;el.height=el.offsetHeight;};
+        W(); window.addEventListener('resize',W);
+        const stars=Array.from({length:55},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.6+.4,a:Math.random(),da:(Math.random()-.5)*.02}));
+        const tick=()=>{
+          if(!el.isConnected){return;}
+          ctx.clearRect(0,0,el.width,el.height);
+          stars.forEach(s=>{
+            s.a=Math.max(0,Math.min(1,s.a+s.da));
+            if(s.a<=0||s.a>=1) s.da*=-1;
+            ctx.beginPath();
+            ctx.arc(s.x*el.width,s.y*el.height,s.r,0,Math.PI*2);
+            ctx.fillStyle=`rgba(255,220,100,${s.a*0.7})`;
+            ctx.fill();
+          });
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }}/>
+
+      {/* header label */}
+      <div style={{textAlign:'center',paddingTop:'18px',marginBottom:'10px'}}>
+        <div style={{
+          display:'inline-block',padding:'3px 16px',borderRadius:'20px',
+          background:'linear-gradient(90deg,#c89b20,#f5d060,#c89b20)',
+          fontSize:'10px',fontWeight:800,color:'#3d1f00',letterSpacing:'1.5px',textTransform:'uppercase'
+        }}>⭐ MVP Tháng {parseInt(curMonth)} ⭐</div>
+      </div>
+
+      {/* avatar vòng nguyệt quế */}
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',padding:'0 20px'}}>
+        <div style={{position:'relative'}}>
+          {/* laurel wreath SVG */}
+          <svg width="130" height="130" viewBox="0 0 130 130" style={{position:'absolute',top:'-10px',left:'-10px',pointerEvents:'none'}}>
+            <defs>
+              <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#c89b20"/>
+                <stop offset="50%" stopColor="#f5d060"/>
+                <stop offset="100%" stopColor="#c89b20"/>
+              </linearGradient>
+            </defs>
+            {/* left branch */}
+            {[0,12,24,36,48,60].map(a=>{
+              const r=Math.PI/180;
+              const cx=65+Math.cos((210+a)*r)*42;
+              const cy=65+Math.sin((210+a)*r)*42;
+              return <ellipse key={a} cx={cx} cy={cy} rx="8" ry="5"
+                transform={`rotate(${210+a+90} ${cx} ${cy})`}
+                fill="url(#lg1)" opacity=".9"/>;
+            })}
+            {/* right branch */}
+            {[0,12,24,36,48,60].map(a=>{
+              const r=Math.PI/180;
+              const cx=65+Math.cos((-30-a)*r)*42;
+              const cy=65+Math.sin((-30-a)*r)*42;
+              return <ellipse key={a} cx={cx} cy={cy} rx="8" ry="5"
+                transform={`rotate(${-30-a+90} ${cx} ${cy})`}
+                fill="url(#lg1)" opacity=".9"/>;
+            })}
+            {/* bottom knot */}
+            <circle cx="65" cy="108" r="5" fill="url(#lg1)"/>
+          </svg>
+          {/* avatar circle */}
+          <div style={{
+            width:'90px',height:'90px',borderRadius:'50%',
+            background:`linear-gradient(135deg,#8b2fc9,#5b1a8a)`,
+            border:'3px solid #c89b20',
+            boxShadow:'0 0 0 3px rgba(200,155,32,.3), 0 8px 24px rgba(0,0,0,.5)',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize:'32px',fontWeight:900,color:'#fff',zIndex:1,position:'relative'
+          }}>
+            {hof.topWinner.name.charAt(0).toUpperCase()}
+          </div>
+        </div>
+
+        {/* tên */}
+        <div style={{textAlign:'center',marginTop:'4px'}}>
+          <div style={{
+            fontSize:'18px',fontWeight:900,letterSpacing:'1px',textTransform:'uppercase',
+            background:'linear-gradient(90deg,#f5d060,#fff9d0,#f5d060)',
+            WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
+            textShadow:'none'
+          }}>{hof.topWinner.name}</div>
+          <div style={{fontSize:'11px',color:'rgba(245,208,96,.7)',fontWeight:600,marginTop:'2px',letterSpacing:'.5px'}}>
+            Nhân Viên Xuất Sắc · {hof.topWinner.wins} trận thắng
+          </div>
+        </div>
+
+        {/* quote */}
+        <div style={{
+          marginTop:'6px',padding:'10px 14px',
+          background:'rgba(0,0,0,.35)',borderRadius:'12px',
+          border:'1px solid rgba(212,160,30,.2)',width:'100%'
+        }}>
+          <div style={{fontSize:'18px',color:'#f5d060',lineHeight:.8,marginBottom:'4px'}}>"</div>
+          <div style={{fontSize:'11px',color:'rgba(255,255,255,.8)',lineHeight:1.55,fontStyle:'italic'}}>
+            Xuất sắc nhất tháng {parseInt(curMonth)} với {hof.topWinner.wins} trận thắng.
+            Tinh thần chiến đấu đáng ngưỡng mộ, giữ vững phong độ suốt cả tháng!
+          </div>
+        </div>
+      </div>
+    </div>}
+
+    {/* ── BENTO: quỹ + nợ ── (khi không có MVP thì vẫn hiện) */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+      <div style={bentoFund}>
+        <div style={tileLbl}>🏦 Hòm Công Đức</div>
+        <div style={{...tileNum,color:fundBalance>=0?'var(--green)':'var(--red)'}}>{fmt(fundBalance)}</div>
+        <div style={tileSub}>{fundBalance>=0?'còn lại trong quỹ':'⚠️ âm quỹ'}</div>
+      </div>
+      <div style={bentoDebt} onClick={()=>onGoBadges&&onGoBadges('fund')}>
+        <div style={tileLbl}>💸 Tiền còn nợ</div>
+        <div style={{...tileNum,color:totalDebt>0?'#f87171':'var(--muted)'}}>{fmt(totalDebt)}</div>
+        <div style={tileSub}>{debtorsCount>0?`${debtorsCount} người → xem`:'✅ sạch nợ'}</div>
+      </div>
+    </div>
+
+    {/* ── ACTIONS: 4 pill icon buttons ── */}
+    <div style={{fontSize:'10px',fontWeight:700,color:'var(--muted)',letterSpacing:'.7px',textTransform:'uppercase',marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
+      Hành động nhanh
+      <span style={{flex:1,height:'1px',background:'var(--border)',display:'block'}}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'14px'}}>
+      {[
+        {icon:'⚔️',label:'Ghi trận',bg:'rgba(168,85,247,.15)',color:'var(--purple)',border:'rgba(168,85,247,.3)',fn:onAdd},
+        {icon:'🎯',label:'So kèo',bg:'rgba(96,165,250,.12)',color:'#60a5fa',border:'rgba(96,165,250,.25)',fn:()=>setShowSoKeo(true)},
+        {icon:'📋',label:'Tạo buổi',bg:'rgba(251,191,36,.12)',color:'var(--yellow)',border:'rgba(251,191,36,.25)',fn:()=>setShowAddSession(true)},
+        {icon:'📢',label:'Báo Zalo',bg:'rgba(251,113,133,.1)',color:'#fb7185',border:'rgba(251,113,133,.25)',fn:()=>{
+          const today=new Date();
+          const dd=String(today.getDate()).padStart(2,'0');
+          const mm=String(today.getMonth()+1).padStart(2,'0');
+          const ms=matches.filter(m=>m.date===`${dd}/${mm}`||m.date===`${String(today.getFullYear())}-${mm}-${dd}`);
+          if(!ms.length){alert('Chưa có trận nào hôm nay!');return;}
+          const lines=ms.map((m,i)=>{
+            const side=m.result==='W'?'✅ Thắng':'❌ Thua';
+            const p=m.partners?m.partners.join(' & '):'—';
+            const o=m.opponents?m.opponents.join(' vs '):'—';
+            return `${i+1}. ${side} | 🤝${p} vs ⚔️${o} | ${m.score||''}`;
+          }).join('\n');
+          const txt=`🏸 Kết quả buổi ${dd}/${mm}:\n${lines}\n\nChia sẻ từ Phông Bạt Pickleball 🎉`;
+          if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>alert('Đã copy! Paste vào Zalo nha 📱')).catch(()=>{});}
+        }}
+      ].map(({icon,label,bg,color,border,fn})=>(
+        <button key={label} onClick={fn} style={{
+          display:'flex',flexDirection:'column',alignItems:'center',gap:'5px',
+          padding:'12px 4px',borderRadius:'16px',border:`1px solid ${border}`,
+          background:bg,color,fontFamily:'Nunito,sans-serif',fontSize:'10px',
+          fontWeight:700,cursor:'pointer',lineHeight:1.2
+        }}>
+          <span style={{fontSize:'22px'}}>{icon}</span>
+          {label}
         </button>
       ))}
     </div>
-    {/* 3 cards tổng quan */}
-    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'12px'}}>
-      <div className="stat-card sc-green" style={{textAlign:'center'}}>
-        <div className="sc-label">🏦 Hòm Công Đức</div>
-        <div className="sc-val" style={{fontSize:'16px',color:fundBalance>=0?'var(--green)':'var(--red)'}}>{fmt(fundBalance)}</div>
-        <div className="sc-sub">{fundBalance>=0?'còn lại':'âm quỹ'}</div>
-      </div>
-      <div className="stat-card sc-red" style={{textAlign:'center',cursor:'pointer'}} onClick={()=>onGoBadges&&onGoBadges('fund')}>
-        <div className="sc-label">💸 Tiền Còn Nợ</div>
-        <div className="sc-val" style={{fontSize:'16px',color:totalDebt>0?'var(--red)':'var(--muted)'}}>{fmt(totalDebt)}</div>
-        <div className="sc-sub">{debtorsCount>0?`${debtorsCount} người nợ`:'sạch nợ 🎉'}</div>
-      </div>
-      <div className="stat-card" style={{textAlign:'center',background:'linear-gradient(135deg,rgba(16,185,129,.15),rgba(5,150,105,.08))',border:'1px solid rgba(16,185,129,.35)'}}>
-        <div className="sc-label" style={{color:'var(--green)'}}>👑 MVP tháng {parseInt(curMonth)}</div>
-        <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginTop:'4px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{hof.topWinner?hof.topWinner.name:'—'}</div>
-        <div className="sc-sub">{hof.topWinner?`${hof.topWinner.wins} trận thắng`:''}</div>
-      </div>
+
+    {/* ── Thống kê tháng: header + segment tabs ── */}
+    <div style={{fontSize:'10px',fontWeight:700,color:'var(--muted)',letterSpacing:'.7px',textTransform:'uppercase',marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}>
+      Thống kê tháng {parseInt(curMonth)}
+      <span style={{flex:1,height:'1px',background:'var(--border)',display:'block'}}/>
+      {[['Đôi','👥'],['Đơn','🧍']].map(([val,ic])=>(
+        <button key={val} onClick={()=>setMatchSeg(val)} style={{
+          padding:'3px 10px',borderRadius:'20px',border:'1px solid',fontSize:'10px',
+          cursor:'pointer',fontFamily:'Nunito,sans-serif',fontWeight:700,
+          borderColor:matchSeg===val?'var(--purple)':'var(--border)',
+          background:matchSeg===val?'var(--purple)':'transparent',
+          color:matchSeg===val?'#fff':'var(--muted)'
+        }}>{ic} {val}</button>
+      ))}
     </div>
 
-    {/* Nút hành động nhanh */}
-    <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'14px'}}>
-      <button onClick={onAdd} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-        ⚔️ Ghi trận
-      </button>
-      <button onClick={()=>setShowSoKeo(true)} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'1px solid rgba(96,165,250,.5)',background:'rgba(96,165,250,.1)',color:'#60a5fa',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-        🎯 So kèo
-      </button>
-      <button onClick={()=>onGoFund&&onGoFund()} style={{flex:'1',minWidth:'90px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-        📋 Tạo buổi
-      </button>
-      <button onClick={()=>{
-        const today=new Date();
-        const dd=String(today.getDate()).padStart(2,'0');
-        const mm=String(today.getMonth()+1).padStart(2,'0');
-        const ms=matches.filter(m=>m.date===`${dd}/${mm}`||m.date===`${String(today.getFullYear())}-${mm}-${dd}`);
-        if(!ms.length){alert('Chưa có trận nào hôm nay!');return;}
-        const lines=ms.map((m,i)=>{
-          const side=m.result==='W'?'✅ Thắng':'❌ Thua';
-          const p=m.partners?m.partners.join(' & '):'—';
-          const o=m.opponents?m.opponents.join(' vs '):'—';
-          return `${i+1}. ${side} | 🤝${p} vs ⚔️${o} | ${m.score||''}`;
-        }).join('\n');
-        const txt=`🏸 Kết quả buổi ${dd}/${mm}:\n${lines}\n\nChia sẻ từ Phông Bạt Pickleball 🎉`;
-        if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>alert('Đã copy! Paste vào Zalo nha 📱')).catch(()=>{});}
-      }} style={{flex:'1',minWidth:'100px',padding:'10px 8px',borderRadius:'10px',border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:'13px',cursor:'pointer',fontFamily:'Nunito,sans-serif',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-        📢 Báo Zalo
-      </button>
-    </div>
-
-    <div className="stats-grid">
-      <div className="stat-card sc-green">
-        <div className="sc-label">Đã đóng tháng {parseInt(curMonth)}</div>
-        <div className="sc-val" style={{fontSize:'18px'}}>{fmt(monthPaid)}</div>
-        <div className="sc-sub">trong tháng này</div>
-      </div>
-      <div className="stat-card sc-red">
-        <div className="sc-label">Đã chi tháng {parseInt(curMonth)}</div>
-        <div className="sc-val" style={{fontSize:'18px'}}>{fmt(monthSpent)}</div>
-        <div className="sc-sub">{monthSessionCount} buổi</div>
-      </div>
-      <div className="stat-card sc-purple">
-        <div className="sc-label">Số buổi tháng {parseInt(curMonth)}</div>
-        <div className="sc-val">{monthSessionCount}</div>
-        <div className="sc-sub">buổi đã đi</div>
-      </div>
-      <div className="stat-card sc-orange">
-        <div className="sc-label">Trận {matchSeg} đã đánh</div>
-        <div className="sc-val">{segMatches.length}</div>
-        <div className="sc-sub">{wins}W · {losses}L</div>
-      </div>
+    {/* ── 4 stats: icon + số inline ── */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+      {[
+        {icon:'💵',val:fmt(monthPaid),lbl:'Đã đóng',color:'var(--green)'},
+        {icon:'🏸',val:fmt(monthSpent),lbl:`Đã chi · ${monthSessionCount} buổi`,color:'#f87171'},
+        {icon:'📅',val:String(monthSessionCount),lbl:'Buổi đã đi',color:'var(--purple)'},
+        {icon:'🏆',val:`${wins}W·${losses}L`,lbl:`Trận ${matchSeg} · ${segMatches.length}`,color:'var(--yellow)'},
+      ].map(({icon,val,lbl,color})=>(
+        <div key={lbl} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'14px',padding:'13px',display:'flex',alignItems:'center',gap:'10px'}}>
+          <span style={{fontSize:'20px'}}>{icon}</span>
+          <div>
+            <div style={{fontSize:'17px',fontWeight:900,color,fontVariantNumeric:'tabular-nums',lineHeight:1.1}}>{val}</div>
+            <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:600,marginTop:'2px'}}>{lbl}</div>
+          </div>
+        </div>
+      ))}
     </div>
 
     {showSoKeo && <QuickSoKeoPopup players={players} sessions={sessions} matches={matches} onClose={()=>setShowSoKeo(false)}/>}
+    {showAddSession && <AddSessionModal members={members} sessions={sessions} onSave={s=>{onAddSession&&onAddSession(s);}} onClose={()=>setShowAddSession(false)}/>}
 
     {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
@@ -8542,7 +8805,7 @@ function App(){
     />
 
     <div className="main">
-      {tab==='dashboard' && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')}/>}
+      {tab==='dashboard' && <Dashboard matches={matches} myElo={myElo} onAdd={openAdd} sessions={sessions} members={members} players={players} onGoBadges={()=>setTab('bxh')} tournament={tournament} onGoTournament={()=>setTab('sokeo')} onDelete={guardedDeleteMatch} onEditMatch={guardedEditMatch} onGoFund={()=>setTab('fund')} onAddSession={newS=>{const updated=[...sessions,newS];setSessions(updated);fbSet('sessions',updated);showToast('Đã thêm buổi chơi!');}}/>}
       {tab==='bxh'       && <LeaderboardTab players={players} matches={matches} members={members} sessions={sessions} onAddPlayer={guardedAddPlayer} onDeletePlayer={guardedDeletePlayer} onRenamePlayer={guardedRenameEverywhere} onViewHistory={goToPlayerHistory} isAdmin={isAdmin} onUpdateElo={guardedUpdateElo} showToast={showToast}/>}
       {tab==='playerHistory' && (
         players.find(p=>p.id===historyPlayerId)
