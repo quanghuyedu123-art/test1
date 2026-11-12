@@ -403,6 +403,103 @@ div[style*="background:'linear-gradient(135deg,#1e1b4b"],div[style*="background:
 }
 @media(min-width:1025px){.profile-header-avatar.av{width:96px!important;height:96px!important;min-width:96px!important;min-height:96px!important;font-size:28px!important}}
 </style>
+<style id="force-mobile-layout">
+/* ===== FORCE MOBILE LAYOUT (single layout for all screens) ===== */
+
+/* Hide desktop sidebar always */
+.topbar { display: none !important; }
+
+/* Show mobile header always */
+.mobile-header {
+  display: flex !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 220 !important;
+  background: rgba(255,255,255,.96) !important;
+  border-bottom: 1px solid #e5ebf2 !important;
+  padding: 11px 16px !important;
+  min-height: 68px !important;
+  box-shadow: 0 3px 18px #11253a07 !important;
+}
+
+/* Show mobile bottom nav always */
+.mobile-nav {
+  display: flex !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 72px !important;
+  background: rgba(255,255,255,.97) !important;
+  box-shadow: 0 -8px 40px #233e5c12 !important;
+  border-top: 1px solid #e7edf3 !important;
+  z-index: 400 !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+/* Main content: no sidebar offset, mobile padding */
+.main {
+  margin-left: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 14px 90px !important;
+}
+
+/* Layouts that were grid on desktop → stack on mobile */
+.court-overview-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 9px !important; }
+.v4-action-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; }
+.v4-wallet-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; }
+.stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+.highlights { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 10px !important; }
+.fund-members { grid-template-columns: 1fr !important; }
+
+/* BXH columns tighter */
+.bxh-header-row, .bxh-row {
+  grid-template-columns: 28px minmax(0,1fr) 54px 54px 42px !important;
+  gap: 6px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+/* Modal full-width sheet from bottom */
+.modal {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 92vh !important;
+  border-radius: 22px 22px 0 0 !important;
+  padding: 18px !important;
+}
+
+/* Form single column */
+.form-grid { grid-template-columns: 1fr !important; }
+
+/* Hero banner compact */
+.court-welcome, .v4-hero {
+  min-height: 200px !important;
+  padding: 24px 20px !important;
+  margin: 12px 0 20px !important;
+  border-radius: 20px !important;
+}
+.court-welcome h2, .v4-hero h2 { font-size: 26px !important; }
+.court-art-paddle { right: -25px !important; top: 65px !important; opacity: .2 !important; }
+.court-art-ball { right: -12px !important; top: 17px !important; opacity: .45 !important; }
+.court-art-ring { right: -180px !important; }
+
+/* Match item */
+.match-item { padding: 12px !important; }
+
+/* Session fund table */
+.fs-header, .fs-row { grid-template-columns: 68px 1fr 74px 74px 28px !important; }
+
+/* v4 action cards shorter on small screens */
+.v4-action { min-height: 100px !important; padding: 14px !important; }
+
+@media(max-width: 390px) {
+  .main { padding-left: 11px !important; padding-right: 11px !important; }
+  .court-welcome h2, .v4-hero h2 { font-size: 23px !important; }
+  .fund-members { grid-template-columns: 1fr !important; }
+}
+</style>
 </head><body>
 <!DOCTYPE html>
 <html lang="vi">
@@ -2233,7 +2330,16 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
       const t1=[pa,pb].filter(Boolean),t2=[pc,pd].filter(Boolean);
       const h2h=matches.filter(m=>{
         const t1p=m.team1Players||[],t2p=m.team2Players||[];
-        return (t1p.includes(d1a)||t1p.includes(d1b||'__'))&&(t2p.includes(d2a)||t2p.includes(d2b||'__'))||(t2p.includes(d1a)||t2p.includes(d1b||'__'))&&(t1p.includes(d2a)||t1p.includes(d2b||'__'));
+        // Require ALL 4 players: d1a+d1b on same side, d2a+d2b on opposite side
+        const d1Present=d1a&&d1b;
+        if(d1Present){
+          const fwd=(t1p.includes(d1a)&&t1p.includes(d1b))&&(t2p.includes(d2a)&&t2p.includes(d2b));
+          const rev=(t2p.includes(d1a)&&t2p.includes(d1b))&&(t1p.includes(d2a)&&t1p.includes(d2b));
+          return fwd||rev;
+        } else {
+          // Only 1 person per side: fallback to 1v1 check
+          return (t1p.includes(d1a)&&t2p.includes(d2a))||(t2p.includes(d1a)&&t1p.includes(d2a));
+        }
       });
       return {type:'doi',t1,t2,elo1,elo2,diff:Math.abs(diff),winPct1,winPct2:100-winPct1,handicap,h2h,quality:Math.max(0,100-Math.round(Math.abs(diff)/8))};
     }
@@ -4493,7 +4599,13 @@ function ShareSessionModal({matches, players, onClose}){
       }
       return d;
     };
-    return [...set].sort((a,b)=>b.localeCompare(a)).map(d=>({raw:d, display:normalize(d)}));
+    const toTs=d=>{
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d)){const [y,mo,dd]=d.split('-');return new Date(+y,+mo-1,+dd);}
+      if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(d)){const p=d.split(/[\/\-]/);return new Date(+p[2],+p[1]-1,+p[0]);}
+      if(/^\d{1,2}[\/\-]\d{1,2}$/.test(d)){const p=d.split(/[\/\-]/);return new Date(2024,+p[1]-1,+p[0]);}
+      return new Date(d);
+    };
+    return [...set].sort((a,b)=>toTs(b)-toTs(a)).map(d=>({raw:d, display:normalize(d)}));
   },[matches]);
 
   const [selectedDate, setSelectedDate] = useState(null); // null = hôm nay
