@@ -2182,19 +2182,33 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
   const [d1a,setD1a]=useState('');const [d1b,setD1b]=useState('');
   const [d2a,setD2a]=useState('');const [d2b,setD2b]=useState('');
 
+  // Sorted sessions list (most recent first) for the dropdown
+  const sortedSessions=useMemo(()=>[...(sessions||[])].filter(s=>s.attendees&&Object.values(s.attendees).some(Boolean)).sort((a,b)=>{
+    const pa=a.date.split(/[\/\-]/),pb=b.date.split(/[\/\-]/);
+    const da=pa.length>=3?new Date(pa[2],pa[1]-1,pa[0]):new Date(2024,pa[1]-1,pa[0]);
+    const db=pb.length>=3?new Date(pb[2],pb[1]-1,pb[0]):new Date(2024,pb[1]-1,pb[0]);
+    return db-da||(b.id-a.id);
+  }),[sessions]);
+
+  // Default to the most recent session that has attendees
+  const [selectedSessionId,setSelectedSessionId]=useState(()=>sortedSessions[0]?.id??'all');
+
   const recentPlayers=useMemo(()=>{
-    const sorted=[...(sessions||[])].filter(s=>s.attendees&&Object.values(s.attendees).some(Boolean))
-      .sort((a,b)=>{
-        const pa=a.date.split(/[\/\-]/),pb=b.date.split(/[\/\-]/);
-        const da=pa.length>=3?new Date(pa[2],pa[1]-1,pa[0]):new Date(2024,pa[1]-1,pa[0]);
-        const db=pb.length>=3?new Date(pb[2],pb[1]-1,pb[0]):new Date(2024,pb[1]-1,pb[0]);
-        return db-da||(b.id-a.id);
-      }).slice(0,5);
+    if(selectedSessionId!=='all'){
+      const sess=sortedSessions.find(s=>String(s.id)===String(selectedSessionId));
+      if(sess){
+        const names=Object.entries(sess.attendees||{}).filter(([,v])=>v).map(([k])=>k);
+        const inSession=players.filter(p=>names.includes(p.name));
+        if(inSession.length>=1) return inSession;
+      }
+    }
+    // fallback: last 5 sessions combined
+    const top5=sortedSessions.slice(0,5);
     const names=new Set();
-    sorted.forEach(s=>Object.entries(s.attendees||{}).filter(([,v])=>v).forEach(([k])=>names.add(k)));
+    top5.forEach(s=>Object.entries(s.attendees||{}).filter(([,v])=>v).forEach(([k])=>names.add(k)));
     const recent=players.filter(p=>names.has(p.name));
     return recent.length>=2?recent:players;
-  },[sessions,players]);
+  },[selectedSessionId,sortedSessions,players]);
 
   const analysis=useMemo(()=>{
     if(mode==='don'){
@@ -2313,6 +2327,20 @@ function QuickSoKeoPopup({players,sessions,matches,onClose}){
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {/* Session selector */}
+        {sortedSessions.length>0&&(
+          <div style={{marginBottom:'10px'}}>
+            <div style={{fontSize:'11px',color:'var(--muted)',fontWeight:700,marginBottom:'5px'}}>📅 Chọn buổi chơi</div>
+            <select value={String(selectedSessionId)} onChange={e=>{setSelectedSessionId(e.target.value);clearAll();}}
+              style={{width:'100%',padding:'8px 10px',borderRadius:'8px',border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'13px',fontFamily:'Nunito,sans-serif'}}>
+              <option value="all">— Tất cả (gần nhất) —</option>
+              {sortedSessions.slice(0,20).map(s=>{
+                const count=Object.values(s.attendees||{}).filter(Boolean).length;
+                return <option key={s.id} value={String(s.id)}>{s.date} · {count} người</option>;
+              })}
+            </select>
           </div>
         )}
         {/* Chip picker */}
@@ -2558,121 +2586,11 @@ function Dashboard({matches,myElo,onAdd,sessions,members,players,onGoBadges,onOp
     {showSoKeo && <QuickSoKeoPopup players={players} sessions={sessions} matches={matches} onClose={()=>setShowSoKeo(false)}/>}
     {showAddSession && <AddSessionModal members={members} sessions={sessions} onSave={s=>{onAddSession&&onAddSession(s);}} onClose={()=>setShowAddSession(false)}/>}
 
-    {hof.topWinner && (()=>{
-      const initials=hof.topWinner.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      const wins=hof.topWinner.wins;
-      const lossesInMonth=hof.monthMatches.reduce((acc,m)=>{
-        const changed=(m.eloChanges||[]).find(e=>e.name===hof.topWinner.name&&e.delta<0);
-        return changed?acc+1:acc;
-      },0);
-      const totalGames=wins+lossesInMonth;
-      const winRate=totalGames>0?Math.round(wins/totalGames*100):0;
-      const mvpPlayer=(players||[]).find(p=>p.name===hof.topWinner.name);
-      const currentElo=mvpPlayer?Math.round(mvpPlayer.elo):null;
-      const eloGainThisMonth=hof.topGainer&&hof.topGainer.name===hof.topWinner.name?hof.topGainer.gain:null;
-      const funnyLines=[
-        {min:90,text:'🤖 Nghi ngờ dùng AI để chơi pickleball'},
-        {min:75,text:'🧲 Tay có nam châm hút cầu, chân có lò xo'},
-        {min:60,text:'☕ Uống cà phê buổi sáng, bắt đầu gánh team'},
-        {min:50,text:'⚖️ Thắng thua cân bằng như Thanos muốn'},
-        {min:0, text:'📈 Đang trong giai đoạn "học từ thất bại"'},
-      ];
-      const funnyLine=funnyLines.find(f=>winRate>=f.min).text;
-      const sparkles=[
-        {top:'8%',left:'12%',delay:'0s',size:'6px'},
-        {top:'18%',left:'88%',delay:'.4s',size:'5px'},
-        {top:'72%',left:'5%',delay:'.8s',size:'7px'},
-        {top:'80%',left:'92%',delay:'1.2s',size:'5px'},
-        {top:'40%',left:'96%',delay:'.2s',size:'6px'},
-        {top:'55%',left:'2%',delay:'.6s',size:'4px'},
-        {top:'10%',left:'50%',delay:'1s',size:'5px'},
-        {top:'88%',left:'45%',delay:'.3s',size:'6px'},
-        {top:'30%',left:'8%',delay:'.7s',size:'4px'},
-        {top:'65%',left:'87%',delay:'1.4s',size:'5px'},
-        {top:'20%',left:'72%',delay:'.9s',size:'4px'},
-        {top:'75%',left:'28%',delay:'.5s',size:'6px'},
-      ];
-      return (
-        <div style={{position:'relative',marginBottom:'18px',overflow:'hidden',borderRadius:'18px',
-          background:'linear-gradient(135deg,#b91c1c 0%,#991b1b 40%,#7f1d1d 70%,#78350f 100%)',
-          boxShadow:'0 8px 32px rgba(185,28,28,.35)',cursor:'pointer'}}
-          onClick={()=>onGoBadges&&onGoBadges()}>
-          <style>{`@keyframes mvpSparkle{0%,100%{opacity:0;transform:scale(.4) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(180deg)}}@keyframes mvpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}@keyframes mvpGlow{0%,100%{opacity:.85}50%{opacity:1;filter:drop-shadow(0 0 8px rgba(245,208,96,.7))}}@keyframes mvpPulseRing{0%{box-shadow:0 0 0 0 rgba(200,155,32,.6),0 0 0 3px rgba(200,155,32,.3)}70%{box-shadow:0 0 0 10px rgba(200,155,32,0),0 0 0 3px rgba(200,155,32,.3)}100%{box-shadow:0 0 0 0 rgba(200,155,32,0),0 0 0 3px rgba(200,155,32,.3)}}`}</style>
-          {/* Sparkles */}
-          {sparkles.map((sp,i)=>(
-            <div key={i} style={{position:'absolute',top:sp.top,left:sp.left,width:sp.size,height:sp.size,
-              borderRadius:'50%',background:'#fde68a',animation:`mvpSparkle 2s ${sp.delay} infinite ease-in-out`,pointerEvents:'none'}}/>
-          ))}
-          {/* Nội dung chính */}
-          <div style={{position:'relative',padding:'18px 16px',display:'flex',alignItems:'center',gap:'14px',animation:'mvpFloat 3s ease-in-out infinite'}}>
-            {/* Avatar */}
-            <div style={{position:'relative',flexShrink:0}}>
-              <div style={{width:'64px',height:'64px',borderRadius:'50%',
-                background:'linear-gradient(135deg,#c89b20,#f5d060)',
-                display:'flex',alignItems:'center',justifyContent:'center',
-                fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'22px',color:'#7f1d1d',
-                animation:'mvpPulseRing 2s infinite',
-                overflow:'hidden',flexShrink:0}}>
-                {mvpPlayer?.avatar
-                  ?<img src={mvpPlayer.avatar} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                  :<span>{initials}</span>}
-              </div>
-              <div style={{position:'absolute',bottom:'-4px',right:'-4px',
-                background:'#fbbf24',borderRadius:'50%',width:'22px',height:'22px',
-                display:'flex',alignItems:'center',justifyContent:'center',
-                fontSize:'12px',boxShadow:'0 2px 6px rgba(0,0,0,.3)',fontWeight:700}}>👑</div>
-            </div>
-            {/* Info */}
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:'10px',color:'rgba(253,230,138,.8)',fontWeight:700,letterSpacing:'.8px',textTransform:'uppercase',marginBottom:'2px'}}>
-                🏆 MVP THÁNG {parseInt(curMonth)}
-              </div>
-              <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'18px',color:'#fef3c7',
-                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:'4px'}}>
-                {hof.topWinner.name}
-              </div>
-              <div style={{fontSize:'11px',color:'rgba(253,230,138,.85)',fontStyle:'italic',marginBottom:'6px'}}>
-                {funnyLine}
-              </div>
-              {/* Thanh win rate */}
-              <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
-                <div style={{flex:1,height:'5px',borderRadius:'3px',background:'rgba(255,255,255,.2)',overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${winRate}%`,
-                    background:'linear-gradient(90deg,#fbbf24,#fde68a)',
-                    borderRadius:'3px',transition:'width .6s ease'}}/>
-                </div>
-                <span style={{fontSize:'11px',fontWeight:800,color:'#fde68a',fontFamily:'Quicksand,sans-serif'}}>{winRate}%</span>
-              </div>
-            </div>
-            {/* Stats */}
-            <div style={{display:'flex',flexDirection:'column',gap:'6px',flexShrink:0,alignItems:'flex-end'}}>
-              <div style={{textAlign:'center',background:'rgba(0,0,0,.2)',borderRadius:'10px',padding:'6px 10px',minWidth:'56px'}}>
-                <div style={{fontSize:'9px',color:'rgba(253,230,138,.7)',textTransform:'uppercase',letterSpacing:'.5px'}}>Thắng</div>
-                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:800,fontSize:'18px',color:'#fde68a'}}>{wins}</div>
-              </div>
-              {currentElo&&<div style={{textAlign:'center',background:'rgba(0,0,0,.2)',borderRadius:'10px',padding:'4px 8px',minWidth:'56px'}}>
-                <div style={{fontSize:'9px',color:'rgba(253,230,138,.7)',textTransform:'uppercase',letterSpacing:'.5px'}}>Công Đức</div>
-                <div style={{fontFamily:'Quicksand,sans-serif',fontWeight:700,fontSize:'14px',color:'#f5d060'}}>
-                  {currentElo}{eloGainThisMonth?<span style={{fontSize:'10px',color:'#86efac'}}> +{eloGainThisMonth}</span>:null}
-                </div>
-              </div>}
-            </div>
-          </div>
-          {/* Laurel SVG */}
-          <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',pointerEvents:'none',opacity:.06,animation:'mvpGlow 3s ease-in-out infinite'}}>
-            <svg width="200" height="80" viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M30 40 C20 30 10 20 15 10 C20 0 35 5 40 20 C45 35 40 50 30 40Z" fill="#fde68a"/>
-              <path d="M25 45 C12 38 5 25 10 15 C15 5 28 10 32 25 C36 40 30 50 25 45Z" fill="#fde68a"/>
-              <path d="M22 52 C8 48 2 32 8 20 C14 8 28 15 30 32 C32 48 25 55 22 52Z" fill="#fde68a"/>
-              <path d="M170 40 C180 30 190 20 185 10 C180 0 165 5 160 20 C155 35 160 50 170 40Z" fill="#fde68a"/>
-              <path d="M175 45 C188 38 195 25 190 15 C185 5 172 10 168 25 C164 40 170 50 175 45Z" fill="#fde68a"/>
-              <path d="M178 52 C192 48 198 32 192 20 C186 8 172 15 170 32 C168 48 175 55 178 52Z" fill="#fde68a"/>
-              <path d="M50 70 Q100 80 150 70" stroke="#fde68a" strokeWidth="2" fill="none"/>
-            </svg>
-          </div>
-        </div>
-      );
-    })()}
+    {hof.topWinner && <div className="court-mvp" onClick={()=>onGoBadges&&onGoBadges()} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter') onGoBadges&&onGoBadges();}}>
+      <div className="court-mvp-medal">★</div>
+      <div className="court-mvp-content"><div className="court-mvp-label">GƯƠNG MẶT NỔI BẬT · THÁNG {parseInt(curMonth)}</div><strong>{hof.topWinner.name}</strong><p>{hof.topWinner.wins} trận thắng trong tháng. Xem bảng xếp hạng để khám phá thêm.</p></div>
+      <div className="court-mvp-next">↗</div>
+    </div>}
 
     {tournament && tournament.name && (()=>{
       const isRR=tournament.type==='roundrobin';
@@ -3240,20 +3158,41 @@ function MatchItem({m, showDel, onDelete, onEdit, perspective}){
   return (
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',marginBottom:'8px',overflow:'hidden'}}>
       {/* Row chính — tap để mở rộng */}
-      <div style={{padding:'13px 15px',display:'grid',gridTemplateColumns:showDel?(myChange?'34px 1fr 56px 50px 30px 30px':'34px 1fr 56px 30px 30px'):(myChange?'34px 1fr 56px 50px 28px':'34px 1fr 56px 28px'),gap:'8px',alignItems:'center',cursor:'pointer'}}
-        onClick={()=>setExpanded(e=>!e)}>
-        <div className={`result-badge rb-${displayResult}`}>{displayResult}</div>
-        <div style={{minWidth:0,overflow:'hidden'}}>
-          <div className="m-vs">{m.myTeam} vs {m.oppTeam}</div>
-          <div className="m-meta"><span>{m.date}</span><span>{m.type}</span>{m.isStar&&<span style={{color:'#fbbf24',fontWeight:700}}>⭐×2</span>}</div>
+      <div style={{padding:'10px 12px',cursor:'pointer'}} onClick={()=>setExpanded(e=>!e)}>
+        {/* Top: date + meta + score */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'7px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+            <div className={`result-badge rb-${displayResult}`} style={{flexShrink:0}}>{displayResult}</div>
+            <span style={{fontSize:'11px',color:'var(--muted)'}}>{m.date}</span>
+            <span style={{fontSize:'11px',color:'var(--muted)'}}>{m.type==='Đôi'?'👥':'🧍'}</span>
+            {m.isStar&&<span style={{fontSize:'11px',color:'#fbbf24',fontWeight:700}}>⭐×2</span>}
+            {myChange&&<span className={`m-elo ${myChange.delta>0?'pos':'neg'}`} style={{flexShrink:0}}>{myChange.delta>0?'+':''}{myChange.delta}</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:'6px',flexShrink:0}}>
+            <div className="m-score" style={{color:displayResult==='W'?'var(--green)':'var(--red)'}}>{m.score1}–{m.score2}</div>
+            {showDel && <button className="del-btn" title="Sửa" onClick={e=>{e.stopPropagation();onEdit&&onEdit(m);}} style={{background:'var(--blue-bg)',color:'var(--blue)'}}>✏️</button>}
+            {showDel && <button className="del-btn" onClick={e=>{e.stopPropagation();onDelete(m.id);}}>🗑</button>}
+            {!showDel && <span style={{fontSize:'11px',color:'var(--muted)',opacity:.5}}>{expanded?'▲':'▼'}</span>}
+          </div>
         </div>
-        <div>
-          <div className="m-score" style={{color:displayResult==='W'?'var(--green)':'var(--red)'}}>{m.score1}–{m.score2}</div>
+        {/* Teams side by side */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'4px',alignItems:'center'}}>
+          <div style={{background:displayResult==='W'?'rgba(74,222,128,.08)':'rgba(248,113,113,.06)',borderRadius:'8px',padding:'5px 7px',border:`1px solid ${displayResult==='W'?'rgba(74,222,128,.25)':'rgba(248,113,113,.2)'}`}}>
+            {team1.map((name,i)=>(
+              <div key={i} style={{fontSize:'12px',fontWeight:perspective===name?700:600,color:perspective===name?'var(--text)':'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:'1.5'}}>
+                {name.split(' ').slice(-2).join(' ')}
+              </div>
+            ))}
+          </div>
+          <div style={{textAlign:'center',fontSize:'10px',fontWeight:800,color:'var(--muted)',fontFamily:'Quicksand,sans-serif',padding:'0 2px'}}>vs</div>
+          <div style={{background:displayResult==='L'?'rgba(74,222,128,.08)':'rgba(248,113,113,.06)',borderRadius:'8px',padding:'5px 7px',border:`1px solid ${displayResult==='L'?'rgba(74,222,128,.25)':'rgba(248,113,113,.2)'}`}}>
+            {team2.map((name,i)=>(
+              <div key={i} style={{fontSize:'12px',fontWeight:perspective===name?700:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:'1.5'}}>
+                {name.split(' ').slice(-2).join(' ')}
+              </div>
+            ))}
+          </div>
         </div>
-        {myChange && <div className={`m-elo ${myChange.delta>0?'pos':'neg'}`}>{myChange.delta>0?'+':''}{myChange.delta}</div>}
-        {showDel && <button className="del-btn" title="Sửa" onClick={e=>{e.stopPropagation();onEdit&&onEdit(m);}} style={{background:'var(--blue-bg)',color:'var(--blue)'}}>✏️</button>}
-        {showDel && <button className="del-btn" onClick={e=>{e.stopPropagation();onDelete(m.id);}}>🗑</button>}
-        {!showDel && <div style={{textAlign:'center',fontSize:'11px',color:'var(--muted)',opacity:.5}}>{expanded?'▲':'▼'}</div>}
       </div>
 
       {/* Chi tiết mở rộng */}
@@ -4229,8 +4168,8 @@ function PlayerHistoryPage({player, players, matches, sessions, onBack, onEditMa
           </div>
           {onUpdateAvatar && (
             <>
-              <button onClick={()=>avatarInputRef.current?.click()} title="Đổi ảnh đại diện"
-                style={{position:'absolute',bottom:0,right:0,width:'30px',height:'30px',borderRadius:'50%',background:'var(--green)',border:'2px solid var(--surface)',color:'#fff',fontSize:'13px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>📷</button>
+              <button onClick={e=>{e.stopPropagation();avatarInputRef.current?.click();}} title="Đổi ảnh đại diện"
+                style={{position:'absolute',bottom:0,right:0,width:'30px',height:'30px',borderRadius:'50%',background:'var(--green)',border:'2px solid var(--surface)',color:'#fff',fontSize:'13px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:'1',padding:0,boxSizing:'border-box'}}>📷</button>
               <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarFile} style={{display:'none'}}/>
             </>
           )}
